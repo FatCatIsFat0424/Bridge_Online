@@ -94,7 +94,7 @@
   aspect-ratio: 224 / 313;
   margin-left: -13px;
   border-radius: 3px;
-  background: var(--card-back-image) center / cover, var(--card-back);
+  background: var(--card-back-image) center / 100% 100%, var(--card-back);
   box-shadow: var(--shadow-sm);
 }
 

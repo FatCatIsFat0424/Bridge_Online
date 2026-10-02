@@ -110,7 +110,7 @@ export function TopBar(): ReactNode {
         {showVoice && <div className={styles.group} data-popover>
           <button type="button" className={styles.iconBtn} onClick={() => toggle('voice')}
             aria-expanded={open === 'voice'} aria-label={t('topbar.voice')} title={t('topbar.voice')}>
-            <span aria-hidden="true">🎙</span>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
             {(voiceStatus === 'joined' || voiceStatus === 'joining') &&
               <span className={voiceStatus === 'joined' ? styles.dotJoined : styles.dotJoining} />}
           </button>
@@ -144,7 +144,7 @@ export function TopBar(): ReactNode {
         {accountId && <div className={styles.group} data-popover>
           <button type="button" className={styles.iconBtn} onClick={() => void signOut()} disabled={busy}
             aria-label={t('topbar.signOut')} title={t('topbar.signOut')}>
-            <span aria-hidden="true">⎋</span>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
           </button>
           {open === 'signOut' && error && <p className={`${styles.popover} ${styles.error}`} role="alert">{error}</p>}
         </div>}

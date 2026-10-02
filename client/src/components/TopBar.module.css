@@ -111,3 +111,7 @@
   .actions { gap: var(--spacing-xs); }
   .iconBtn { width: 32px; height: 32px; }
 }
+
+@media (max-width: 479px) {
+  .roomChip { display: none; }
+}

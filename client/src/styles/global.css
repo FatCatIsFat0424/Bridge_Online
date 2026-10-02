@@ -214,7 +214,7 @@
   --bg-table-border: #a9b89b;
   --table-surface:
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 4px),
-    #d9e2cf;
+    linear-gradient(#d9e2cf, #d9e2cf);
   --table-rim: #a9b89b;
   --table-rim-width: 1px;
   --table-ink: #1f2a44;
@@ -266,6 +266,8 @@
 }
 
 html {
+  background: var(--page-texture), var(--bg-page);
+  min-height: 100%;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -273,8 +275,6 @@ html {
 
 body {
   font-family: var(--font-primary);
-  background: var(--page-texture), var(--bg-page);
-  background-attachment: fixed;
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;

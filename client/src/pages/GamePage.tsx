@@ -103,6 +103,14 @@ export function GamePage(): ReactNode {
     setChatOpen(false);
   }, [messageCount]);
 
+  // 縮到桌機寬度以下時收起聊天，避免手機版一進來就被聊天抽屜蓋住
+  useEffect(() => {
+    const query = window.matchMedia(DESKTOP_QUERY);
+    const onChange = (event: MediaQueryListEvent): void => { if (!event.matches) collapseChat(); };
+    query.addEventListener('change', onChange);
+    return (): void => query.removeEventListener('change', onChange);
+  }, [collapseChat]);
+
   // 手機一次只開一個抽屜
   const openInfo = (): void => {
     if (matches(PHONE_QUERY) && chatOpen) collapseChat();

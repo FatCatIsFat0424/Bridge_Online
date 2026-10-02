@@ -139,4 +139,18 @@ loopback proxy trust; the application uses that policy for per-client rate limit
 | `server/tests/client/voice-session.test.ts` | 麥克風與媒體生命週期、靜音 / 拒聽、協商競爭、逾時與 ICE 設定 |
 
 `GamePage` 共用既有 `ChatPanel`；文字聊天只捲動聊天紀錄，避免新訊息移動畫面。
-`BiddingPanel` 改用正常頁面排列，避免遮住牌桌語音控制。
+`BiddingPanel` 疊在牌桌中央；語音控制移到頂部列的麥克風彈出面板。
+
+## 主題與牌桌版面
+
+| 檔案 | 用途 |
+| --- | --- |
+| `client/src/stores/theme-store.ts` | `dashboard`（現代）/ `felt`（經典）/ `paper`（紙感）主題；存 `localStorage['bridge.theme']`，`main.tsx` 在 render 前套用 `<html data-theme>` |
+| `client/src/styles/global.css` | `:root` 為 dashboard；`[data-theme='felt' / 'paper']` 只覆寫 CSS 變數（桌面、桌框、牌背、字體、輪到誰光圈） |
+| `client/src/components/TopBar.tsx` | 唯一頂部列：導覽、遊戲中合約／墩數、語音、音樂、主題、語言、登出；`VoicePanel` 常駐掛載只切換顯示 |
+| `client/src/stores/music-store.ts` | 背景音樂單例，跨頁持續播放 |
+| `client/src/components/{TableSeat,AuctionTable,GameInfoRail}.tsx` | 座位（牌背、張數、輪到、莊／發）、西北東南叫牌表、合約與墩數欄 |
+| `client/src/game-view.ts` | `auctionRows`、`remainingCards`、`tablePosition` 純函式（測試：`server/tests/client/game-view.test.ts`） |
+| `client/src/cards.ts` + `client/src/assets/cards/` | cardsJS 牌面 SVG（Vectorized Playing Cards 1.3，LGPL-3.0，授權檔同目錄）；以 Vite asset URL 載入，支援子路徑部署 |
+
+元件不判斷主題；新視覺差異一律新增 CSS 變數。遊戲頁在 ≥1024px 為三欄、768–1023px 資訊欄浮層、<768px 資訊與聊天改為底部抽屜，桌機與手機皆不捲動頁面。
