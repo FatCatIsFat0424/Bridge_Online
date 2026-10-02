@@ -13,6 +13,8 @@
 - [牌桌語音與文字聊天](./voice-chat.md) — 四人語音、靜音、拒聽與 WebRTC 部署
 - [遊戲規則](./game-rules.md) — 橋牌規則、狀態機與對局流程
 - [大老二規則](./big-two-rules.md) — 台式房規：牌型、順子排序、炸彈、計分
+- [撿紅點規則](./red-points-rules.md) — 四人各 6 張、湊 10 吃牌、紅點計分
+- [99 規則](./ninety-nine-rules.md) — 累計不超過 99，4 迴轉、5 指定、J PASS、K 99、♠A 歸零
 - [元件清單](./components.md) — Shared、Server、Client 模組及測試位置
 
 ## 專案概述
