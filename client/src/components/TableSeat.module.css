@@ -160,6 +160,45 @@
   font-weight: 800;
 }
 
+/* 撿紅點：紅點總分與吃到的紅牌預覽 */
+.pile {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.redPoints {
+  padding: 1px 10px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+  border: 1px solid var(--suit-red-ui);
+  color: var(--suit-red-ui);
+  font-size: var(--text-sm);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pileCards { display: flex; padding-left: 12px; }
+
+.pileCard {
+  width: 22px;
+  aspect-ratio: 224 / 313;
+  margin-left: -12px;
+  border-radius: 2px;
+  background: var(--card-face);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 1023px) {
+  .left .pile,
+  .right .pile { flex-direction: column; gap: 4px; }
+}
+
+@media (max-width: 767px) {
+  .pileCard { width: 16px; margin-left: -10px; }
+  .pileCards { padding-left: 10px; }
+}
+
 .locked {
   padding: 0 6px;
   border-radius: var(--radius-sm);

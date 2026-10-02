@@ -71,6 +71,25 @@ export function registerGameHandlers(context: SocketContext, socket: TypedSocket
     return { success: true };
   }));
 
+  socket.on('game:redpoints:play', (payload, callback) => runAction(context, socket, callback, () => {
+    const card: unknown = payload?.card;
+    const capture: unknown = payload?.capture;
+    if (!isCard(card) || (capture !== undefined && !isCard(capture))) throw actionError('Invalid card.');
+    const code = requireRoom(socket);
+    requireSuccess(gameManager.handleRedPointsPlay(code, playerSeat(socket, code), { suit: card.suit, rank: card.rank },
+      capture === undefined ? undefined : { suit: capture.suit, rank: capture.rank }));
+    return { success: true };
+  }));
+
+  socket.on('game:redpoints:chooseFlip', (payload, callback) => runAction(context, socket, callback, () => {
+    const capture: unknown = payload?.capture;
+    if (!isCard(capture)) throw actionError('Invalid card.');
+    const code = requireRoom(socket);
+    requireSuccess(gameManager.handleRedPointsChooseFlip(code, playerSeat(socket, code),
+      { suit: capture.suit, rank: capture.rank }));
+    return { success: true };
+  }));
+
   socket.on('game:abortVote:start', (callback) => runAction(context, socket, callback, () => {
     const code = requireRoom(socket);
     requireSuccess(roomManager.startAbortVote(code, socket.data.accountId, Date.now()));

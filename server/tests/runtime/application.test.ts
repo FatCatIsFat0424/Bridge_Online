@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccountProfile, ClientToServerEvents, Seat, ServerToClientEvents } from '@shared/types';
 import type { PlayerSnapshot } from '@shared/types/socket-events';
 import { identifyCombo, isBomb, legalPlays } from '@shared/rules/bigtwo';
+import { rpPairOptions } from '@shared/rules/redpoints';
 import { createApplication } from '../../src/app';
 import { createJsonRepository } from '../../src/database/json-repository';
 import type { Repository } from '../../src/database/repository';
@@ -458,6 +459,81 @@ describe('persistent authenticated application', () => {
     expect(matches[0]).toMatchObject({ roomCode, result: final.result });
     expect(matches[0].result.gameType).toBe('bigtwo');
     expect(matches[0].accountIds).toEqual(accounts.map(({ account }) => account.id));
+
+    await stop();
+    await start();
+    const finalPlayer = await connect(accounts[0].cookie);
+    expect((await resume(finalPlayer)).gameState).toEqual(final);
+    expect(await finalPlayer.timeout(5_000).emitWithAck('game:continue')).toEqual({ success: true });
+  }, 60_000);
+
+  it('should play a full Red Points game across a restart and record it', async () => {
+    const accounts: RegisteredAccount[] = [];
+    for (const username of ['red_north', 'red_east', 'red_south', 'red_west']) {
+      accounts.push(await register(username));
+    }
+    let players = await connectPlayers(accounts);
+    const created = await players[0].timeout(5_000).emitWithAck('room:create', { gameType: 'redpoints' });
+    const roomCode = created.roomCode;
+    if (!roomCode) throw new Error('Expected room code');
+    for (let index = 0; index < 4; index += 1) {
+      if (index > 0) await players[index].timeout(5_000).emitWithAck('room:join', { roomCode });
+      await players[index].timeout(5_000).emitWithAck('room:changeSeat', { seat: SEATS[index] });
+      expect(await players[index].timeout(5_000).emitWithAck('room:ready')).toEqual({ success: true });
+    }
+
+    /** Plays the first hand card, capturing the first match; resolves flips with the first match. */
+    async function step(): Promise<PlayerSnapshot> {
+      const view = (await resume(players[0])).gameState;
+      if (view?.gameType !== 'redpoints') throw new Error('Expected Red Points state');
+      const client = players[SEATS.indexOf(view.currentTurnSeat)];
+      const mine = (await resume(client)).gameState;
+      if (mine?.gameType !== 'redpoints') throw new Error('Expected Red Points state');
+      let response;
+      if (mine.step === 'flip-choose' && mine.pendingFlip) {
+        response = await client.timeout(5_000).emitWithAck('game:redpoints:chooseFlip',
+          { capture: rpPairOptions(mine.pendingFlip, mine.table)[0] });
+      } else {
+        const card = mine.myHand[0];
+        const capture = rpPairOptions(card, mine.table)[0];
+        response = await client.timeout(5_000).emitWithAck('game:redpoints:play', capture ? { card, capture } : { card });
+      }
+      expect(response).toEqual({ success: true });
+      return resume(players[0]);
+    }
+
+    const opening = await Promise.all(players.map(resume));
+    const first = opening[0].gameState;
+    if (first?.gameType !== 'redpoints') throw new Error('Expected Red Points state');
+    expect(first).toMatchObject({ phase: 'playing', stockCount: 24, step: 'play' });
+    expect(first.table).toHaveLength(4);
+    expect(first).not.toHaveProperty('stock');
+    expect(new Set(opening.flatMap((state) => state.gameState!.myHand.map((card) => `${card.suit}:${card.rank}`))).size)
+      .toBe(24);
+    expect(await players[0].timeout(5_000).emitWithAck('game:bigtwo:pass')).toMatchObject({ success: false });
+    expect(await players[0].timeout(5_000).emitWithAck('game:redpoints:play', { card: { suit: 'x', rank: 1 } } as never))
+      .toEqual({ success: false, error: 'Invalid card.' });
+    let snapshot = opening[0];
+    for (let moves = 0; moves < 6; moves += 1) snapshot = await step();
+
+    const before = await Promise.all(players.map(resume));
+    await stop();
+    await start();
+    players = await connectPlayers(accounts);
+    const after = await Promise.all(players.map(resume));
+    for (let index = 0; index < 4; index += 1) expect(after[index].gameState).toEqual(before[index].gameState);
+
+    snapshot = after[0];
+    for (let moves = 0; snapshot.gameState?.phase === 'playing' && moves < 100; moves += 1) snapshot = await step();
+    const final = snapshot.gameState;
+    if (final?.gameType !== 'redpoints' || !final.result) throw new Error('Expected a scored Red Points game');
+    expect(final).toMatchObject({ phase: 'scoring', table: [], stockCount: 0 });
+    expect(SEATS.reduce((sum, seat) => sum + final.result!.points[seat], 0)).toBe(208);
+    expect(snapshot.room?.status).toBe('waiting');
+    const matches = await repository.listMatches(accounts[0].account.id);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({ roomCode, result: final.result });
+    expect(matches[0].result.gameType).toBe('redpoints');
 
     await stop();
     await start();

@@ -4,6 +4,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { SUIT_SYMBOLS } from '@shared/constants';
+import { rpScore } from '@shared/rules/redpoints';
 import type { BidLevel, BidSuit, Seat } from '@shared/types';
 import { apiRequest } from '../api';
 import { clearAccount, useAccountStore } from '../stores/account-store';
@@ -37,6 +38,9 @@ function GameChips(): ReactNode {
   const gameType = useGameStore((state) => state.gameType);
   const bigTwoResult = useGameStore((state) => state.bigTwo?.result ?? null);
   const mySeat = useRoomStore((state) => state.mySeat);
+  const redPointsResult = useGameStore((state) => state.redPoints?.result ?? null);
+  const myRedPoints = useGameStore((state) =>
+    state.redPoints && mySeat ? rpScore(state.redPoints.captured[mySeat]) : null);
   const seats = useRoomStore((state) => state.roomInfo?.seats);
   const seatLabel = (seat: Seat): string => t(`seat.${seat}`);
   return <div className={styles.chips}>
@@ -46,6 +50,12 @@ function GameChips(): ReactNode {
       {bigTwoResult && <span className={styles.chip}>
         🏆 {seats?.[bigTwoResult.winnerSeat].player?.nickname ?? seatLabel(bigTwoResult.winnerSeat)}
         {mySeat && <> · {t('bigtwo.myPenalty', { n: String(bigTwoResult.scores[mySeat]) })}</>}
+      </span>}
+      {redPointsResult && <span className={styles.chip}>
+        🏆 {redPointsResult.winners.map((seat) => seats?.[seat].player?.nickname ?? seatLabel(seat)).join('、')}
+      </span>}
+      {myRedPoints !== null && <span className={styles.chip}>
+        {t('redpoints.myPoints', { n: String(myRedPoints) })}
       </span>}
     </>
       : contract ? <span className={styles.chip} title={t('topbar.contract')}>

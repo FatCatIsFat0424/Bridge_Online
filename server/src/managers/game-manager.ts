@@ -9,11 +9,13 @@ import type {
   GameType,
   PlayerInfo,
   PlayerVisibleGameState,
+  RedPointsGameState,
   RoomCode,
   Seat,
 } from '@shared/types';
 import * as bridge from './games/bridge-game';
 import * as bigtwo from './games/bigtwo-game';
+import * as redpoints from './games/redpoints-game';
 
 type Result = { success: true } | { success: false; reason: string };
 
@@ -32,22 +34,25 @@ export function startGame(
   // A finished board of another game type may still be waiting for game:continue.
   removeGame(roomCode);
   if (gameType === 'bigtwo') bigtwo.startGame(roomCode, players);
+  else if (gameType === 'redpoints') redpoints.startGame(roomCode, players);
   else bridge.startGame(roomCode, players);
   return { success: true };
 }
 
 export function getPlayerVisibleState(roomCode: RoomCode, seat: Seat): PlayerVisibleGameState | null {
-  return bridge.getPlayerVisibleState(roomCode, seat) ?? bigtwo.getPlayerVisibleState(roomCode, seat);
+  return bridge.getPlayerVisibleState(roomCode, seat) ?? bigtwo.getPlayerVisibleState(roomCode, seat)
+    ?? redpoints.getPlayerVisibleState(roomCode, seat);
 }
 
 export function getGameState(roomCode: RoomCode): AnyGameState | null {
-  return bridge.getGameState(roomCode) ?? bigtwo.getGameState(roomCode);
+  return bridge.getGameState(roomCode) ?? bigtwo.getGameState(roomCode) ?? redpoints.getGameState(roomCode);
 }
 
 /** Ends a game without a match record. */
 export function abortGame(roomCode: RoomCode): void {
   bridge.abortGame(roomCode);
   bigtwo.abortGame(roomCode);
+  redpoints.abortGame(roomCode);
 }
 
 export function removeGame(roomCode: RoomCode): void {
@@ -59,12 +64,13 @@ export function hasActiveGame(roomCode: RoomCode): boolean {
 }
 
 export function exportGames(): AnyGameState[] {
-  return [...bridge.exportGames(), ...bigtwo.exportGames()];
+  return [...bridge.exportGames(), ...bigtwo.exportGames(), ...redpoints.exportGames()];
 }
 
 export function restoreGames(records: AnyGameState[]): void {
   bridge.restoreGames(records.filter((game): game is BridgeGameState => game.gameType === 'bridge'));
   bigtwo.restoreGames(records.filter((game): game is BigTwoGameState => game.gameType === 'bigtwo'));
+  redpoints.restoreGames(records.filter((game): game is RedPointsGameState => game.gameType === 'redpoints'));
 }
 
 export function handleRedealResponse(roomCode: RoomCode, seat: Seat, accept: boolean): Result {
@@ -85,4 +91,12 @@ export function handleBigTwoPlay(roomCode: RoomCode, seat: Seat, cards: readonly
 
 export function handleBigTwoPass(roomCode: RoomCode, seat: Seat): Result {
   return isGame(roomCode, 'bigtwo') ? bigtwo.pass(roomCode, seat) : WRONG_GAME;
+}
+
+export function handleRedPointsPlay(roomCode: RoomCode, seat: Seat, card: Card, capture?: Card): Result {
+  return isGame(roomCode, 'redpoints') ? redpoints.play(roomCode, seat, card, capture) : WRONG_GAME;
+}
+
+export function handleRedPointsChooseFlip(roomCode: RoomCode, seat: Seat, capture: Card): Result {
+  return isGame(roomCode, 'redpoints') ? redpoints.chooseFlip(roomCode, seat, capture) : WRONG_GAME;
 }

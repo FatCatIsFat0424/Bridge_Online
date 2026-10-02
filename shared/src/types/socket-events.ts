@@ -58,6 +58,12 @@ export interface ClientToServerEvents {
     payload: { cards: Card[] }, callback: (response: ActionResult) => void,
   ) => void;
   'game:bigtwo:pass': (callback: (response: ActionResult) => void) => void;
+  'game:redpoints:play': (
+    payload: { card: Card; capture?: Card }, callback: (response: ActionResult) => void,
+  ) => void;
+  'game:redpoints:chooseFlip': (
+    payload: { capture: Card }, callback: (response: ActionResult) => void,
+  ) => void;
   'game:continue': (callback: (response: ActionResult) => void) => void;
   'game:abortVote:start': (callback: (response: ActionResult) => void) => void;
   'game:abortVote:cast': (

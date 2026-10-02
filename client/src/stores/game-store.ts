@@ -14,12 +14,14 @@ import type {
   GameType,
   BigTwoVisibleState,
   PlayerVisibleGameState,
+  RedPointsVisibleState,
 } from '@shared/types';
 import { equalSnapshotValue, retainSnapshotValue } from './snapshot-equality';
 
-/** Bridge state lives in the individual fields; Big Two keeps its whole visible state in `bigTwo`. */
+/** Bridge state lives in the individual fields; other games keep their whole visible state in one field. */
 interface GameStoreState {
   bigTwo: BigTwoVisibleState | null;
+  redPoints: RedPointsVisibleState | null;
   gameType: GameType | null;
   phase: GamePhase | null;
   myHand: Card[];
@@ -54,6 +56,7 @@ interface GameStoreActions {
 
 const initialState: GameStoreState = {
   bigTwo: null,
+  redPoints: null,
   gameType: null,
   phase: null,
   myHand: [],
@@ -77,8 +80,15 @@ export const useGameStore = create<GameStoreState & GameStoreActions>((set) => (
       phase: game.phase,
       currentTurnSeat: game.phase === 'playing' ? game.currentTurnSeat : null,
       bigTwo: retainSnapshotValue(state.bigTwo, game),
+    } : game.gameType === 'redpoints' ? {
+      ...initialState,
+      gameType: 'redpoints',
+      phase: game.phase,
+      currentTurnSeat: game.phase === 'playing' ? game.currentTurnSeat : null,
+      redPoints: retainSnapshotValue(state.redPoints, game),
     } : {
       bigTwo: null,
+      redPoints: null,
       gameType: 'bridge',
       phase: game.phase,
       dealerSeat: game.dealerSeat,

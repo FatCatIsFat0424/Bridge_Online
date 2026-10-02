@@ -3,6 +3,8 @@
 import type { ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { Seat } from '@shared/types';
+import { rpCardPoints, rpScore } from '@shared/rules/redpoints';
+import { cardImageUrl } from '../cards';
 import { remainingCards } from '../game-view';
 import type { TablePosition } from '../game-view';
 import { useGameStore } from '../stores/game-store';
@@ -12,6 +14,8 @@ import { PlayerLink } from './PlayerLink';
 import styles from './TableSeat.module.css';
 
 const MAX_BACKS = 6;
+/** 撿紅點：吃到的紅牌只預覽最近幾張 */
+const MAX_PILE = 6;
 
 interface TableSeatProps {
   seat: Seat;
@@ -22,17 +26,22 @@ export function TableSeat({ seat, position }: TableSeatProps): ReactNode {
   const { t } = useI18nStore();
   const player = useRoomStore((state) => state.roomInfo?.seats[seat].player ?? null);
   const isMe = useRoomStore((state) => state.mySeat === seat);
-  const { phase, turn, declarer, dealer, playing, bigTwoCards, locked } = useGameStore(useShallow((state) => ({
+  const {
+    phase, turn, declarer, dealer, playing, bigTwoCards, redPointsCards, locked, captured,
+  } = useGameStore(useShallow((state) => ({
     phase: state.phase,
     turn: state.currentTurnSeat === seat,
     declarer: state.contract?.declarer === seat,
     dealer: state.dealerSeat === seat,
     playing: state.playing,
     bigTwoCards: state.bigTwo?.handCounts[seat] ?? null,
+    redPointsCards: state.redPoints?.handCounts[seat] ?? null,
     locked: state.bigTwo?.phase === 'playing' && state.bigTwo.lockedSeats.includes(seat),
+    captured: state.redPoints?.captured[seat] ?? null,
   })));
   const active = turn && (phase === 'bidding' || phase === 'playing');
-  const cards = bigTwoCards ?? remainingCards(seat, playing);
+  const cards = bigTwoCards ?? redPointsCards ?? remainingCards(seat, playing);
+  const redCaptured = captured?.filter((card) => rpCardPoints(card) > 0) ?? [];
 
   return (
     <div className={`${styles.seat} ${styles[position]} ${active ? styles.turn : ''}`}>
@@ -47,6 +56,14 @@ export function TableSeat({ seat, position }: TableSeatProps): ReactNode {
         </span>
         {active && <span className={styles.turnFlag}>{t('table.turn')}</span>}
       </div>
+      {captured && <div className={styles.pile} title={t('redpoints.captured')}>
+        <span className={styles.redPoints}>{t('redpoints.points', { n: String(rpScore(captured)) })}</span>
+        {redCaptured.length > 0 && <span className={styles.pileCards} aria-hidden="true">
+          {redCaptured.slice(-MAX_PILE).map((card) => (
+            <img key={`${card.suit}-${card.rank}`} className={styles.pileCard} src={cardImageUrl(card)} alt="" draggable={false} />
+          ))}
+        </span>}
+      </div>}
       {position !== 'bottom' && cards > 0 && <div className={styles.backs}>
         <span className={styles.fan} aria-hidden="true">
           {Array.from({ length: Math.min(cards, MAX_BACKS) }, (_, i) => <span key={i} className={styles.back} />)}

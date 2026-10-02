@@ -183,13 +183,74 @@ export interface BigTwoVisibleState {
   readonly revealedHands: Record<Seat, Card[]> | null;
 }
 
+// ─── 撿紅點 ───
+
+/** play = 手牌打出、flip = 牌堆翻開；captured 為吃走的桌面牌，null 表示留在桌上 */
+export interface RedPointsLogEntry {
+  readonly type: 'play' | 'flip';
+  readonly seat: Seat;
+  readonly card: Card;
+  readonly captured: Card | null;
+  readonly timestamp: number;
+}
+
+export interface RedPointsMatchResult {
+  readonly gameType: 'redpoints';
+  readonly points: Record<Seat, number>;
+  /** 最高分者（同分並列），依 N, E, S, W 排序 */
+  readonly winners: Seat[];
+}
+
+export type RedPointsPhase = 'playing' | 'scoring';
+
+/** play = 等待出牌；flip-choose = 翻牌有多張可吃，等待選擇 */
+export type RedPointsStep = 'play' | 'flip-choose';
+
+export interface RedPointsGameState {
+  readonly gameType: 'redpoints';
+  readonly id: string;
+  readonly startedAt: number;
+  readonly players: Record<Seat, PlayerInfo>;
+  readonly roomCode: RoomCode;
+  phase: RedPointsPhase;
+  hands: Record<Seat, Card[]>;
+  table: Card[];
+  /** 僅伺服器持有；stock[0] 為牌堆頂 */
+  stock: Card[];
+  captured: Record<Seat, Card[]>;
+  currentTurnSeat: Seat;
+  step: RedPointsStep;
+  pendingFlip: Card | null;
+  log: RedPointsLogEntry[];
+  result: RedPointsMatchResult | null;
+}
+
+export interface RedPointsVisibleState {
+  readonly gameType: 'redpoints';
+  readonly phase: RedPointsPhase;
+  readonly mySeat: Seat;
+  readonly myHand: readonly Card[];
+  readonly handCounts: Record<Seat, number>;
+  readonly table: readonly Card[];
+  readonly stockCount: number;
+  readonly captured: Record<Seat, Card[]>;
+  readonly currentTurnSeat: Seat;
+  readonly step: RedPointsStep;
+  readonly pendingFlip: Card | null;
+  readonly log: readonly RedPointsLogEntry[];
+  readonly result: RedPointsMatchResult | null;
+}
+
 // ─── 跨遊戲 ───
 
-export type AnyGameState = BridgeGameState | BigTwoGameState;
+export type AnyGameState = BridgeGameState | BigTwoGameState | RedPointsGameState;
 
-export type PlayerVisibleGameState = BridgeVisibleState | BigTwoVisibleState;
+export type PlayerVisibleGameState = BridgeVisibleState | BigTwoVisibleState | RedPointsVisibleState;
 
-export type MatchResult = ({ readonly gameType: 'bridge' } & GameResult) | BigTwoMatchResult;
+export type MatchResult =
+  | ({ readonly gameType: 'bridge' } & GameResult)
+  | BigTwoMatchResult
+  | RedPointsMatchResult;
 
 export interface MatchSummary {
   readonly id: string;

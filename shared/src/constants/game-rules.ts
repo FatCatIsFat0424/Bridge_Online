@@ -3,7 +3,7 @@
 import type { Seat, BidSuit, Team, GameType } from '../types';
 
 /** 所有遊戲類型 */
-export const GAME_TYPES: readonly GameType[] = ['bridge', 'bigtwo'];
+export const GAME_TYPES: readonly GameType[] = ['bridge', 'bigtwo', 'redpoints'];
 
 /** 投票終止：同意票達此數即通過 */
 export const ABORT_VOTE_THRESHOLD = 3;

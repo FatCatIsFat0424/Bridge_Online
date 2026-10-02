@@ -7,6 +7,7 @@ import { useGameStore } from '../stores/game-store';
 import { useRoomStore } from '../stores/room-store';
 import { BridgeTable } from '../games/bridge/BridgeTable';
 import { BigTwoTable } from '../games/bigtwo/BigTwoTable';
+import { RedPointsTable } from '../games/redpoints/RedPointsTable';
 
 export function GamePage(): ReactNode {
   const { roomCode } = useParams<{ roomCode: string }>();
@@ -22,5 +23,6 @@ export function GamePage(): ReactNode {
   }, [roomInfo, phase, roomCode, navigate]);
 
   if (!phase) return null;
-  return gameType === 'bigtwo' ? <BigTwoTable /> : <BridgeTable />;
+  if (gameType === 'bigtwo') return <BigTwoTable />;
+  return gameType === 'redpoints' ? <RedPointsTable /> : <BridgeTable />;
 }
