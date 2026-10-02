@@ -5,6 +5,7 @@ import { apiRequest } from '../api';
 import { clearAccount, useAccountStore } from '../stores/account-store';
 import { useI18nStore } from '../stores/i18n-store';
 import { LanguageSwitch } from './LanguageSwitch';
+import { ThemeSwitch } from './ThemeSwitch';
 import styles from './AccountNav.module.css';
 
 export function AccountNav(): ReactNode {
@@ -28,6 +29,7 @@ export function AccountNav(): ReactNode {
         {accountId && <NavLink to={`/players/${encodeURIComponent(accountId)}`}>
           {t('player.myProfile')}</NavLink>}
         <NavLink to="/account">{t('nav.account')}</NavLink>
+        <ThemeSwitch />
         <LanguageSwitch />
         <button className="btn btn-outline" onClick={() => void signOut()} disabled={busy}>
           {busy ? t('common.loading') : t('auth.signOut')}

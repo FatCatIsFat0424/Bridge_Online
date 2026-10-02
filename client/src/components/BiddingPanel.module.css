@@ -62,7 +62,7 @@
 .bidBtn:hover:not(:disabled) {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .bidBtn:disabled {
@@ -102,5 +102,5 @@
 }
 
 .suitRed {
-  color: #f87171;
+  color: var(--suit-red-ui);
 }

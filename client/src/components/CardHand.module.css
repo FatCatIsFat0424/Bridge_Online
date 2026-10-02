@@ -12,8 +12,8 @@
   width: 56px;
   height: 80px;
   border-radius: var(--radius-md);
-  background: white;
-  border: 1.5px solid #d1d5db;
+  background: var(--card-face);
+  border: 1.5px solid var(--card-border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -34,13 +34,13 @@
 }
 
 .cardPlayable {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 8px rgba(74, 158, 255, 0.3);
+  border-color: var(--turn-glow);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--turn-glow) 30%, transparent);
 }
 
 .cardPlayable:hover {
-  border-color: var(--color-primary-hover);
-  box-shadow: 0 0 16px rgba(74, 158, 255, 0.4);
+  border-color: var(--turn-glow);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--turn-glow) 40%, transparent);
   transform: translateY(-16px) scale(1.05);
 }
 
@@ -64,9 +64,9 @@
 }
 
 .suitBlack {
-  color: #1e293b;
+  color: var(--card-ink-black);
 }
 
 .suitRed {
-  color: #dc2626;
+  color: var(--card-ink-red);
 }
