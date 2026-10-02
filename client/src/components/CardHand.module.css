@@ -45,8 +45,7 @@
 }
 
 .cardDisabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  cursor: default;
 }
 
 .cardDisabled:hover {
@@ -60,7 +59,7 @@
 }
 
 .rankText {
-  font-size: var(--text-sm);
+  font-size: var(--text-lg);
   line-height: 1;
 }
 

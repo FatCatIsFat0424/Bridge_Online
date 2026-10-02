@@ -36,8 +36,8 @@ export function TrickArea({ currentTrick, trickCountEW, trickCountNS }: TrickAre
             key={seat}
             className={`${styles.trickCard} ${SEAT_STYLE_MAP[seat]} ${getSuitColorClass(card.suit)}`}
           >
-            <span className={styles.suitIcon}>{SUIT_SYMBOLS[card.suit]}</span>
             <span className={styles.rankText}>{RANK_DISPLAY[card.rank]}</span>
+            <span className={styles.suitIcon}>{SUIT_SYMBOLS[card.suit]}</span>
           </div>
         );
       })}

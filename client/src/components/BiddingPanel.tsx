@@ -19,6 +19,11 @@ const BID_SUIT_LABELS: Record<BidSuit, string> = {
   nt: 'NT',
 };
 
+function suitLabel(suit: BidSuit): ReactNode {
+  const red = suit === 'hearts' || suit === 'diamonds';
+  return <span className={red ? styles.suitRed : undefined}>{BID_SUIT_LABELS[suit]}</span>;
+}
+
 const LEVELS: BidLevel[] = [1, 2, 3, 4, 5, 6, 7];
 const SUITS: BidSuit[] = ['clubs', 'diamonds', 'hearts', 'spades', 'nt'];
 
@@ -76,7 +81,7 @@ export function BiddingPanel(): ReactNode {
               key={i}
               className={`${styles.bidHistoryItem} ${action.type === 'pass' ? styles.bidHistoryPass : ''}`}
             >
-              {entry.seat}: {action.type === 'pass' ? 'Pass' : `${action.level}${BID_SUIT_LABELS[action.suit]}`}
+              {entry.seat}: {action.type === 'pass' ? 'Pass' : <>{action.level}{suitLabel(action.suit)}</>}
             </span>
           );
         })}
@@ -96,7 +101,7 @@ export function BiddingPanel(): ReactNode {
                     disabled={pending || !enabled}
                     onClick={() => handleBid({ type: 'bid', level, suit })}
                   >
-                    {level}{BID_SUIT_LABELS[suit]}
+                    {level}{suitLabel(suit)}
                   </button>
                 );
               }),

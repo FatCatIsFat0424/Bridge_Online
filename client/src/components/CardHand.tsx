@@ -41,8 +41,8 @@ export function CardHand({ cards, playableCards, onCardClick, disabled }: CardHa
             disabled={disabled || !playable}
             aria-label={`${RANK_DISPLAY[card.rank]}${SUIT_SYMBOLS[card.suit]}`}
           >
-            <span className={styles.suitIcon}>{SUIT_SYMBOLS[card.suit]}</span>
             <span className={styles.rankText}>{RANK_DISPLAY[card.rank]}</span>
+            <span className={styles.suitIcon}>{SUIT_SYMBOLS[card.suit]}</span>
           </button>
         );
       })}

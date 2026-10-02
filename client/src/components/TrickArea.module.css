@@ -51,7 +51,8 @@
 }
 
 .rankText {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
+  font-weight: 700;
 }
 
 .suitBlack {

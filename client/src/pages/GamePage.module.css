@@ -188,3 +188,7 @@
   font-weight: 700;
   animation: pulse 1.5s infinite;
 }
+
+.suitRed {
+  color: #f87171;
+}

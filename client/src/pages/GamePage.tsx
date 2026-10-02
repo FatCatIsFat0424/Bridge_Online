@@ -13,14 +13,14 @@ import { CardHand } from '../components/CardHand';
 import { BiddingPanel } from '../components/BiddingPanel';
 import { ChatPanel } from '../components/ChatPanel';
 import { TrickArea } from '../components/TrickArea';
-import { LanguageSwitch } from '../components/LanguageSwitch';
 import { SUIT_SYMBOLS } from '@shared/constants';
 import type { Card, Seat, BidSuit } from '@shared/types';
 import styles from './GamePage.module.css';
 
-function getSuitLabel(suit: BidSuit): string {
+function getSuitLabel(suit: BidSuit): ReactNode {
   if (suit === 'nt') return 'NT';
-  return SUIT_SYMBOLS[suit];
+  const red = suit === 'hearts' || suit === 'diamonds';
+  return <span className={red ? styles.suitRed : undefined}>{SUIT_SYMBOLS[suit]}</span>;
 }
 
 export function GamePage(): ReactNode {
@@ -112,12 +112,9 @@ export function GamePage(): ReactNode {
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-            {t('game.mySeat')}：{mySeat ? seatLabel(mySeat) : '—'}
-          </span>
-          <LanguageSwitch />
-        </div>
+        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+          {t('game.mySeat')}：{mySeat ? seatLabel(mySeat) : '—'}
+        </span>
       </div>
 
       {/* Body */}
