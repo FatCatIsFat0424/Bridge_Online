@@ -1,7 +1,8 @@
 import { isRuntimeSnapshot } from '../runtime/validate';
 import {
-  MAX_EMOJIS_PER_ACCOUNT, NICKNAME_MAX_LENGTH, isEmojiName, isMediaId,
+  GAME_TYPES, MAX_EMOJIS_PER_ACCOUNT, NICKNAME_MAX_LENGTH, isEmojiName, isMediaId,
 } from '@shared/constants';
+import type { GameType } from '@shared/types';
 import type { RuntimeSnapshot } from '../runtime/types';
 import type {
   AccountRecord, EmojiRecord, FriendshipRecord, MatchRecord, SessionRecord,
@@ -92,7 +93,17 @@ function validMatch(value: unknown): value is MatchRecord {
     !isObject(value.result)
   )
     return false;
-  const result = value.result;
+  const validators: Record<GameType, (result: Record<string, unknown>) => boolean> = {
+    bridge: validBridgeResult,
+    // Big Two match records are not written yet.
+    bigtwo: () => false,
+  };
+  const gameType = value.result.gameType;
+  return typeof gameType === 'string' && GAME_TYPES.includes(gameType as GameType) &&
+    validators[gameType as GameType](value.result);
+}
+
+function validBridgeResult(result: Record<string, unknown>): boolean {
   const contract = result.contract;
   return (
     isObject(contract) &&

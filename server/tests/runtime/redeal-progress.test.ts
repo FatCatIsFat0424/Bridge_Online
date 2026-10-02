@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GameState, PlayerInfo, Seat } from '@shared/types';
+import type { BridgeGameState, PlayerInfo, Seat } from '@shared/types';
 import * as deck from '../../src/engine/deck';
 import { isRedealEligible } from '../../src/engine/dealing';
 import { exportGames, getGameState, handleRedealResponse, restoreGames } from '../../src/managers/game-manager';
@@ -9,11 +9,11 @@ function player(seat: Seat): PlayerInfo {
     avatarImage: null };
 }
 
-function twoEligiblePlayers(): GameState {
+function twoEligiblePlayers(): BridgeGameState {
   const cards = deck.createDeck();
   const ordered = [...cards.filter((card) => card.rank <= 10), ...cards.filter((card) => card.rank > 10)];
   return {
-    id: 'redeal-test', roomCode: 'ABCDEF', startedAt: 1,
+    gameType: 'bridge', id: 'redeal-test', roomCode: 'ABCDEF', startedAt: 1,
     players: { N: player('N'), E: player('E'), S: player('S'), W: player('W') },
     phase: 'redeal_pending', dealerSeat: 'W',
     hands: { N: ordered.slice(0, 13), E: ordered.slice(13, 26), S: ordered.slice(26, 39), W: ordered.slice(39) },

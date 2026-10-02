@@ -324,8 +324,10 @@ describe('persistent authenticated application', () => {
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body.matches).toHaveLength(1);
-      expect(body.matches[0]).toMatchObject({ roomCode, result: snapshot.gameState?.result });
-      expect(new Set(body.matches[0].accountIds)).toEqual(new Set(accounts.map(({ account }) => account.id)));
+      expect(body.matches[0]).toMatchObject({
+        roomCode, result: { ...snapshot.gameState?.result, gameType: 'bridge' },
+      });
+      expect(body.matches[0].accountIds).toEqual(accounts.map(({ account }) => account.id));
     }
 
     await stop();
@@ -334,4 +336,61 @@ describe('persistent authenticated application', () => {
     expect((await resume(finalPlayer)).gameState?.result).toEqual(snapshot.gameState?.result);
     expect(await repository.listMatches(accounts[0].account.id)).toHaveLength(1);
   }, 30_000);
+
+  it('should switch game type as host and abort a game by vote without a match record', async () => {
+    const accounts: RegisteredAccount[] = [];
+    for (const username of ['vote_north', 'vote_east', 'vote_south', 'vote_west']) {
+      accounts.push(await register(username));
+    }
+    const players = await connectPlayers(accounts);
+    const created = await players[0].timeout(5_000).emitWithAck('room:create', { gameType: 'bigtwo' });
+    const roomCode = created.roomCode;
+    if (!roomCode) throw new Error('Expected room code');
+    for (let index = 0; index < 4; index += 1) {
+      if (index > 0) await players[index].timeout(5_000).emitWithAck('room:join', { roomCode });
+      await players[index].timeout(5_000).emitWithAck('room:changeSeat', { seat: SEATS[index] });
+    }
+    const readyAll = async (): Promise<(typeof created)[]> => {
+      const results = [];
+      for (const client of players) results.push(await client.timeout(5_000).emitWithAck('room:ready'));
+      return results;
+    };
+    expect((await resume(players[1])).room).toMatchObject({
+      gameType: 'bigtwo', hostId: accounts[0].account.id, abortVote: null,
+    });
+    expect((await readyAll())[3]).toEqual({ success: false, error: 'Big Two is not available yet.' });
+    expect((await resume(players[0])).room?.status).toBe('waiting');
+
+    expect(await players[1].timeout(5_000).emitWithAck('room:setGameType', { gameType: 'bridge' }))
+      .toMatchObject({ success: false });
+    expect(await players[0].timeout(5_000).emitWithAck('room:setGameType', { gameType: 'bridge' }))
+      .toEqual({ success: true });
+    const switched = await resume(players[0]);
+    expect(switched.room?.gameType).toBe('bridge');
+    expect(Object.values(switched.room!.seats).every((seat) => !seat.isReady)).toBe(true);
+    expect((await readyAll()).every((result) => result.success)).toBe(true);
+    expect((await resume(players[0])).gameState?.gameType).toBe('bridge');
+
+    expect(await players[0].timeout(5_000).emitWithAck('game:abortVote:start')).toEqual({ success: true });
+    expect(await players[1].timeout(5_000).emitWithAck('game:abortVote:start')).toMatchObject({ success: false });
+    expect(await players[0].timeout(5_000).emitWithAck('game:abortVote:cast', { agree: true }))
+      .toEqual({ success: false, error: 'You have already voted.' });
+    expect(await players[1].timeout(5_000).emitWithAck('game:abortVote:cast', { agree: true }))
+      .toEqual({ success: true });
+    expect((await resume(players[3])).room?.abortVote).toMatchObject({
+      startedBy: accounts[0].account.id, yes: [accounts[0].account.id, accounts[1].account.id], no: [],
+    });
+    expect(await players[2].timeout(5_000).emitWithAck('game:abortVote:cast', { agree: true }))
+      .toEqual({ success: true });
+
+    const aborted = await resume(players[3]);
+    expect(aborted.gameState).toBeUndefined();
+    expect(aborted.room).toMatchObject({ status: 'waiting', abortVote: null });
+    expect(Object.values(aborted.room!.seats).every((seat) => !seat.isReady)).toBe(true);
+    expect(aborted.chatHistory?.map((message) => [message.system, message.content])).toEqual([
+      [true, 'abortVote.started'], [true, 'abortVote.passed'],
+    ]);
+    expect(await repository.listMatches(accounts[0].account.id)).toEqual([]);
+    expect((await repository.loadRuntime())?.games).toEqual([]);
+  }, 20_000);
 });

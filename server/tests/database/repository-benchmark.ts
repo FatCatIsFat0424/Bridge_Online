@@ -62,6 +62,7 @@ function createFixture(): DatabaseDocument {
       accountIds: [0, 1, 2, 3].map((offset) => accountId((index * 4 + offset) % RECORDS)),
       finishedAt: TIMESTAMP + index,
       result: {
+        gameType: 'bridge',
         contract: { level: 1, suit: 'nt', declarer: 'N' },
         declarerTeamTricks: 7,
         defenderTeamTricks: 6,
@@ -100,6 +101,9 @@ function createFixture(): DatabaseDocument {
         gameType: 'bridge',
         status: 'playing',
         createdAt: TIMESTAMP,
+        hostId: participants[0].id,
+        abortVote: null,
+        abortVoteCooldownUntil: null,
         seats: {
           N: { player: players.N, isReady: true },
           E: { player: players.E, isReady: true },
@@ -110,6 +114,7 @@ function createFixture(): DatabaseDocument {
       memberIds: participants.map((entry) => entry.id),
     });
     runtime.games.push({
+      gameType: 'bridge',
       id: `active-${table}`,
       roomCode,
       startedAt: TIMESTAMP,

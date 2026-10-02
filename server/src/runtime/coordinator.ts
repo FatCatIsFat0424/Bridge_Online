@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
+import { SEAT_ORDER_CLOCKWISE } from '@shared/constants';
 import type { Repository, MatchRecord } from '../database/repository';
 import type { RuntimeSnapshot } from './types';
 import * as playerManager from '../managers/player-manager';
@@ -56,8 +57,9 @@ export async function createRuntimeCoordinator(repository: Repository): Promise<
             roomManager.resetAllReady(game.roomCode);
             matches.push({
               id: game.id, roomCode: game.roomCode,
-              accountIds: Object.values(game.players).map((player) => player.id),
-              result: game.result, finishedAt: Date.now(),
+              accountIds: SEAT_ORDER_CLOCKWISE.map((seat) => game.players[seat].id),
+              result: game.gameType === 'bridge' ? { ...game.result, gameType: 'bridge' } : game.result,
+              finishedAt: Date.now(),
             });
           }
         }

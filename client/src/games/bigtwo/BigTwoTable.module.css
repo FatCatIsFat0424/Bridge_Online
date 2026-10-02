@@ -1,0 +1,8 @@
+/* ─── BigTwoTable 樣式 ─── */
+
+.centreText {
+  color: var(--table-ink);
+  opacity: 0.75;
+  font-size: var(--text-sm);
+  text-align: center;
+}

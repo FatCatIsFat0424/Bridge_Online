@@ -34,10 +34,12 @@ function GameChips(): ReactNode {
   const bidding = useGameStore((state) => state.bidding);
   const contract = useGameStore((state) => state.contract);
   const playing = useGameStore((state) => state.playing);
+  const gameType = useGameStore((state) => state.gameType);
   const seatLabel = (seat: Seat): string => t(`seat.${seat}`);
   return <div className={styles.chips}>
     {roomCode && <span className={`${styles.chip} ${styles.roomChip}`} title={t('topbar.room')}>{roomCode}</span>}
-    {contract ? <span className={styles.chip} title={t('topbar.contract')}>
+    {gameType && gameType !== 'bridge' ? <span className={styles.chip}>{t(`gameType.${gameType}`)}</span>
+      : contract ? <span className={styles.chip} title={t('topbar.contract')}>
       <BidLabel level={contract.level} suit={contract.suit} /> · {seatLabel(contract.declarer)}
     </span> : bidding && <span className={styles.chip}>
       {t('game.bidding')}

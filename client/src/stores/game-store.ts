@@ -11,11 +11,14 @@ import type {
   GamePhase,
   GameResult,
   GameLogEntry,
+  GameType,
   PlayerVisibleGameState,
 } from '@shared/types';
 import { equalSnapshotValue, retainSnapshotValue } from './snapshot-equality';
 
+/** Bridge state lives here; for other games only `gameType` and `phase` are tracked so far. */
 interface GameStoreState {
+  gameType: GameType | null;
   phase: GamePhase | null;
   myHand: Card[];
   dealerSeat: Seat | null;
@@ -48,6 +51,7 @@ interface GameStoreActions {
 }
 
 const initialState: GameStoreState = {
+  gameType: null,
   phase: null,
   myHand: [],
   dealerSeat: null,
@@ -64,7 +68,9 @@ const initialState: GameStoreState = {
 export const useGameStore = create<GameStoreState & GameStoreActions>((set) => ({
   ...initialState,
   restore: (game) => set((state) => {
-    const nextState: GameStoreState = {
+    const nextState: GameStoreState = game.gameType !== 'bridge'
+      ? { ...initialState, gameType: game.gameType, phase: game.phase } : {
+      gameType: 'bridge',
       phase: game.phase,
       dealerSeat: game.dealerSeat,
       myHand: equalSnapshotValue(state.myHand, game.myHand) ? state.myHand : [...game.myHand],

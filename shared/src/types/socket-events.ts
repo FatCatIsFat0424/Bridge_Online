@@ -40,6 +40,9 @@ export interface ClientToServerEvents {
   'room:changeSeat': (
     payload: { seat: Seat }, callback: (response: ActionResult) => void,
   ) => void;
+  'room:setGameType': (
+    payload: { gameType: GameType }, callback: (response: ActionResult) => void,
+  ) => void;
   'room:ready': (callback: (response: ActionResult) => void) => void;
   'room:unready': (callback: (response: ActionResult) => void) => void;
   'game:redealResponse': (
@@ -52,6 +55,10 @@ export interface ClientToServerEvents {
     payload: { card: Card }, callback: (response: ActionResult) => void,
   ) => void;
   'game:continue': (callback: (response: ActionResult) => void) => void;
+  'game:abortVote:start': (callback: (response: ActionResult) => void) => void;
+  'game:abortVote:cast': (
+    payload: { agree: boolean }, callback: (response: ActionResult) => void,
+  ) => void;
   'chat:send': (
     payload: { message: string }, callback: (response: ActionResult) => void,
   ) => void;

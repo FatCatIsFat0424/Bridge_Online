@@ -1,5 +1,7 @@
-import { MAX_MESSAGE_EMOJIS, isEmojiName, isMediaId } from '@shared/constants';
-import type { GameState, Seat } from '@shared/types';
+import {
+  ABORT_VOTE_THRESHOLD, GAME_TYPES, MAX_MESSAGE_EMOJIS, isEmojiName, isMediaId,
+} from '@shared/constants';
+import type { AnyGameState, BridgeGameState, GameType, Seat } from '@shared/types';
 import type { RuntimeSnapshot } from './types';
 
 type ObjectValue = Record<string, unknown>;
@@ -141,9 +143,19 @@ function log(value: unknown): boolean {
   return value.type === 'trick_end' && oneOf(value.winnerSeat, seats) && number(value.trickIndex);
 }
 
+const gameValidators: Record<GameType, (value: ObjectValue) => boolean> = {
+  bridge: bridgeGame,
+  // Big Two runtime games are not started yet.
+  bigtwo: () => false,
+};
+
 function game(value: unknown): boolean {
+  return object(value) && oneOf(value.gameType, [...GAME_TYPES]) &&
+    gameValidators[value.gameType as GameType](value);
+}
+
+function bridgeGame(value: ObjectValue): boolean {
   return (
-    object(value) &&
     text(value.id) &&
     text(value.roomCode) &&
     number(value.startedAt) &&
@@ -171,6 +183,27 @@ function game(value: unknown): boolean {
   );
 }
 
+function abortVote(value: unknown, members: string[]): boolean {
+  if (
+    !object(value) ||
+    !oneOf(value.startedBy, members) ||
+    !number(value.startedAt) ||
+    !number(value.expiresAt) ||
+    value.expiresAt <= value.startedAt ||
+    !Array.isArray(value.yes) ||
+    !Array.isArray(value.no)
+  )
+    return false;
+  const voters = [...value.yes, ...value.no] as unknown[];
+  return (
+    value.yes.includes(value.startedBy) &&
+    voters.every((id) => oneOf(id, members)) &&
+    new Set(voters).size === voters.length &&
+    value.yes.length < ABORT_VOTE_THRESHOLD &&
+    value.no.length <= seats.length - ABORT_VOTE_THRESHOLD
+  );
+}
+
 function room(value: unknown): boolean {
   if (
     !object(value) ||
@@ -183,11 +216,15 @@ function room(value: unknown): boolean {
   )
     return false;
   const info = value.info;
+  const members = value.memberIds as string[];
   return (
     text(info.code) &&
-    info.gameType === 'bridge' &&
+    oneOf(info.gameType, [...GAME_TYPES]) &&
     oneOf(info.status, ['waiting', 'playing']) &&
     number(info.createdAt) &&
+    oneOf(info.hostId, members) &&
+    (info.abortVoteCooldownUntil === null || number(info.abortVoteCooldownUntil)) &&
+    (info.abortVote === null || (info.status === 'playing' && abortVote(info.abortVote, members))) &&
     object(info.seats) &&
     Object.keys(info.seats).length === 4 &&
     seats.every((seat) => {
@@ -203,8 +240,12 @@ function room(value: unknown): boolean {
   );
 }
 
+function coherentGame(state: AnyGameState): boolean {
+  return state.gameType === 'bridge' && coherentBridgeGame(state);
+}
+
 /** A persisted phase must contain the state needed to resume its next legal action. */
-function coherentGame(state: GameState): boolean {
+function coherentBridgeGame(state: BridgeGameState): boolean {
   if (new Set(seats.map((seat) => state.players[seat].id)).size !== 4) return false;
   if (state.phase === 'dealing' || state.phase === 'redeal_pending' || state.phase === 'bidding') {
     if (
@@ -308,7 +349,8 @@ export function isRuntimeSnapshot(value: unknown): value is RuntimeSnapshot {
             player(message.sender) &&
             typeof message.content === 'string' &&
             number(message.timestamp) &&
-            (message.emojis === undefined || messageEmojis(message.emojis)),
+            (message.emojis === undefined || messageEmojis(message.emojis)) &&
+            (message.system === undefined || message.system === true),
         ),
     )
   )
@@ -329,6 +371,8 @@ export function isRuntimeSnapshot(value: unknown): value is RuntimeSnapshot {
   for (const entry of snapshot.rooms) {
     const occupants = seats.flatMap((seat) => entry.info.seats[seat].player?.id ?? []);
     if (new Set(occupants).size !== occupants.length) return false;
+    const vote = entry.info.abortVote;
+    if (vote && ![...vote.yes, ...vote.no].every((id) => occupants.includes(id))) return false;
     for (const id of entry.memberIds) {
       if (
         !players.has(id) ||
@@ -358,6 +402,7 @@ export function isRuntimeSnapshot(value: unknown): value is RuntimeSnapshot {
       if (currentRoom.info.status !== 'waiting') return false;
     } else if (
       currentRoom.info.status !== 'playing' ||
+      currentRoom.info.gameType !== entry.gameType ||
       !seats.every((seat) => currentRoom.info.seats[seat].player?.id === entry.players[seat].id)
     )
       return false;

@@ -11,4 +11,6 @@ export interface ChatMessage {
   readonly timestamp: number;
   /** Custom emoji used in `content` (name → media), resolved from the sender's library. */
   readonly emojis?: Record<string, MediaId>;
+  /** System line: `content` is a client i18n key, `sender` the player it concerns. */
+  readonly system?: true;
 }

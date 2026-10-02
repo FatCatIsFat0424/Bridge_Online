@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayingState } from '@shared/types';
-import { auctionRows, remainingCards } from '../../../client/src/game-view';
+import { auctionRows, formatCountdown, remainingCards } from '../../../client/src/game-view';
 import type { AuctionCall } from '../../../client/src/game-view';
 
 const pass = { type: 'pass' } as const;
@@ -43,5 +43,15 @@ describe('remainingCards', () => {
     } as unknown as PlayingState;
     expect(remainingCards('W', playing)).toBe(7);
     expect(remainingCards('N', playing)).toBe(8);
+  });
+});
+
+describe('formatCountdown', () => {
+  it('should round up to whole seconds as m:ss and never go negative', () => {
+    expect(formatCountdown(180_000)).toBe('3:00');
+    expect(formatCountdown(59_001)).toBe('1:00');
+    expect(formatCountdown(9_500)).toBe('0:10');
+    expect(formatCountdown(0)).toBe('0:00');
+    expect(formatCountdown(-5_000)).toBe('0:00');
   });
 });

@@ -10,12 +10,14 @@ import { uiTranslations } from './ui-i18n';
 import type { UiTranslationKey } from './ui-i18n';
 import { emojiTranslations } from './emoji-i18n';
 import type { EmojiTranslationKey } from './emoji-i18n';
+import { gameTranslations } from './game-i18n';
+import type { GameTranslationKey } from './game-i18n';
 
 export type Locale = 'zh-TW' | 'en';
 
 type TranslationKeys = Record<
   AccountTranslationKey | PlayerTranslationKey | VoiceTranslationKey | UiTranslationKey
-    | EmojiTranslationKey, string
+    | EmojiTranslationKey | GameTranslationKey, string
 > & {
   // Lobby
   'lobby.title': string;
@@ -83,6 +85,7 @@ const translations: Record<Locale, TranslationKeys> = {
     ...voiceTranslations['zh-TW'],
     ...uiTranslations['zh-TW'],
     ...emojiTranslations['zh-TW'],
+    ...gameTranslations['zh-TW'],
     'lobby.title': 'Bridge Online',
     'lobby.subtitle': '線上橋牌',
     'lobby.nickname': '暱稱',
@@ -139,6 +142,7 @@ const translations: Record<Locale, TranslationKeys> = {
     ...voiceTranslations.en,
     ...uiTranslations.en,
     ...emojiTranslations.en,
+    ...gameTranslations.en,
     'lobby.title': 'Bridge Online',
     'lobby.subtitle': 'Online Bridge Game',
     'lobby.nickname': 'Nickname',

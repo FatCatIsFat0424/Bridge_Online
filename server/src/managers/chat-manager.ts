@@ -47,13 +47,23 @@ export function addMessage(
     ...(Object.keys(emojis).length > 0 && { emojis }),
   };
 
+  append(roomCode, message);
+  return message;
+}
+
+/** Adds a system line; `key` is translated by the client, `subject` is the player it concerns. */
+export function addSystemMessage(roomCode: RoomCode, subject: PlayerInfo, key: string): void {
+  append(roomCode, {
+    id: generateMessageId(), sender: subject, content: key, timestamp: Date.now(), system: true,
+  });
+}
+
+function append(roomCode: RoomCode, message: ChatMessage): void {
   const history = chatHistory.get(roomCode);
   if (history) {
     history.push(message);
     if (history.length > 200) history.splice(0, history.length - 200);
   }
-
-  return message;
 }
 
 /**

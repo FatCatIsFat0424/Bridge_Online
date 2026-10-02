@@ -125,7 +125,7 @@ export function leaveCurrentRoom(accountId: string): void {
   const code = playerManager.getPlayerState(accountId)?.currentRoomCode;
   if (!code) return;
   if (roomManager.getRoomInfo(code)?.status === 'playing') {
-    gameManager.abortGame(code, 'A player left the game.');
+    gameManager.abortGame(code);
     roomManager.setRoomStatus(code, 'waiting');
     roomManager.resetAllReady(code);
   }

@@ -91,9 +91,76 @@ describe('database migrations', () => {
       expect(await repository.getAccountById('account-1')).toMatchObject({ matchesPublic: false });
       await repository.close();
       expect(await readFile(`${path}.v1.bak`, 'utf8')).toBe(original);
-      expect(JSON.parse(await readFile(path, 'utf8')).schemaVersion).toBe(2);
+      expect(JSON.parse(await readFile(path, 'utf8')).schemaVersion).toBe(3);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('should upgrade v2 games, match results and rooms to v3', () => {
+    const migrated = migrateDocument(version2()) as ReturnType<typeof emptyDocument>;
+    expect(() => validateDocument(migrated)).not.toThrow();
+    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.matches[0].result).toMatchObject({ gameType: 'bridge', requiredTricks: 7 });
+    expect(migrated.runtime!.rooms[0].info).toMatchObject({
+      hostId: 'account-2', abortVote: null, abortVoteCooldownUntil: null,
+    });
+    const games = migrateDocument({
+      ...version2(), runtime: { ...version2().runtime as object, games: [{ id: 'board' }] },
+    }) as { runtime: { games: unknown[] } };
+    expect(games.runtime.games[0]).toEqual({ id: 'board', gameType: 'bridge' });
+  });
+
+  it('should keep a v2 backup when opening a v2 file', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'bridge-migration-'));
+    const path = join(directory, 'database.json');
+    try {
+      const original = JSON.stringify(version2());
+      await writeFile(path, original);
+      const repository = await createJsonRepository(path);
+      await repository.close();
+      expect(await readFile(`${path}.v2.bak`, 'utf8')).toBe(original);
+      expect(JSON.parse(await readFile(path, 'utf8')).schemaVersion).toBe(3);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
   });
 });
+
+/** A v2 document: four accounts, one bridge match, one waiting room joined by two members. */
+function version2(): Record<string, unknown> {
+  const ids = ['account-2', 'account-3', 'account-4', 'account-5'];
+  const players = ids.map((id) => ({ ...V1_PLAYER, id, username: id.replace('-', '_'), avatarImage: null }));
+  return {
+    schemaVersion: 2,
+    accounts: players.map((player) => ({
+      ...player, usernameNormalized: player.username, passwordHash: PASSWORD_HASH,
+      tableBackground: null, matchesPublic: false, createdAt: 100, updatedAt: 100,
+    })),
+    sessions: [],
+    friendships: [],
+    matches: [{
+      id: 'match-1', roomCode: 'ABC123', accountIds: ids, finishedAt: 200,
+      result: {
+        contract: { level: 1, suit: 'nt', declarer: 'N' }, declarerTeamTricks: 7,
+        defenderTeamTricks: 6, requiredTricks: 7, declarerTeamWins: true,
+      },
+    }],
+    emojis: [],
+    runtime: {
+      players: players.slice(0, 2).map((info) => ({ info, currentRoomCode: 'ABC123', disconnectedAt: null })),
+      rooms: [{
+        info: {
+          code: 'ABC123', gameType: 'bridge', status: 'waiting', createdAt: 100,
+          seats: {
+            N: { player: players[1], isReady: false }, E: { player: null, isReady: false },
+            S: { player: null, isReady: false }, W: { player: null, isReady: false },
+          },
+        },
+        memberIds: ['account-2', 'account-3'],
+      }],
+      games: [],
+      chat: [],
+    },
+  };
+}

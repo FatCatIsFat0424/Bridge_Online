@@ -15,6 +15,7 @@ export type {
   SeatInfo,
   SeatMap,
   RoomInfo,
+  AbortVoteInfo,
 } from './room';
 
 export type {
@@ -32,8 +33,17 @@ export type {
   Team,
   PlayingState,
   BiddingState,
-  GameState,
+  BridgeGameState,
+  BridgeVisibleState,
+  BigTwoPlay,
+  BigTwoLogEntry,
+  BigTwoMatchResult,
+  BigTwoPhase,
+  BigTwoGameState,
+  BigTwoVisibleState,
+  AnyGameState,
   PlayerVisibleGameState,
+  MatchResult,
 } from './game';
 
 export type { ChatMessage } from './chat';

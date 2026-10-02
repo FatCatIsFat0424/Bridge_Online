@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import type { GameType, PlayerInfo, RoomCode, RoomInfo, RoomStatus, Seat, SeatMap } from '@shared/types';
+import { ABORT_VOTE_COOLDOWN_MS, ABORT_VOTE_DURATION_MS, ABORT_VOTE_THRESHOLD } from '@shared/constants';
 import type { PersistedRoom } from '../runtime/types';
 import { generateRoomCode } from '../utils/id-generator';
 
@@ -18,7 +19,10 @@ export function createRoom(gameType: GameType, creatorId: string): RoomCode {
   let code = generateRoomCode();
   while (rooms.has(code)) code = generateRoomCode();
   rooms.set(code, {
-    info: { code, gameType, status: 'waiting', seats: emptySeats(), createdAt: Date.now() },
+    info: {
+      code, gameType, status: 'waiting', seats: emptySeats(), createdAt: Date.now(),
+      hostId: creatorId, abortVote: null, abortVoteCooldownUntil: null,
+    },
     memberIds: [creatorId],
   });
   return code;
@@ -52,6 +56,7 @@ export function leaveRoom(code: RoomCode, playerId: string): { seat: Seat | null
   room.memberIds = room.memberIds.filter((id) => id !== playerId);
   const roomEmpty = room.memberIds.length === 0;
   if (roomEmpty) rooms.delete(code);
+  else if (room.info.hostId === playerId) room.info = { ...room.info, hostId: room.memberIds[0] };
   return { seat, roomEmpty };
 }
 
@@ -100,9 +105,73 @@ export function getSeatPlayers(code: RoomCode): Record<Seat, PlayerInfo> | null 
   };
 }
 
+/** Any status change ends an abort vote; the cooldown stays. */
 export function setRoomStatus(code: RoomCode, status: RoomStatus): void {
   const room = rooms.get(code);
-  if (room) room.info = { ...room.info, status };
+  if (room) room.info = { ...room.info, status, abortVote: null };
+}
+
+export function setGameType(code: RoomCode, playerId: string, gameType: GameType): Result {
+  const room = rooms.get(code);
+  if (!room) return { success: false, reason: 'Room not found' };
+  if (room.info.hostId !== playerId) return { success: false, reason: 'Only the host can change the game.' };
+  if (room.info.status !== 'waiting') return { success: false, reason: 'Game is in progress' };
+  room.info = { ...room.info, gameType };
+  resetAllReady(code);
+  return { success: true };
+}
+
+export type AbortVoteOutcome = 'pending' | 'passed' | 'failed';
+
+export function startAbortVote(code: RoomCode, playerId: string, now: number): Result {
+  const room = rooms.get(code);
+  if (!room || room.info.status !== 'playing') return { success: false, reason: 'No game in progress.' };
+  if (!getPlayerSeat(code, playerId)) return { success: false, reason: 'Only seated players can vote.' };
+  if (room.info.abortVote) return { success: false, reason: 'A vote is already in progress.' };
+  if (room.info.abortVoteCooldownUntil !== null && now < room.info.abortVoteCooldownUntil) {
+    return { success: false, reason: 'Please wait before starting another vote.' };
+  }
+  room.info = {
+    ...room.info,
+    abortVote: { startedBy: playerId, startedAt: now, expiresAt: now + ABORT_VOTE_DURATION_MS, yes: [playerId], no: [] },
+    abortVoteCooldownUntil: now + ABORT_VOTE_COOLDOWN_MS,
+  };
+  return { success: true };
+}
+
+/** Records one vote; a decided vote is cleared here, the caller ends the game on `passed`. */
+export function castAbortVote(
+  code: RoomCode, playerId: string, agree: boolean, now: number,
+): { success: true; outcome: AbortVoteOutcome } | { success: false; reason: string } {
+  const room = rooms.get(code);
+  const vote = room?.info.abortVote;
+  if (!room || !vote || now >= vote.expiresAt) return { success: false, reason: 'No vote in progress.' };
+  if (!getPlayerSeat(code, playerId)) return { success: false, reason: 'Only seated players can vote.' };
+  if (vote.yes.includes(playerId) || vote.no.includes(playerId)) {
+    return { success: false, reason: 'You have already voted.' };
+  }
+  const next = agree
+    ? { ...vote, yes: [...vote.yes, playerId] } : { ...vote, no: [...vote.no, playerId] };
+  const outcome: AbortVoteOutcome = next.yes.length >= ABORT_VOTE_THRESHOLD ? 'passed'
+    : next.no.length > seats.length - ABORT_VOTE_THRESHOLD ? 'failed' : 'pending';
+  room.info = { ...room.info, abortVote: outcome === 'pending' ? next : null };
+  return { success: true, outcome };
+}
+
+/** Clears votes past their deadline; returns each affected room and who started the vote. */
+export function expireAbortVotes(now: number): { code: RoomCode; startedBy: string }[] {
+  const expired: { code: RoomCode; startedBy: string }[] = [];
+  for (const room of rooms.values()) {
+    const vote = room.info.abortVote;
+    if (!vote || now < vote.expiresAt) continue;
+    expired.push({ code: room.info.code, startedBy: vote.startedBy });
+    room.info = { ...room.info, abortVote: null };
+  }
+  return expired;
+}
+
+export function hasExpiredAbortVote(now: number): boolean {
+  return [...rooms.values()].some((room) => room.info.abortVote && now >= room.info.abortVote.expiresAt);
 }
 
 export function resetAllReady(code: RoomCode): void {

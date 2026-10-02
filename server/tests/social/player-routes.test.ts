@@ -170,6 +170,7 @@ describe('public player profile HTTP routes', () => {
       accountIds: [accounts.alice.id, accounts.bravo.id, ...extra.map((account) => account.id)],
       finishedAt: 500,
       result: {
+        gameType: 'bridge',
         contract: { level: 1, suit: 'nt', declarer: 'N' },
         declarerTeamTricks: 7,
         defenderTeamTricks: 6,

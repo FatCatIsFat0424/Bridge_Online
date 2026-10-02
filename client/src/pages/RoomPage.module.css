@@ -40,6 +40,55 @@
   letter-spacing: 1px;
 }
 
+.gameTypeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin: calc(-1 * var(--spacing-md)) 0 var(--spacing-md);
+}
+
+.gameTypeLabel {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+}
+
+.segment,
+.segmentActive {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.segment { color: var(--text-secondary); }
+.segment:hover:not(:disabled) { background: var(--bg-card-hover); color: var(--text-primary); }
+.segment:disabled { cursor: not-allowed; opacity: 0.6; }
+
+/* 目前遊戲：非房主看到的也是這個徽章 */
+.segmentActive,
+.segmentActive:disabled {
+  background: var(--color-primary);
+  color: var(--text-on-primary);
+  cursor: default;
+  opacity: 1;
+}
+
+.hostBadge {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
 .seatLayout {
   display: grid;
   grid-template-areas:
@@ -49,8 +98,8 @@
   grid-template-columns: 1fr 2fr 1fr;
   grid-template-rows: 1fr 1.5fr 1fr;
   gap: var(--spacing-md);
-  /* 由可用高度反推寬度，座位與準備鈕不需捲動（約 260px = 上下內距 + 標題 + 準備鈕） */
-  width: min(100%, 800px, calc((100dvh - var(--topbar-height) - 260px) * 4 / 3));
+  /* 由可用高度反推寬度，座位與準備鈕不需捲動（約 310px = 上下內距 + 標題 + 遊戲選擇 + 準備鈕） */
+  width: min(100%, 800px, calc((100dvh - var(--topbar-height) - 310px) * 4 / 3));
   min-width: min(100%, 480px);
   aspect-ratio: 4 / 3;
   animation: slideUp 0.5s ease;

@@ -8,6 +8,7 @@ import { mediaUrl } from '../media';
 import { useChatStore } from '../stores/chat-store';
 import { useEmojiStore } from '../stores/emoji-store';
 import { useI18nStore } from '../stores/i18n-store';
+import type { TranslationKey } from '../i18n';
 import { Avatar } from './Avatar';
 import styles from './ChatPanel.module.css';
 
@@ -101,7 +102,11 @@ export function ChatPanel({ onCollapse }: ChatPanelProps): ReactNode {
           aria-label={t('table.chatCollapse')} title={t('table.chatCollapse')}>›</button>}
       </div>
       <div ref={messagesRef} className={styles.chatMessages} role="log" aria-live="polite">
-        {messages.map((message) => (
+        {messages.map((message) => message.system ? (
+          <p key={message.id} className={styles.systemMessage}>
+            {t(message.content as TranslationKey, { name: message.sender.nickname })}
+          </p>
+        ) : (
           <div key={message.id} className={styles.chatMessage}>
             <Avatar avatar={message.sender.avatar} image={message.sender.avatarImage} color={message.sender.color} size="small" />
             <span className={styles.chatSender}>{message.sender.nickname}</span>

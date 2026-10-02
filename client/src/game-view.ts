@@ -28,6 +28,12 @@ export function tablePosition(seat: Seat, bottomSeat: Seat): TablePosition {
   return POSITIONS[(CLOCKWISE.indexOf(seat) - CLOCKWISE.indexOf(bottomSeat) + 4) % 4];
 }
 
+/** Remaining time as `m:ss`, rounded up to whole seconds and never negative. */
+export function formatCountdown(ms: number): string {
+  const seconds = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
 /** Cards left in a seat's hand: 13 before play; during play 13 - completed tricks - (1 if the seat has a card in the current trick). */
 export function remainingCards(seat: Seat, playing: PlayingState | null): number {
   if (!playing) return 13;

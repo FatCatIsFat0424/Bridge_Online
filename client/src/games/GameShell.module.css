@@ -1,4 +1,4 @@
-/* ─── GamePage 樣式：滿版牌桌，無頁面捲動 ─── */
+/* ─── GameShell 樣式：滿版牌桌，無頁面捲動 ─── */
 
 .gameContainer {
   height: calc(100dvh - var(--topbar-height));
@@ -12,13 +12,6 @@
 .gameContainer > * { min-height: 0; min-width: 0; }
 
 .chatCollapsed { grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) 48px; }
-
-.centreText {
-  color: var(--table-ink);
-  opacity: 0.75;
-  font-size: var(--text-sm);
-  text-align: center;
-}
 
 .actionError {
   position: absolute;
@@ -123,6 +116,7 @@
 .infoPanel {
   display: flex;
   flex-direction: column;
+  gap: var(--spacing-sm);
 }
 
 .infoPanel > :last-child { flex: 1; min-height: 0; }
@@ -254,63 +248,4 @@
   .gameContainer:not(.chatCollapsed) > .backdrop { display: block; }
 
   .chatFab { display: inline-flex; }
-}
-
-/* ─── 浮層：倒牌確認、結算 ─── */
-.overlayCard {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
-  padding: var(--spacing-xl);
-  max-width: 400px;
-  width: 100%;
-  text-align: center;
-  color: var(--text-primary);
-  animation: slideUp 0.5s ease;
-}
-
-.overlayTitle {
-  font-family: var(--font-display);
-  margin-bottom: var(--spacing-md);
-}
-
-.overlayText {
-  color: var(--text-secondary);
-  margin-bottom: var(--spacing-lg);
-}
-
-.overlayActions {
-  display: flex;
-  gap: var(--spacing-md);
-  justify-content: center;
-}
-
-.scoreOverlay {
-  position: fixed;
-  inset: 0;
-  background: var(--bg-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--spacing-md);
-  animation: fadeIn 0.3s ease;
-  z-index: 100;
-}
-
-.scoreTitle {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  margin-bottom: var(--spacing-lg);
-}
-
-.scoreWin { color: var(--color-success); }
-.scoreLose { color: var(--color-danger); }
-
-.scoreDetails {
-  font-size: var(--text-base);
-  color: var(--text-secondary);
-  margin-bottom: var(--spacing-xl);
-  line-height: 2;
 }

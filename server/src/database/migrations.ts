@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 type JsonObject = Record<string, unknown>;
 
@@ -74,8 +74,38 @@ function toVersion2(document: JsonObject): JsonObject {
   };
 }
 
+/** v3: game type discriminants on games and match results, room host and abort vote. */
+function toVersion3(document: JsonObject): JsonObject {
+  const runtime = document.runtime;
+  return {
+    ...document,
+    schemaVersion: 3,
+    matches: mapArray(document.matches, (match) => ({
+      ...match,
+      result: isObject(match.result) ? { ...match.result, gameType: 'bridge' } : match.result,
+    })),
+    runtime: isObject(runtime)
+      ? {
+        ...runtime,
+        rooms: mapArray(runtime.rooms, (room) => ({
+          ...room,
+          info: isObject(room.info)
+            ? {
+              ...room.info,
+              hostId: Array.isArray(room.memberIds) ? room.memberIds[0] : undefined,
+              abortVote: null,
+              abortVoteCooldownUntil: null,
+            }
+            : room.info,
+        })),
+        games: mapArray(runtime.games, (game) => ({ ...game, gameType: 'bridge' })),
+      }
+      : runtime,
+  };
+}
+
 /** Index i upgrades version i + 1 to i + 2. Append new steps; never edit shipped ones. */
-const STEPS: readonly ((document: JsonObject) => JsonObject)[] = [toVersion2];
+const STEPS: readonly ((document: JsonObject) => JsonObject)[] = [toVersion2, toVersion3];
 
 /**
  * Upgrades a parsed document of any known older version to CURRENT_SCHEMA_VERSION; returns

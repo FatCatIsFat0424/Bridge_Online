@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { Seat } from '@shared/types';
+import { GAME_TYPES } from '@shared/constants';
+import type { GameType, Seat } from '@shared/types';
 import { socket } from '../socket';
 import { usePlayerStore } from '../stores/player-store';
 import { useRoomStore } from '../stores/room-store';
@@ -30,6 +31,7 @@ export function RoomPage(): ReactNode {
   const hadRoom = useRef(false);
   const leaving = useRef(false);
   const isReady = mySeat ? roomInfo?.seats[mySeat].isReady ?? false : false;
+  const isHost = Boolean(playerId) && roomInfo?.hostId === playerId;
 
   useEffect(() => {
     if (leaving.current) return;
@@ -66,6 +68,11 @@ export function RoomPage(): ReactNode {
     setError('');
     socket.timeout(10000).emit(isReady ? 'room:unready' : 'room:ready', handleResult);
   };
+  const setGameType = (gameType: GameType): void => {
+    setBusy(true);
+    setError('');
+    socket.timeout(10000).emit('room:setGameType', { gameType }, handleResult);
+  };
   const leave = (): void => {
     leaving.current = true;
     setBusy(true);
@@ -91,6 +98,20 @@ export function RoomPage(): ReactNode {
           <button className="btn btn-outline" onClick={leave} disabled={busy}>{t('room.leave')}</button>
         </div>
       </div>
+      <div className={styles.gameTypeRow}>
+        <span className={styles.gameTypeLabel}>{t('gameType.label')}</span>
+        <div className={styles.segmented} role="radiogroup" aria-label={t('gameType.label')}
+          title={isHost ? undefined : t('room.hostOnly')}>
+          {GAME_TYPES.map((gameType) => (
+            <button key={gameType} type="button" role="radio" aria-checked={roomInfo.gameType === gameType}
+              className={roomInfo.gameType === gameType ? styles.segmentActive : styles.segment}
+              disabled={!isHost || busy || roomInfo.gameType === gameType}
+              onClick={() => setGameType(gameType)}>
+              {t(`gameType.${gameType}`)}
+            </button>
+          ))}
+        </div>
+      </div>
       {error && <p className={styles.error} role="alert">{error}</p>}
       <div className={styles.seatLayout}>
         {(['N', 'E', 'S', 'W'] as Seat[]).map((seat) => {
@@ -103,6 +124,8 @@ export function RoomPage(): ReactNode {
             <div key={seat} className={className}>
               <div className={styles.seatLabel}>{t(`seat.${seat}`)}</div>
               <PlayerLink player={player} size="medium" />
+              {player.id === roomInfo.hostId &&
+                <span className={styles.hostBadge} title={t('room.host')}>👑 {t('room.host')}</span>}
               {player.id === playerId && <span>{t('common.me')}</span>}
               <div className={seatInfo.isReady ? styles.seatReadyBadge : styles.seatNotReadyBadge}>
                 {t(seatInfo.isReady ? 'room.ready.status' : 'room.seatTaken')}</div>

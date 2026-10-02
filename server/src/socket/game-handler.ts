@@ -3,11 +3,19 @@ import type { SocketContext, TypedSocket } from './context';
 import { actionError, requireRoom, requireSuccess, runAction } from './context';
 import * as roomManager from '../managers/room-manager';
 import * as gameManager from '../managers/game-manager';
+import * as chatManager from '../managers/chat-manager';
 
 function playerSeat(socket: TypedSocket, code: string): Seat {
   const seat = roomManager.getPlayerSeat(code, socket.data.accountId);
   if (!seat) throw actionError('Select a seat first.');
   return seat;
+}
+
+/** Adds an abort-vote chat line about `accountId`, read from the room seats. */
+export function systemLine(code: string, accountId: string, key: string): void {
+  const seat = roomManager.getPlayerSeat(code, accountId);
+  const subject = seat ? roomManager.getRoomInfo(code)?.seats[seat].player : null;
+  if (subject) chatManager.addSystemMessage(code, subject, key);
 }
 
 export function registerGameHandlers(context: SocketContext, socket: TypedSocket): void {
@@ -36,6 +44,30 @@ export function registerGameHandlers(context: SocketContext, socket: TypedSocket
       || !['clubs', 'diamonds', 'hearts', 'spades'].includes(card.suit)) throw actionError('Invalid card.');
     const code = requireRoom(socket);
     requireSuccess(gameManager.handlePlayCard(code, playerSeat(socket, code), card));
+    return { success: true };
+  }));
+
+  socket.on('game:abortVote:start', (callback) => runAction(context, socket, callback, () => {
+    const code = requireRoom(socket);
+    requireSuccess(roomManager.startAbortVote(code, socket.data.accountId, Date.now()));
+    systemLine(code, socket.data.accountId, 'abortVote.started');
+    return { success: true };
+  }));
+
+  socket.on('game:abortVote:cast', (payload, callback) => runAction(context, socket, callback, () => {
+    if (!payload || typeof payload.agree !== 'boolean') throw actionError('Invalid vote.');
+    const code = requireRoom(socket);
+    const startedBy = roomManager.getRoomInfo(code)?.abortVote?.startedBy;
+    const cast = roomManager.castAbortVote(code, socket.data.accountId, payload.agree, Date.now());
+    if (!cast.success) throw actionError(cast.reason);
+    if (cast.outcome === 'passed') {
+      gameManager.abortGame(code);
+      roomManager.setRoomStatus(code, 'waiting');
+      roomManager.resetAllReady(code);
+    }
+    if (cast.outcome !== 'pending' && startedBy) {
+      systemLine(code, startedBy, cast.outcome === 'passed' ? 'abortVote.passed' : 'abortVote.failed');
+    }
     return { success: true };
   }));
 

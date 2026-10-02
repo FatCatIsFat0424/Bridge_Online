@@ -1,4 +1,4 @@
-import type { AccountProfile, EmojiRecord, GameResult, MediaId } from '@shared/types';
+import type { AccountProfile, EmojiRecord, MatchResult, MediaId } from '@shared/types';
 
 export type { EmojiRecord };
 import type { RuntimeSnapshot } from '../runtime/types';
@@ -30,8 +30,9 @@ export interface FriendshipRecord {
 export interface MatchRecord {
   readonly id: string;
   readonly roomCode: string;
+  /** Ordered by seat N, E, S, W. */
   readonly accountIds: readonly string[];
-  readonly result: GameResult;
+  readonly result: MatchResult;
   readonly finishedAt: number;
 }
 

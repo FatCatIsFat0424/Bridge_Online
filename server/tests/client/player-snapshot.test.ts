@@ -25,13 +25,14 @@ const snapshot: PlayerSnapshot = {
   player,
   room: {
     code: 'ABC123', gameType: 'bridge', status: 'playing', createdAt: 123,
+    hostId: 'alice', abortVote: null, abortVoteCooldownUntil: null,
     seats: {
       N: { player, isReady: true }, E: { player: null, isReady: false },
       S: { player: null, isReady: false }, W: { player: null, isReady: false },
     },
   },
   gameState: {
-    phase: 'playing', mySeat: 'N', dealerSeat: 'N',
+    gameType: 'bridge', phase: 'playing', mySeat: 'N', dealerSeat: 'N',
     myHand: [{ suit: 'clubs', rank: 2 }, { suit: 'spades', rank: 14 }],
     validCards: [{ suit: 'clubs', rank: 2 }],
     bidding: null, contract: { level: 1, suit: 'clubs', declarer: 'N' },
@@ -150,7 +151,7 @@ describe('client authoritative snapshot updates', () => {
       currentRoomCode: null, roomInfo: null, mySeat: null,
     });
     expect(useGameStore.getState()).toMatchObject({
-      phase: null, myHand: [], validCards: [], log: [], playing: null, contract: null,
+      gameType: null, phase: null, myHand: [], validCards: [], log: [], playing: null, contract: null,
       bidding: null, result: null, currentTurnSeat: null, redealPendingSeat: null,
     });
     expect(useChatStore.getState().messages).toEqual([]);
@@ -183,6 +184,28 @@ describe('client authoritative snapshot updates', () => {
     });
     expect(useGameStore.getState()).toMatchObject({
       phase: 'bidding', currentTurnSeat: 'S', playing: null, contract: null, validCards: [], log: [],
+    });
+  });
+});
+
+describe('non-bridge game snapshots', () => {
+  beforeEach(() => {
+    clearAccount();
+    useAccountStore.getState().setAccount(structuredClone(account));
+  });
+
+  it('should track only game type and phase and drop stale bridge state', () => {
+    applyPlayerSnapshot(structuredClone(snapshot));
+    applyPlayerSnapshot({
+      ...structuredClone(snapshot),
+      gameState: {
+        gameType: 'bigtwo', phase: 'playing', mySeat: 'N', myHand: [{ suit: 'clubs', rank: 3 }],
+        handCounts: { N: 1, E: 13, S: 13, W: 13 }, currentTurnSeat: 'N', lastPlay: null,
+        lockedSeats: [], firstPlay: true, log: [], result: null, revealedHands: null,
+      },
+    });
+    expect(useGameStore.getState()).toMatchObject({
+      gameType: 'bigtwo', phase: 'playing', myHand: [], contract: null, playing: null, log: [],
     });
   });
 });

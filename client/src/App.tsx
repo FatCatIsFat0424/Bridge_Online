@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { TopBar } from './components/TopBar';
 import { InviteToast } from './components/InviteToast';
+import { AbortVoteToast } from './games/AbortVote';
 import { useAccountConnection } from './hooks/use-account-connection';
 import { restoreAccount, useAccountStore } from './stores/account-store';
 import { useI18nStore } from './stores/i18n-store';
@@ -77,6 +78,7 @@ export function App(): ReactNode {
     <BrowserRouter basename={APP_BASE_PATH}>
       <TopBar />
       {signedIn && <InviteToast />}
+      {signedIn && <AbortVoteToast />}
       <AppRoutes />
     </BrowserRouter>
   );

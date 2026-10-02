@@ -1,3 +1,4 @@
+import { GAME_TYPES } from '@shared/constants';
 import type { RoomInvite, Seat } from '@shared/types';
 import type { SocketContext, TypedSocket } from './context';
 import { actionError, requireRoom, requireSuccess, runAction, leaveCurrentRoom } from './context';
@@ -9,10 +10,10 @@ import * as inviteManager from '../managers/invite-manager';
 
 export function registerRoomHandlers(context: SocketContext, socket: TypedSocket): void {
   socket.on('room:create', (payload, callback) => runAction(context, socket, callback, () => {
-    if (!payload || payload.gameType !== 'bridge') throw actionError('Unsupported game type.');
+    if (!payload || !GAME_TYPES.includes(payload.gameType)) throw actionError('Unsupported game type.');
     const accountId = socket.data.accountId;
     if (playerManager.getPlayerState(accountId)?.currentRoomCode) throw actionError('Already in a room.');
-    const roomCode = roomManager.createRoom('bridge', accountId);
+    const roomCode = roomManager.createRoom(payload.gameType, accountId);
     chatManager.initRoomChat(roomCode);
     playerManager.setPlayerRoom(accountId, roomCode);
     return { success: true, roomCode };
@@ -78,14 +79,21 @@ export function registerRoomHandlers(context: SocketContext, socket: TypedSocket
     return { success: true };
   }));
 
+  socket.on('room:setGameType', (payload, callback) => runAction(context, socket, callback, () => {
+    if (!payload || !GAME_TYPES.includes(payload.gameType)) throw actionError('Unsupported game type.');
+    requireSuccess(roomManager.setGameType(requireRoom(socket), socket.data.accountId, payload.gameType));
+    return { success: true };
+  }));
+
   socket.on('room:ready', (callback) => runAction(context, socket, callback, () => {
     const code = requireRoom(socket);
     requireSuccess(roomManager.setReady(code, socket.data.accountId, true));
-    if (roomManager.isAllReady(code)) {
+    const room = roomManager.getRoomInfo(code);
+    if (room && roomManager.isAllReady(code)) {
       const players = roomManager.getSeatPlayers(code);
       if (!players) throw actionError('All four seats must be filled.');
       roomManager.setRoomStatus(code, 'playing');
-      gameManager.startGame(code, players);
+      requireSuccess(gameManager.startGame(code, room.gameType, players));
     }
     return { success: true };
   }));

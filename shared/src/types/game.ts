@@ -2,6 +2,7 @@
 
 import type { RoomCode } from './room';
 import type { PlayerInfo, Seat } from './player';
+import type { BigTwoComboType } from '../rules/bigtwo';
 
 /** 花色 */
 export type Suit = 'clubs' | 'diamonds' | 'hearts' | 'spades';
@@ -87,8 +88,9 @@ export interface BiddingState {
   readonly isFirstRound: boolean;
 }
 
-/** 完整遊戲狀態（伺服器內部） */
-export interface GameState {
+/** 完整橋牌遊戲狀態（伺服器內部） */
+export interface BridgeGameState {
+  readonly gameType: 'bridge';
   readonly id: string;
   readonly startedAt: number;
   readonly players: Record<Seat, PlayerInfo>;
@@ -105,8 +107,9 @@ export interface GameState {
   redealDeclinedSeats: Seat[];
 }
 
-/** 給特定玩家的可見遊戲狀態（隱藏他人手牌） */
-export interface PlayerVisibleGameState {
+/** 給特定玩家的可見橋牌狀態（隱藏他人手牌） */
+export interface BridgeVisibleState {
+  readonly gameType: 'bridge';
   readonly validCards: readonly Card[];
   readonly phase: GamePhase;
   readonly myHand: readonly Card[];
@@ -120,10 +123,79 @@ export interface PlayerVisibleGameState {
   readonly redealPendingSeat: Seat | null;
 }
 
+// ─── 大老二 ───
+
+export interface BigTwoPlay {
+  readonly seat: Seat;
+  readonly cards: Card[];
+  readonly comboType: BigTwoComboType;
+}
+
+export type BigTwoLogEntry =
+  | { readonly type: 'play'; readonly seat: Seat; readonly cards: Card[]; readonly comboType: BigTwoComboType; readonly timestamp: number }
+  | { readonly type: 'pass'; readonly seat: Seat; readonly timestamp: number }
+  | { readonly type: 'round_end'; readonly leaderSeat: Seat; readonly timestamp: number }
+  | { readonly type: 'dragon'; readonly seat: Seat; readonly timestamp: number };
+
+export interface BigTwoMatchResult {
+  readonly gameType: 'bigtwo';
+  readonly winnerSeat: Seat;
+  readonly dragon: boolean;
+  readonly cardsLeft: Record<Seat, number>;
+  readonly twosLeft: Record<Seat, number>;
+  /** 贏家為 0 */
+  readonly scores: Record<Seat, number>;
+}
+
+export type BigTwoPhase = 'playing' | 'scoring';
+
+export interface BigTwoGameState {
+  readonly gameType: 'bigtwo';
+  readonly id: string;
+  readonly startedAt: number;
+  readonly players: Record<Seat, PlayerInfo>;
+  readonly roomCode: RoomCode;
+  phase: BigTwoPhase;
+  hands: Record<Seat, Card[]>;
+  currentTurnSeat: Seat;
+  /** null = 自由出牌 */
+  lastPlay: BigTwoPlay | null;
+  lockedSeats: Seat[];
+  /** 首手仍須含 ♣3 */
+  firstPlay: boolean;
+  log: BigTwoLogEntry[];
+  result: BigTwoMatchResult | null;
+}
+
+export interface BigTwoVisibleState {
+  readonly gameType: 'bigtwo';
+  readonly phase: BigTwoPhase;
+  readonly mySeat: Seat;
+  readonly myHand: readonly Card[];
+  readonly handCounts: Record<Seat, number>;
+  readonly currentTurnSeat: Seat;
+  readonly lastPlay: BigTwoPlay | null;
+  readonly lockedSeats: readonly Seat[];
+  readonly firstPlay: boolean;
+  readonly log: readonly BigTwoLogEntry[];
+  readonly result: BigTwoMatchResult | null;
+  /** 結算時公開所有手牌 */
+  readonly revealedHands: Record<Seat, Card[]> | null;
+}
+
+// ─── 跨遊戲 ───
+
+export type AnyGameState = BridgeGameState | BigTwoGameState;
+
+export type PlayerVisibleGameState = BridgeVisibleState | BigTwoVisibleState;
+
+export type MatchResult = ({ readonly gameType: 'bridge' } & GameResult) | BigTwoMatchResult;
+
 export interface MatchSummary {
   readonly id: string;
   readonly roomCode: RoomCode;
+  /** 依座位 N, E, S, W 排序 */
   readonly accountIds: readonly string[];
-  readonly result: GameResult;
+  readonly result: MatchResult;
   readonly finishedAt: number;
 }
