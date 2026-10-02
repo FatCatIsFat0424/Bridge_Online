@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VoiceIncomingSignal, VoiceJoinResult, VoiceRoomState } from '@shared/types/voice';
-import { createVoiceSession, initialVoiceState } from '../../../client/src/voice/voice-session';
+import {
+  createVoiceSession,
+  initialVoiceState,
+  parsePeerPrefs,
+} from '../../../client/src/voice/voice-session';
 import type {
   VoiceClientState,
   VoiceSession,
@@ -17,6 +21,7 @@ interface MockPeer {
   ontrack: ((event: RTCTrackEvent) => void) | null;
   onconnectionstatechange: (() => void) | null;
   addTrack: ReturnType<typeof vi.fn>;
+  getSenders: () => MockSender[];
   createOffer: ReturnType<typeof vi.fn>;
   createAnswer: ReturnType<typeof vi.fn>;
   setLocalDescription: ReturnType<typeof vi.fn>;
@@ -25,7 +30,13 @@ interface MockPeer {
   close: ReturnType<typeof vi.fn>;
 }
 
+interface MockSender {
+  track: unknown;
+  replaceTrack: ReturnType<typeof vi.fn>;
+}
+
 function makePeer(): MockPeer {
+  const senders: MockSender[] = [];
   const peer: MockPeer = {
     signalingState: 'stable',
     connectionState: 'new',
@@ -34,7 +45,17 @@ function makePeer(): MockPeer {
     onicecandidate: null,
     ontrack: null,
     onconnectionstatechange: null,
-    addTrack: vi.fn(),
+    addTrack: vi.fn((track: unknown) => {
+      const sender: MockSender = {
+        track,
+        replaceTrack: vi.fn(async (next: unknown) => {
+          sender.track = next;
+        }),
+      };
+      senders.push(sender);
+      return sender;
+    }),
+    getSenders: () => senders,
     createOffer: vi.fn(async () => ({ type: 'offer', sdp: 'local-offer' })),
     createAnswer: vi.fn(async () => ({ type: 'answer', sdp: 'local-answer' })),
     setLocalDescription: vi.fn(async (description: RTCSessionDescriptionInit) => {
@@ -81,7 +102,9 @@ function makeStream(tracks: ReturnType<typeof makeTrack>[]): MediaStream {
 function makeAudio(): {
   hidden: boolean;
   muted: boolean;
+  volume: number;
   srcObject: MediaProvider | null;
+  setSinkId: ReturnType<typeof vi.fn>;
   play: ReturnType<typeof vi.fn>;
   pause: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
@@ -90,7 +113,9 @@ function makeAudio(): {
   return {
     hidden: false,
     muted: false,
+    volume: 1,
     srcObject: null,
+    setSinkId: vi.fn(async () => undefined),
     play: vi.fn(async () => undefined),
     pause: vi.fn(),
     remove: vi.fn(),
@@ -427,6 +452,76 @@ describe('voice session lifecycle', () => {
     expect(emit).toHaveBeenCalledWith('voice:settings', { muted: false, deafened: false });
   });
 
+  it('should switch the microphone on every sender, stop the old track and keep mute state', async () => {
+    joinResult = { success: true, peerId: 'self', state: room('self', ['remote', 'remote2']) };
+    await session.join('ABC123', 'alice');
+    session.setMuted(true);
+    const usb = makeTrack();
+    media.mockResolvedValueOnce(makeStream([usb]));
+    await session.setInputDevice('usb-mic');
+    expect(media).toHaveBeenLastCalledWith({
+      audio: {
+        deviceId: { exact: 'usb-mic' },
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    });
+    for (const peer of peerConnections)
+      expect(peer.getSenders()[0].replaceTrack).toHaveBeenCalledWith(usb);
+    expect(microphone.stop).toHaveBeenCalledOnce();
+    expect(usb.enabled).toBe(false);
+    expect(state).toMatchObject({ status: 'joined', inputDeviceId: 'usb-mic' });
+    microphone.dispatchEvent(new Event('ended'));
+    expect(state.status).toBe('joined');
+    receive('voice:state', room('self', ['remote', 'remote2', 'remote3']));
+    expect(peerConnections[2].addTrack).toHaveBeenCalledWith(usb, expect.anything());
+    usb.dispatchEvent(new Event('ended'));
+    expect(state).toMatchObject({ status: 'error', error: 'microphone-ended' });
+  });
+
+  it('should fall back to the default microphone when the remembered one is gone', async () => {
+    session.dispose();
+    session = createVoiceSession(transport as unknown as VoiceSocket, (next) => {
+      state = next;
+    }, { inputDeviceId: 'unplugged' });
+    media.mockRejectedValueOnce({ name: 'OverconstrainedError' });
+    await session.join('ABC123', 'alice');
+    expect(media).toHaveBeenCalledTimes(2);
+    expect(state).toMatchObject({ status: 'joined', inputDeviceId: null });
+  });
+
+  it('should compose per-player mute and volume with global deafen', async () => {
+    joinResult = { success: true, peerId: 'self', state: room('self', ['remote', 'remote2']) };
+    await session.join('ABC123', 'alice');
+    session.setPeerMuted('account-remote', true);
+    session.setPeerVolume('account-remote2', 0.4);
+    expect(audios.map((audio) => [audio.muted, audio.volume])).toEqual([[true, 1], [false, 0.4]]);
+    session.setDeafened(true);
+    expect(audios.every((audio) => audio.muted)).toBe(true);
+    session.setDeafened(false);
+    incomingTrack(0);
+    expect(audios.map((audio) => audio.muted)).toEqual([true, false]);
+    expect(state.peerPrefs).toEqual({
+      'account-remote': { muted: true, volume: 1 },
+      'account-remote2': { muted: false, volume: 0.4 },
+    });
+  });
+
+  it('should route remote audio to the chosen output only when the browser supports it', async () => {
+    joinResult = { success: true, peerId: 'self', state: room('self', ['remote']) };
+    await session.join('ABC123', 'alice');
+    session.setOutputDevice('headset');
+    expect(audios[0].setSinkId).not.toHaveBeenCalled();
+    expect(state.outputDeviceId).toBe('headset');
+    vi.stubGlobal('HTMLMediaElement', { prototype: { setSinkId: vi.fn() } });
+    session.setOutputDevice('speakers');
+    expect(audios[0].setSinkId).toHaveBeenCalledWith('speakers');
+    receive('voice:state', room('self', ['remote', 'remote2']));
+    expect(audios[1].setSinkId).toHaveBeenCalledWith('speakers');
+  });
+
   it('should buffer ICE before SDP, answer only the designated offerer and discard stale peer signals', async () => {
     joinResult = { success: true, peerId: 'z-self', state: room('z-self', ['a-remote']) };
     await session.join('ABC123', 'alice');
@@ -582,6 +677,18 @@ describe('voice session lifecycle', () => {
     expect([...listeners.values()].every((handlers) => handlers.size === 0)).toBe(true);
     expect(microphone.stop).toHaveBeenCalledOnce();
     expect(peerConnections).toHaveLength(0);
+  });
+});
+
+describe('stored peer preferences', () => {
+  it('should keep valid entries and drop malformed storage', () => {
+    expect(parsePeerPrefs(JSON.stringify({
+      a: { muted: true, volume: 0.5 },
+      b: { muted: 'yes', volume: 1 },
+      c: { muted: false, volume: 3 },
+    }))).toEqual({ a: { muted: true, volume: 0.5 } });
+    expect(parsePeerPrefs('not json')).toEqual({});
+    expect(parsePeerPrefs(null)).toEqual({});
   });
 });
 

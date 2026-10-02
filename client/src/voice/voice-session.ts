@@ -30,6 +30,15 @@ export interface VoiceClientState {
   deafened: boolean;
   error: VoiceErrorCode | null;
   autoplayBlocked: boolean;
+  inputDeviceId: string | null;
+  outputDeviceId: string | null;
+  peerPrefs: Record<string, PeerPreference>;
+}
+
+/** Local listening preference for one remote player, keyed by account ID. */
+export interface PeerPreference {
+  muted: boolean;
+  volume: number;
 }
 
 export interface VoiceSession {
@@ -38,6 +47,10 @@ export interface VoiceSession {
   setMuted(muted: boolean): void;
   setDeafened(deafened: boolean): void;
   resumeAudio(): Promise<void>;
+  setInputDevice(deviceId: string | null): Promise<void>;
+  setOutputDevice(deviceId: string | null): void;
+  setPeerMuted(accountId: string, muted: boolean): void;
+  setPeerVolume(accountId: string, volume: number): void;
   dispose(): void;
 }
 
@@ -72,11 +85,60 @@ export function initialVoiceState(): VoiceClientState {
     deafened: false,
     error: null,
     autoplayBlocked: false,
+    inputDeviceId: null,
+    outputDeviceId: null,
+    peerPrefs: {},
   };
 }
 
+export const DEFAULT_PEER_PREFERENCE: PeerPreference = { muted: false, volume: 1 };
+
+/** Parses stored per-account peer preferences, dropping malformed entries. */
+export function parsePeerPrefs(raw: string | null): Record<string, PeerPreference> {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw ?? '{}');
+  } catch {
+    return {};
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+  const prefs: Record<string, PeerPreference> = {};
+  for (const [id, entry] of Object.entries(value)) {
+    if (
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof entry.muted === 'boolean' &&
+      typeof entry.volume === 'number' &&
+      entry.volume >= 0 &&
+      entry.volume <= 1
+    )
+      prefs[id] = { muted: entry.muted, volume: entry.volume };
+  }
+  return prefs;
+}
+
+export function outputSelectionSupported(): boolean {
+  return typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype;
+}
+
+export async function listAudioDevices(): Promise<{
+  inputs: MediaDeviceInfo[];
+  outputs: MediaDeviceInfo[];
+}> {
+  const devices = (await navigator.mediaDevices?.enumerateDevices?.()) ?? [];
+  const usable = devices.filter((device) => device.deviceId !== '');
+  return {
+    inputs: usable.filter((device) => device.kind === 'audioinput'),
+    outputs: usable.filter((device) => device.kind === 'audiooutput'),
+  };
+}
+
+function errorName(error: unknown): unknown {
+  return typeof error === 'object' && error !== null && 'name' in error ? error.name : '';
+}
+
 function mediaError(error: unknown): VoiceErrorCode {
-  const name = typeof error === 'object' && error !== null && 'name' in error ? error.name : '';
+  const name = errorName(error);
   if (name === 'NotAllowedError' || name === 'SecurityError') return 'permission';
   if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'no-microphone';
   return 'microphone-busy';
@@ -86,13 +148,24 @@ function mediaError(error: unknown): VoiceErrorCode {
 export function createVoiceSession(
   socket: VoiceSocket,
   onChange: (state: VoiceClientState) => void,
-  options: { iceServers?: () => RTCIceServer[]; muted?: boolean; deafened?: boolean } = {},
+  options: {
+    iceServers?: () => RTCIceServer[];
+    muted?: boolean;
+    deafened?: boolean;
+    inputDeviceId?: string | null;
+    outputDeviceId?: string | null;
+    peerPrefs?: Record<string, PeerPreference>;
+  } = {},
 ): VoiceSession {
   let state = {
     ...initialVoiceState(),
     muted: options.muted ?? false,
     deafened: options.deafened ?? false,
+    inputDeviceId: options.inputDeviceId ?? null,
+    outputDeviceId: options.outputDeviceId ?? null,
+    peerPrefs: { ...options.peerPrefs },
   };
+  let inputSwitch = 0;
   let generation = 0;
   let disposed = false;
   let localStream: MediaStream | null = null;
@@ -112,7 +185,49 @@ export function createVoiceSession(
       onChange({
         ...state,
         participants: state.participants.map((participant) => ({ ...participant })),
+        peerPrefs: { ...state.peerPrefs },
       });
+  }
+
+  function audioConstraints(): MediaStreamConstraints {
+    return {
+      audio: {
+        ...(state.inputDeviceId ? { deviceId: { exact: state.inputDeviceId } } : {}),
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    };
+  }
+
+  function watchTrack(track: MediaStreamTrack, currentGeneration: number): void {
+    const ended = (): void => {
+      if (currentGeneration === generation) release('microphone-ended');
+    };
+    track.addEventListener('ended', ended);
+    trackListeners.set(track, ended);
+  }
+
+  /** Effective playback: global deafen always wins over the per-player preference. */
+  function applyPeerAudio(peer: Peer): void {
+    const accountId = state.participants.find(
+      (participant) => participant.peerId === peer.id,
+    )?.accountId;
+    const preference = (accountId && state.peerPrefs[accountId]) || DEFAULT_PEER_PREFERENCE;
+    peer.audio.muted = state.deafened || preference.muted;
+    peer.audio.volume = preference.volume;
+  }
+
+  function applySink(peer: Peer): void {
+    if (outputSelectionSupported())
+      peer.audio.setSinkId(state.outputDeviceId ?? '').catch(() => undefined);
+  }
+
+  function setPeerPreference(accountId: string, update: Partial<PeerPreference>): void {
+    const preference = { ...DEFAULT_PEER_PREFERENCE, ...state.peerPrefs[accountId], ...update };
+    publish({ peerPrefs: { ...state.peerPrefs, [accountId]: preference } });
+    for (const peer of peers.values()) applyPeerAudio(peer);
   }
 
   function control<T>(operation: () => Promise<T>): Promise<T> {
@@ -260,7 +375,8 @@ export function createVoiceSession(
     };
     peers.set(id, peer);
     audio.hidden = true;
-    audio.muted = state.deafened;
+    applyPeerAudio(peer);
+    if (state.outputDeviceId) applySink(peer);
     audio.setAttribute('playsinline', '');
     audio.setAttribute('data-voice-peer', id);
     document.body.appendChild(audio);
@@ -279,7 +395,7 @@ export function createVoiceSession(
     };
     connection.ontrack = (event): void => {
       if (!active(peer) || event.track.kind !== 'audio') return;
-      audio.muted = state.deafened;
+      applyPeerAudio(peer);
       audio.srcObject = event.streams[0] ?? new MediaStream([event.track]);
       void playAudio(peer);
     };
@@ -445,10 +561,21 @@ export function createVoiceSession(
       publish({ status: 'joining', roomCode, peerId: null, error: null, autoplayBlocked: false });
       let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: false,
-        });
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(audioConstraints());
+        } catch (error) {
+          // A remembered microphone may have been unplugged; fall back to the default device.
+          const name = errorName(error);
+          if (
+            !state.inputDeviceId ||
+            (name !== 'OverconstrainedError' && name !== 'NotFoundError') ||
+            currentGeneration !== generation ||
+            disposed
+          )
+            throw error;
+          publish({ inputDeviceId: null });
+          stream = await navigator.mediaDevices.getUserMedia(audioConstraints());
+        }
       } catch (error) {
         if (currentGeneration === generation && !disposed) release(mediaError(error));
         return;
@@ -467,11 +594,7 @@ export function createVoiceSession(
       }
       for (const track of stream.getAudioTracks()) {
         track.enabled = !state.muted;
-        const ended = (): void => {
-          if (currentGeneration === generation) release('microphone-ended');
-        };
-        track.addEventListener('ended', ended);
-        trackListeners.set(track, ended);
+        watchTrack(track, currentGeneration);
       }
       try {
         await control(async () => {
@@ -520,13 +643,62 @@ export function createVoiceSession(
     setDeafened(deafened): void {
       publish({ deafened });
       for (const peer of peers.values()) {
-        peer.audio.muted = deafened;
+        applyPeerAudio(peer);
         if (!deafened) void playAudio(peer);
       }
       sendSettings();
     },
     async resumeAudio(): Promise<void> {
       await Promise.all([...peers.values()].map(playAudio));
+    },
+    async setInputDevice(deviceId): Promise<void> {
+      publish({ inputDeviceId: deviceId });
+      if (!localStream || disposed) return;
+      const currentGeneration = generation;
+      const currentSwitch = ++inputSwitch;
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(audioConstraints());
+      } catch (error) {
+        if (currentGeneration === generation && currentSwitch === inputSwitch && !disposed)
+          publish({ error: mediaError(error) });
+        return;
+      }
+      const track = stream.getAudioTracks()[0];
+      if (
+        !track ||
+        !localStream ||
+        disposed ||
+        currentGeneration !== generation ||
+        currentSwitch !== inputSwitch
+      ) {
+        stream.getTracks().forEach((stale) => stale.stop());
+        return;
+      }
+      const oldTracks = localStream.getTracks();
+      track.enabled = !state.muted;
+      watchTrack(track, currentGeneration);
+      for (const peer of peers.values())
+        for (const sender of peer.connection.getSenders())
+          if (sender.track && oldTracks.includes(sender.track))
+            sender.replaceTrack(track).catch(() => failPeer(peer, 'connection-failed'));
+      for (const old of oldTracks) {
+        const listener = trackListeners.get(old);
+        if (listener) old.removeEventListener('ended', listener);
+        trackListeners.delete(old);
+        old.stop();
+      }
+      localStream = stream;
+    },
+    setOutputDevice(deviceId): void {
+      publish({ outputDeviceId: deviceId });
+      for (const peer of peers.values()) applySink(peer);
+    },
+    setPeerMuted(accountId, muted): void {
+      setPeerPreference(accountId, { muted });
+    },
+    setPeerVolume(accountId, volume): void {
+      setPeerPreference(accountId, { volume: Math.max(0, Math.min(1, volume)) });
     },
     dispose(): void {
       if (disposed) return;
