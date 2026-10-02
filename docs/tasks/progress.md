@@ -2,6 +2,31 @@
 
 > **最後更新**: 2026-10-03
 
+## systemd deployment
+
+- Deployment health checks now wait for healthy JSON during backend startup and
+  Nginx reload, including transient 404 responses, before deciding to roll back.
+
+- Fixed first-install startup: reset failure counters only for failed units.
+  Added regression coverage for unloaded, inactive, active, and failed units,
+  including propagation of reset/start errors.
+
+- Added `deploy/build.sh` and `deploy/deploy.sh` for validated artifacts and a
+  single sudo-aware deployment command, including managed Nginx route updates,
+  backups, configuration rollback, and health checks.
+- Prepared Node 24 artifacts and passed 190 application tests, 19 deployment tests,
+  shell syntax checks, and candidate Nginx validation using temporary TLS files
+  and unprivileged ports. Root installation is performed by the user's script command.
+
+- [x] Service installer, local proxy trust, and `/bridge_online/` routing; see the
+  [deployment guide](../wiki/deployment.md).
+- Verified: full typecheck, lint, 190 tests, root/subpath builds, shell and unit
+  validation, isolated runtime startup, Nginx SPA/assets/API/cookie/WebSocket checks.
+- Production deployment is operational: the public HTTPS health endpoint returns
+  healthy JSON and the user confirmed functionality. The collaborative browser
+  could not reach the isolated loopback preview. A reported voice connection warning
+  has been analyzed; no voice behavior changes are included in this deployment task.
+
 ## 帳號與資料庫擴充
 
 - [x] [08 — Accounts, Persistence, Profiles & Friends](./08-accounts-persistence-social.md)

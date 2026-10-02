@@ -49,7 +49,7 @@ interface RateBucket {
   resetAt: number;
 }
 
-/** Bounded, process-local abuse protection. Keys are never trusted forwarded headers. */
+/** Bounded, process-local abuse protection using Express's configured proxy trust policy. */
 export function createRateLimiter(limit: number, windowMs: number, keyPrefix = ''): RequestHandler {
   const buckets = new Map<string, RateBucket>();
   return (request, response, next) => {

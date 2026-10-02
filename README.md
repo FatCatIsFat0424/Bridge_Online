@@ -48,6 +48,8 @@ npm run dev:client
 | 名稱 | 預設／用途 |
 | --- | --- |
 | `PORT` | `3001` |
+| `HOST` | Optional listening IP; see [deployment](docs/wiki/deployment.md) |
+| `TRUST_PROXY_LOOPBACK` | `false`; enable only for a trusted local reverse proxy |
 | `DATABASE_PATH` | `server/data/database.json`；可指定絕對路徑 |
 | `CLIENT_ORIGIN` | `http://localhost:5173,http://127.0.0.1:5173`；正式環境必填 |
 | `NODE_ENV` | `production` 時 cookie 啟用 Secure，須使用 HTTPS |
@@ -109,6 +111,7 @@ Benchmark 使用獨立暫存資料，不使用正式資料庫。測試分別涵�
 
 ## 文件
 
+- [Deploy with systemd at /bridge_online/](docs/wiki/deployment.md)
 - [Wiki](docs/wiki/index.md)
 - [API](docs/wiki/api-events.md)
 - [帳號／JSON／SQL 遷移](docs/wiki/accounts-and-storage.md)

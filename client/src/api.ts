@@ -1,4 +1,5 @@
-export const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? '';
+import { API_BASE_URL } from './deployment';
+
 let accountEpoch = 0;
 
 export function invalidateAccountRequests(): void {
@@ -16,7 +17,7 @@ export async function apiRequest<T extends object = object>(
 ): Promise<ApiResult<T>> {
   const requestEpoch = accountEpoch;
   try {
-    const response = await fetch(`${SERVER_URL}${path}`, {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
       method,
       credentials: 'include',
       headers: method !== 'GET' ? { 'Content-Type': 'application/json' } : undefined,

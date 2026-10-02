@@ -9,6 +9,7 @@ import { restoreAccount, useAccountStore } from './stores/account-store';
 import { useI18nStore } from './stores/i18n-store';
 import { useRoomStore } from './stores/room-store';
 import { connectSocket, disconnectSocket } from './socket';
+import { APP_BASE_PATH } from './deployment';
 import styles from './pages/AccountPages.module.css';
 
 const LobbyPage = lazy(() => import('./pages/LobbyPage').then((page) => ({ default: page.LobbyPage })));
@@ -77,7 +78,7 @@ function AppRoutes(): ReactNode {
 
 export function App(): ReactNode {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={APP_BASE_PATH}>
       <AppRoutes />
     </BrowserRouter>
   );

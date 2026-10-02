@@ -5,6 +5,11 @@
 以下按目錄列出目前模組；同名 `.module.css` 是對應元件的隔離樣式。
 帳號、好友與儲存流程見[帳號與持久化儲存](./accounts-and-storage.md)。
 
+Deployment configuration and commands are documented in [deployment](./deployment.md).
+`client/src/deployment.ts` derives the Router, API, and Socket.IO paths from the
+build-time base URL. `server/src/index.ts` validates the listening IP and optional
+loopback proxy trust; the application uses that policy for per-client rate limits.
+
 ## Shared（`shared/src/`）
 
 | 檔案 | 職責 |

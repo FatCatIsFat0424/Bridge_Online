@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # Persistent application database and atomic-write files
 server/data/
+
+# Local deployment runtime prepared by deploy/build.sh
+.deploy/
