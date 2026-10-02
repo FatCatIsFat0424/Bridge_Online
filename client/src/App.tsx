@@ -3,11 +3,10 @@
 import { lazy, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { AccountNav } from './components/AccountNav';
+import { TopBar } from './components/TopBar';
 import { useAccountConnection } from './hooks/use-account-connection';
 import { restoreAccount, useAccountStore } from './stores/account-store';
 import { useI18nStore } from './stores/i18n-store';
-import { useRoomStore } from './stores/room-store';
 import { connectSocket, disconnectSocket } from './socket';
 import { APP_BASE_PATH } from './deployment';
 import styles from './pages/AccountPages.module.css';
@@ -20,8 +19,6 @@ const AccountPage = lazy(() => import('./pages/AccountPage').then((page) => ({ d
 const FriendsPage = lazy(() => import('./pages/FriendsPage').then((page) => ({ default: page.FriendsPage })));
 const PlayerProfilePage = lazy(() => import('./pages/PlayerProfilePage')
   .then((page) => ({ default: page.PlayerProfilePage })));
-const VoicePanel = lazy(() => import('./components/VoicePanel')
-  .then((module) => ({ default: module.VoicePanel })));
 
 function PageLoading(): ReactNode {
   const { t } = useI18nStore();
@@ -31,13 +28,10 @@ function PageLoading(): ReactNode {
 function ProtectedRoute(): ReactNode {
   const accountId = useAccountStore((state) => state.account?.id);
   const connection = useAccountStore((state) => state.connection);
-  const roomCode = useRoomStore((state) => state.currentRoomCode);
   const location = useLocation();
   const { t } = useI18nStore();
   if (!accountId) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   return <>
-    <AccountNav />
-    <Suspense fallback={null}>{roomCode && <VoicePanel />}</Suspense>
     {connection === 'ready' ? <Suspense fallback={<PageLoading />}><Outlet /></Suspense>
       : <main className={styles.status}>
       <p role="status">{t(connection === 'error' ? 'auth.connectionError' : 'auth.connecting')}</p>
@@ -79,6 +73,7 @@ function AppRoutes(): ReactNode {
 export function App(): ReactNode {
   return (
     <BrowserRouter basename={APP_BASE_PATH}>
+      <TopBar />
       <AppRoutes />
     </BrowserRouter>
   );
