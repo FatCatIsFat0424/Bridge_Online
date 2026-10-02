@@ -241,16 +241,85 @@ export interface RedPointsVisibleState {
   readonly result: RedPointsMatchResult | null;
 }
 
+// ─── 99 ───
+
+export type NinetyNineDirection = 'ccw' | 'cw';
+
+/** play = 出牌（total 為出牌後累計點數）；eliminated = 輪到時無牌可出而爆掉 */
+export type NinetyNineLogEntry =
+  | {
+    readonly type: 'play';
+    readonly seat: Seat;
+    readonly card: Card;
+    readonly choice: 'plus' | 'minus' | null;
+    readonly target: Seat | null;
+    readonly total: number;
+    readonly timestamp: number;
+  }
+  | { readonly type: 'eliminated'; readonly seat: Seat; readonly timestamp: number };
+
+export interface NinetyNineMatchResult {
+  readonly gameType: 'ninetynine';
+  readonly winnerSeat: Seat;
+  /** 依淘汰先後 */
+  readonly eliminationOrder: Seat[];
+  readonly finalTotal: number;
+}
+
+export type NinetyNinePhase = 'playing' | 'scoring';
+
+export interface NinetyNineGameState {
+  readonly gameType: 'ninetynine';
+  readonly id: string;
+  readonly startedAt: number;
+  readonly players: Record<Seat, PlayerInfo>;
+  readonly roomCode: RoomCode;
+  phase: NinetyNinePhase;
+  hands: Record<Seat, Card[]>;
+  /** 僅伺服器持有；stock[0] 為牌堆頂 */
+  stock: Card[];
+  /** 僅伺服器持有；最後一張為最近打出的牌 */
+  discard: Card[];
+  total: number;
+  direction: NinetyNineDirection;
+  currentTurnSeat: Seat;
+  /** 依淘汰先後 */
+  eliminated: Seat[];
+  log: NinetyNineLogEntry[];
+  result: NinetyNineMatchResult | null;
+}
+
+export interface NinetyNineVisibleState {
+  readonly gameType: 'ninetynine';
+  readonly phase: NinetyNinePhase;
+  readonly mySeat: Seat;
+  readonly myHand: readonly Card[];
+  readonly handCounts: Record<Seat, number>;
+  readonly total: number;
+  readonly direction: NinetyNineDirection;
+  readonly currentTurnSeat: Seat;
+  readonly lastPlayed: Card | null;
+  readonly stockCount: number;
+  readonly eliminated: readonly Seat[];
+  readonly log: readonly NinetyNineLogEntry[];
+  readonly result: NinetyNineMatchResult | null;
+}
+
 // ─── 跨遊戲 ───
 
-export type AnyGameState = BridgeGameState | BigTwoGameState | RedPointsGameState;
+export type AnyGameState = BridgeGameState | BigTwoGameState | RedPointsGameState | NinetyNineGameState;
 
-export type PlayerVisibleGameState = BridgeVisibleState | BigTwoVisibleState | RedPointsVisibleState;
+export type PlayerVisibleGameState =
+  | BridgeVisibleState
+  | BigTwoVisibleState
+  | RedPointsVisibleState
+  | NinetyNineVisibleState;
 
 export type MatchResult =
   | ({ readonly gameType: 'bridge' } & GameResult)
   | BigTwoMatchResult
-  | RedPointsMatchResult;
+  | RedPointsMatchResult
+  | NinetyNineMatchResult;
 
 export interface MatchSummary {
   readonly id: string;

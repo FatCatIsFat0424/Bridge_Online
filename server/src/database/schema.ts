@@ -1,4 +1,4 @@
-import { isBigTwoResult, isRedPointsResult, isRuntimeSnapshot } from '../runtime/validate';
+import { isBigTwoResult, isNinetyNineResult, isRedPointsResult, isRuntimeSnapshot } from '../runtime/validate';
 import {
   GAME_TYPES, MAX_EMOJIS_PER_ACCOUNT, NICKNAME_MAX_LENGTH, isEmojiName, isMediaId,
 } from '@shared/constants';
@@ -97,6 +97,7 @@ function validMatch(value: unknown): value is MatchRecord {
     bridge: validBridgeResult,
     bigtwo: isBigTwoResult,
     redpoints: isRedPointsResult,
+    ninetynine: isNinetyNineResult,
   };
   const gameType = value.result.gameType;
   return typeof gameType === 'string' && GAME_TYPES.includes(gameType as GameType) &&

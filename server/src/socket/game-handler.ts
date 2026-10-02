@@ -5,6 +5,8 @@ import * as roomManager from '../managers/room-manager';
 import * as gameManager from '../managers/game-manager';
 import * as chatManager from '../managers/chat-manager';
 
+const SEATS: readonly Seat[] = ['N', 'E', 'S', 'W'];
+
 function playerSeat(socket: TypedSocket, code: string): Seat {
   const seat = roomManager.getPlayerSeat(code, socket.data.accountId);
   if (!seat) throw actionError('Select a seat first.');
@@ -87,6 +89,19 @@ export function registerGameHandlers(context: SocketContext, socket: TypedSocket
     const code = requireRoom(socket);
     requireSuccess(gameManager.handleRedPointsChooseFlip(code, playerSeat(socket, code),
       { suit: capture.suit, rank: capture.rank }));
+    return { success: true };
+  }));
+
+  socket.on('game:ninetynine:play', (payload, callback) => runAction(context, socket, callback, () => {
+    const card: unknown = payload?.card;
+    const choice: unknown = payload?.choice;
+    const target: unknown = payload?.target;
+    if (!isCard(card)) throw actionError('Invalid card.');
+    if (choice !== undefined && choice !== 'plus' && choice !== 'minus') throw actionError('Invalid choice.');
+    if (target !== undefined && !SEATS.includes(target as Seat)) throw actionError('Invalid target.');
+    const code = requireRoom(socket);
+    requireSuccess(gameManager.handleNinetyNinePlay(code, playerSeat(socket, code), { suit: card.suit, rank: card.rank },
+      choice, target as Seat | undefined));
     return { success: true };
   }));
 

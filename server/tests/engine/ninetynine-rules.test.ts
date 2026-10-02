@@ -19,7 +19,7 @@ function c(code: string): Card {
   return { rank: RANKS[code.slice(0, -1)], suit: SUITS[code.slice(-1)] };
 }
 
-const plain = { reverse: false, skip: false, designate: false };
+const plain = { reverse: false, designate: false };
 
 describe('ninety-nine rules', () => {
   it('exposes constants', () => {
@@ -49,10 +49,10 @@ describe('ninety-nine rules', () => {
     expect(nnApply(50, c('AS'))).toEqual({ total: 0, ...plain });
   });
 
-  it('4 reverses, 5 designates, J skips, all keeping the total', () => {
-    expect(nnApply(42, c('4H'))).toEqual({ total: 42, reverse: true, skip: false, designate: false });
-    expect(nnApply(42, c('5H'))).toEqual({ total: 42, reverse: false, skip: false, designate: true });
-    expect(nnApply(42, c('JH'))).toEqual({ total: 42, reverse: false, skip: true, designate: false });
+  it('4 reverses, 5 designates, J passes, all keeping the total', () => {
+    expect(nnApply(42, c('4H'))).toEqual({ total: 42, reverse: true, designate: false });
+    expect(nnApply(42, c('5H'))).toEqual({ total: 42, reverse: false, designate: true });
+    expect(nnApply(42, c('JH'))).toEqual({ total: 42, reverse: false, designate: false });
   });
 
   it('K sets the total to 99', () => {

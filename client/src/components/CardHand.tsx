@@ -13,6 +13,9 @@ interface CardHandProps {
   disabled?: boolean;
   /** 多選模式：每張牌皆可點擊切換，已選的牌升起（取代 playableCards 標示） */
   selectedCards?: readonly Card[];
+  /** 額外標示的牌（99：出了會超過 99） */
+  markedCards?: readonly Card[];
+  markedLabel?: string;
 }
 
 function containsCard(card: Card, list?: readonly Card[]): boolean {
@@ -20,7 +23,9 @@ function containsCard(card: Card, list?: readonly Card[]): boolean {
   return list.some((c) => c.suit === card.suit && c.rank === card.rank);
 }
 
-export function CardHand({ cards, playableCards, onCardClick, disabled, selectedCards }: CardHandProps): ReactNode {
+export function CardHand({
+  cards, playableCards, onCardClick, disabled, selectedCards, markedCards, markedLabel,
+}: CardHandProps): ReactNode {
   const middle = (cards.length - 1) / 2;
   const selectMode = selectedCards !== undefined;
   return (
@@ -28,10 +33,12 @@ export function CardHand({ cards, playableCards, onCardClick, disabled, selected
       {cards.map((card, index) => {
         const playable = selectMode || containsCard(card, playableCards);
         const selected = containsCard(card, selectedCards);
+        const marked = containsCard(card, markedCards);
         const cardClasses = [
           styles.card,
           playable && !disabled && !selectMode ? styles.cardPlayable : '',
           selected ? styles.cardSelected : '',
+          marked ? styles.cardMarked : '',
         ].filter(Boolean).join(' ');
 
         return (
@@ -42,7 +49,8 @@ export function CardHand({ cards, playableCards, onCardClick, disabled, selected
             onClick={() => playable && onCardClick?.(card)}
             disabled={disabled || !playable}
             aria-pressed={selectMode ? selected : undefined}
-            aria-label={`${RANK_DISPLAY[card.rank]}${SUIT_SYMBOLS[card.suit]}`}
+            aria-label={`${RANK_DISPLAY[card.rank]}${SUIT_SYMBOLS[card.suit]}${marked && markedLabel ? ` (${markedLabel})` : ''}`}
+            title={marked ? markedLabel : undefined}
           >
             <img src={cardImageUrl(card)} alt="" draggable={false} />
           </button>

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { SUIT_SYMBOLS } from '@shared/constants';
 import { rpScore } from '@shared/rules/redpoints';
+import { NN_MAX } from '@shared/rules/ninetynine';
 import type { BidLevel, BidSuit, Seat } from '@shared/types';
 import { apiRequest } from '../api';
 import { clearAccount, useAccountStore } from '../stores/account-store';
@@ -41,6 +42,8 @@ function GameChips(): ReactNode {
   const redPointsResult = useGameStore((state) => state.redPoints?.result ?? null);
   const myRedPoints = useGameStore((state) =>
     state.redPoints && mySeat ? rpScore(state.redPoints.captured[mySeat]) : null);
+  const ninetyNineTotal = useGameStore((state) => state.ninetyNine?.total ?? null);
+  const ninetyNineWinner = useGameStore((state) => state.ninetyNine?.result?.winnerSeat ?? null);
   const seats = useRoomStore((state) => state.roomInfo?.seats);
   const seatLabel = (seat: Seat): string => t(`seat.${seat}`);
   return <div className={styles.chips}>
@@ -56,6 +59,12 @@ function GameChips(): ReactNode {
       </span>}
       {myRedPoints !== null && <span className={styles.chip}>
         {t('redpoints.myPoints', { n: String(myRedPoints) })}
+      </span>}
+      {ninetyNineTotal !== null && <span className={styles.chip} title={t('ninetynine.total')}>
+        {ninetyNineTotal} / {NN_MAX}
+      </span>}
+      {ninetyNineWinner && <span className={styles.chip}>
+        🏆 {seats?.[ninetyNineWinner].player?.nickname ?? seatLabel(ninetyNineWinner)}
       </span>}
     </>
       : contract ? <span className={styles.chip} title={t('topbar.contract')}>

@@ -20,15 +20,19 @@ const MAX_PILE = 6;
 interface TableSeatProps {
   seat: Seat;
   position: TablePosition;
+  /** 可點選座位（99：指定下一位） */
+  onPick?: () => void;
 }
 
-export function TableSeat({ seat, position }: TableSeatProps): ReactNode {
+export function TableSeat({ seat, position, onPick }: TableSeatProps): ReactNode {
   const { t } = useI18nStore();
   const player = useRoomStore((state) => state.roomInfo?.seats[seat].player ?? null);
   const isMe = useRoomStore((state) => state.mySeat === seat);
   const {
-    phase, turn, declarer, dealer, playing, bigTwoCards, redPointsCards, locked, captured,
+    phase, turn, declarer, dealer, playing, bigTwoCards, redPointsCards, ninetyNineCards, locked, captured, busted,
   } = useGameStore(useShallow((state) => ({
+    ninetyNineCards: state.ninetyNine?.handCounts[seat] ?? null,
+    busted: state.ninetyNine?.eliminated.includes(seat) ?? false,
     phase: state.phase,
     turn: state.currentTurnSeat === seat,
     declarer: state.contract?.declarer === seat,
@@ -40,11 +44,13 @@ export function TableSeat({ seat, position }: TableSeatProps): ReactNode {
     captured: state.redPoints?.captured[seat] ?? null,
   })));
   const active = turn && (phase === 'bidding' || phase === 'playing');
-  const cards = bigTwoCards ?? redPointsCards ?? remainingCards(seat, playing);
+  const cards = bigTwoCards ?? redPointsCards ?? ninetyNineCards ?? remainingCards(seat, playing);
   const redCaptured = captured?.filter((card) => rpCardPoints(card) > 0) ?? [];
 
   return (
-    <div className={`${styles.seat} ${styles[position]} ${active ? styles.turn : ''}`}>
+    <div className={`${styles.seat} ${styles[position]} ${active ? styles.turn : ''} ${onPick ? styles.pickable : ''}`}
+      role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={onPick}
+      onKeyDown={onPick ? (event) => { if (event.key === 'Enter' || event.key === ' ') onPick(); } : undefined}>
       <div className={styles.plate}>
         {player ? <PlayerLink player={player} size="medium" /> : <span className={styles.empty}>—</span>}
         <span className={styles.tags}>
@@ -53,6 +59,7 @@ export function TableSeat({ seat, position }: TableSeatProps): ReactNode {
           {declarer && <span className={styles.declarer}>{t('table.declarer')}</span>}
           {dealer && phase === 'bidding' && <span className={styles.dealer}>{t('table.dealer')}</span>}
           {locked && <span className={styles.locked}>🔒 {t('bigtwo.locked')}</span>}
+          {busted && <span className={styles.locked}>💥 {t('ninetynine.busted')}</span>}
         </span>
         {active && <span className={styles.turnFlag}>{t('table.turn')}</span>}
       </div>

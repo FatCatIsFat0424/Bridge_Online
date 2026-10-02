@@ -20,6 +20,12 @@ function MatchResultLabel({ match, players }: {
     return <span>{t('gameType.redpoints')} · 🏆 {result.winners.map(seatName).join('、')}
       {mySeat && <> · {t('redpoints.myPoints', { n: String(result.points[mySeat]) })}</>}</span>;
   }
+  if (result.gameType === 'ninetynine') {
+    // 先淘汰者名次最後
+    const myRank = mySeat && (mySeat === result.winnerSeat ? 1 : 4 - result.eliminationOrder.indexOf(mySeat));
+    return <span>{t('gameType.ninetynine')} · 🏆 {seatName(result.winnerSeat)}
+      {myRank && <> · {t('ninetynine.myRank', { n: String(myRank) })}</>}</span>;
+  }
   if (result.gameType === 'bigtwo') {
     const winnerId = match.accountIds[SEAT_ORDER_CLOCKWISE.indexOf(result.winnerSeat)];
     return <span>{t('gameType.bigtwo')} · 🏆 {players[winnerId]?.nickname ?? t(`seat.${result.winnerSeat}`)}

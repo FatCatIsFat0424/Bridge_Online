@@ -160,6 +160,17 @@
   font-weight: 800;
 }
 
+/* 99：指定下一位時可點選的座位 */
+.pickable {
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+  outline: 3px dashed var(--turn-glow);
+  outline-offset: 4px;
+}
+
+.pickable:hover,
+.pickable:focus-visible { outline-style: solid; }
+
 /* 撿紅點：紅點總分與吃到的紅牌預覽 */
 .pile {
   display: flex;

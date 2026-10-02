@@ -64,7 +64,10 @@ export interface ClientToServerEvents {
   'game:redpoints:chooseFlip': (
     payload: { capture: Card }, callback: (response: ActionResult) => void,
   ) => void;
-  'game:continue': (callback: (response: ActionResult) => void) => void;
+  'game:ninetynine:play': (
+    payload: { card: Card; choice?: 'plus' | 'minus'; target?: Seat }, callback: (response: ActionResult) => void,
+  ) => void;
+  'game:continue':(callback: (response: ActionResult) => void) => void;
   'game:abortVote:start': (callback: (response: ActionResult) => void) => void;
   'game:abortVote:cast': (
     payload: { agree: boolean }, callback: (response: ActionResult) => void,
