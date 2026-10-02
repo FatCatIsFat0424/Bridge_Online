@@ -4,8 +4,9 @@ import {
 import { isDeepStrictEqual } from 'node:util';
 import { bigTwoPenalty, identifyCombo, isDragon } from '@shared/rules/bigtwo';
 import { RP_HAND_SIZE, RP_TABLE_SIZE, rpPairOptions, rpScore } from '@shared/rules/redpoints';
+import { NN_HAND_SIZE, NN_MAX, nnHasPlayable } from '@shared/rules/ninetynine';
 import type {
-  AnyGameState, BigTwoGameState, BridgeGameState, Card, GameType, RedPointsGameState, Seat,
+  AnyGameState, BigTwoGameState, BridgeGameState, Card, GameType, NinetyNineGameState, RedPointsGameState, Seat,
 } from '@shared/types';
 import type { RuntimeSnapshot } from './types';
 
@@ -254,10 +255,54 @@ function redPointsGame(value: ObjectValue): boolean {
   );
 }
 
+/** 99 result: three distinct eliminated seats, the winner is the fourth. */
+export function isNinetyNineResult(value: unknown): boolean {
+  if (!object(value) || value.gameType !== 'ninetynine' || !oneOf(value.winnerSeat, seats) ||
+    !number(value.finalTotal) || value.finalTotal > NN_MAX || !Array.isArray(value.eliminationOrder)) return false;
+  const order: unknown[] = value.eliminationOrder;
+  return order.length === 3 && order.every((seat) => oneOf(seat, seats)) &&
+    new Set([...order, value.winnerSeat]).size === 4;
+}
+
+function ninetyNineLog(value: unknown): boolean {
+  if (!object(value) || !number(value.timestamp) || !oneOf(value.seat, seats)) return false;
+  if (value.type === 'eliminated') return true;
+  return value.type === 'play' && card(value.card) &&
+    (value.choice === null || oneOf(value.choice, ['plus', 'minus'])) &&
+    (value.target === null || oneOf(value.target, seats)) &&
+    number(value.total) && value.total <= NN_MAX;
+}
+
+function ninetyNineGame(value: ObjectValue): boolean {
+  return (
+    text(value.id) &&
+    text(value.roomCode) &&
+    number(value.startedAt) &&
+    object(value.players) &&
+    Object.keys(value.players).length === 4 &&
+    seats.every((seat) => player((value.players as ObjectValue)[seat])) &&
+    oneOf(value.phase, ['playing', 'scoring']) &&
+    seatCards(value.hands, NN_HAND_SIZE) &&
+    cards(value.stock, 52) &&
+    cards(value.discard, 52) &&
+    number(value.total) &&
+    value.total <= NN_MAX &&
+    oneOf(value.direction, ['ccw', 'cw']) &&
+    oneOf(value.currentTurnSeat, seats) &&
+    Array.isArray(value.eliminated) &&
+    value.eliminated.every((seat: unknown) => oneOf(seat, seats)) &&
+    new Set(value.eliminated).size === value.eliminated.length &&
+    Array.isArray(value.log) &&
+    value.log.every(ninetyNineLog) &&
+    (value.result === null || isNinetyNineResult(value.result))
+  );
+}
+
 const gameValidators: Record<GameType, (value: ObjectValue) => boolean> = {
   bridge: bridgeGame,
   bigtwo: bigTwoGame,
   redpoints: redPointsGame,
+  ninetynine: ninetyNineGame,
 };
 
 function game(value: unknown): boolean {
@@ -356,10 +401,33 @@ function coherentGame(state: AnyGameState): boolean {
     case 'bridge': return coherentBridgeGame(state);
     case 'bigtwo': return coherentBigTwoGame(state);
     case 'redpoints': return coherentRedPointsGame(state);
+    case 'ninetynine': return coherentNinetyNineGame(state);
   }
 }
 
 const cardId = (entry: Card): string => `${entry.suit}-${entry.rank}`;
+
+/** All 52 cards are accounted for, eliminations match the log, and the current seat can play. */
+function coherentNinetyNineGame(state: NinetyNineGameState): boolean {
+  if (new Set(seats.map((seat) => state.players[seat].id)).size !== 4) return false;
+  const { eliminated, result } = state;
+  const all = [...seats.flatMap((seat) => state.hands[seat]), ...state.stock, ...state.discard];
+  if (all.length !== 52 || new Set(all.map(cardId)).size !== 52) return false;
+  const logged = state.log.flatMap((entry) => (entry.type === 'eliminated' ? [entry.seat] : []));
+  if (!isDeepStrictEqual(logged, eliminated) || eliminated.some((seat) => state.hands[seat].length > 0)) return false;
+  const lastPlay = state.log.filter((entry) => entry.type === 'play').at(-1);
+  if (lastPlay?.type === 'play'
+    ? lastPlay.total !== state.total || !isDeepStrictEqual(state.discard.at(-1), lastPlay.card)
+    : state.total !== 0 || state.discard.length > 0) return false;
+  if (state.phase === 'playing') {
+    return result === null && eliminated.length < 3 && !eliminated.includes(state.currentTurnSeat) &&
+      nnHasPlayable(state.total, state.hands[state.currentTurnSeat]);
+  }
+  return (
+    result !== null && eliminated.length === 3 && isDeepStrictEqual(result.eliminationOrder, eliminated) &&
+    result.winnerSeat === state.currentTurnSeat && result.finalTotal === state.total
+  );
+}
 
 /** All 52 cards are accounted for, piles match the log, and the pending step can resume. */
 function coherentRedPointsGame(state: RedPointsGameState): boolean {

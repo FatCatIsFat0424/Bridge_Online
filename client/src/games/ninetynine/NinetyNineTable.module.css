@@ -1,0 +1,300 @@
+/* ─── NinetyNineTable 樣式：累計點數、方向、牌堆、手牌提示、資訊欄、結算 ─── */
+
+/* ─── 牌桌中央 ─── */
+.centre {
+  --card-w: clamp(44px, 8dvh, 68px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--table-ink);
+}
+
+.card {
+  display: block;
+  width: var(--card-w);
+  aspect-ratio: 224 / 313;
+  border-radius: calc(var(--card-w) * 0.08);
+  background: var(--card-face);
+  box-shadow: var(--shadow-md);
+}
+
+.totalRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+}
+
+.total {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 12dvh, 6rem);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--table-ink);
+  text-shadow: var(--shadow-md);
+  animation: bump 0.35s ease;
+  transition: color 0.3s ease;
+}
+
+.warning { color: var(--color-warning); }
+.danger { color: var(--color-danger); }
+
+.max {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.direction {
+  font-size: clamp(1.8rem, 6dvh, 2.8rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+@keyframes bump {
+  0% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+.pileRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--spacing-md);
+}
+
+.pile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.back {
+  width: var(--card-w);
+  aspect-ratio: 224 / 313;
+  border-radius: calc(var(--card-w) * 0.08);
+  background: var(--card-back-image) center / 100% 100%, var(--card-back);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--card-back) 70%, transparent), var(--shadow-md);
+}
+
+.lastCard { animation: dealIn 0.35s ease; }
+
+@keyframes dealIn {
+  0% { transform: translateY(30%) scale(0.9); opacity: 0.3; }
+  100% { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .total, .lastCard { animation: none; }
+}
+
+.pill {
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--bg-page) 45%, transparent);
+  border: 1px solid var(--rail-border);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ─── 手牌提示列 ─── */
+.handArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 6px var(--spacing-sm) 0;
+}
+
+.prompt {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.promptActive {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-lg);
+  background: var(--rail-bg);
+  border: 1px solid var(--rail-border);
+  box-shadow: var(--shadow-md);
+}
+
+.ctrl {
+  min-height: 36px;
+  padding: 4px 14px;
+  font-size: var(--text-sm);
+}
+
+/* ─── 資訊欄 ─── */
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.box {
+  flex: none;
+  padding: 10px 14px;
+  background: var(--rail-bg);
+  border: 1px solid var(--rail-border);
+  border-radius: var(--radius-lg);
+}
+
+.caption {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+summary.caption { cursor: pointer; }
+
+.turn {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.note {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.recentBox { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+.recentList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  list-style: none;
+}
+
+.recentRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.recentName {
+  min-width: 4.5em;
+  max-width: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recentTotal {
+  margin-left: auto;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.mini {
+  --card-w: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.bustTag {
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+/* ─── 結算浮層 ─── */
+.scoreOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+  background: var(--bg-overlay);
+  animation: fadeIn 0.3s ease;
+}
+
+.overlayCard {
+  width: 100%;
+  max-width: 480px;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--spacing-xl);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  text-align: center;
+  animation: slideUp 0.5s ease;
+}
+
+.scoreTitle {
+  margin-bottom: var(--spacing-md);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-success);
+}
+
+.scoreTable {
+  width: 100%;
+  margin-bottom: var(--spacing-sm);
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.scoreTable th,
+.scoreTable td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+}
+
+.scoreTable th { color: var(--text-muted); font-weight: 600; }
+
+.winnerRow { color: var(--color-success); font-weight: 700; }
+
+.overlayCard .note { margin-bottom: var(--spacing-lg); }
+
+.error {
+  margin-bottom: var(--spacing-md);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 767px) {
+  .centre { --card-w: clamp(36px, 11vw, 52px); gap: 6px; }
+  .overlayCard { padding: var(--spacing-md); }
+  .mini { --card-w: 20px; }
+  .ctrl { min-height: 40px; padding: 4px 10px; }
+}

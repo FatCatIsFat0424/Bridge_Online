@@ -33,9 +33,14 @@ interface GameShellProps {
   overlay?: ReactNode;
   /** 牌桌上的動作錯誤 */
   error?: string;
+  /** 可點選的座位（99：指定下一位） */
+  pickableSeats?: readonly Seat[];
+  onPickSeat?: (seat: Seat) => void;
 }
 
-export function GameShell({ info, centre, hand, overlay, error }: GameShellProps): ReactNode {
+export function GameShell({
+  info, centre, hand, overlay, error, pickableSeats, onPickSeat,
+}: GameShellProps): ReactNode {
   const mySeat = useRoomStore((state) => state.mySeat);
   const tableBackground = useAccountStore((state) => state.account?.tableBackground);
   const messageCount = useChatStore((state) => state.messages.length);
@@ -116,7 +121,8 @@ export function GameShell({ info, centre, hand, overlay, error }: GameShellProps
             </button>
           </div>
           {SEATS.map((seat) => (
-            <TableSeat key={seat} seat={seat} position={tablePosition(seat, bottomSeat)} />
+            <TableSeat key={seat} seat={seat} position={tablePosition(seat, bottomSeat)}
+              onPick={onPickSeat && pickableSeats?.includes(seat) ? () => onPickSeat(seat) : undefined} />
           ))}
           <div className={styles.tableCentre}>{centre}</div>
           <AbortVoteBanner />

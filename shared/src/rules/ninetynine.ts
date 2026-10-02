@@ -11,7 +11,6 @@ export type NnChoice = 'plus' | 'minus';
 export interface NnEffect {
   total: number;
   reverse: boolean;
-  skip: boolean;
   designate: boolean;
 }
 
@@ -22,7 +21,7 @@ export function nnRequiresChoice(card: Card): boolean {
 
 /** 依牌效果計算新累計點數與流程變化；10/Q 未給 choice 時拋錯 */
 export function nnApply(total: number, card: Card, choice?: NnChoice): NnEffect {
-  const effect: NnEffect = { total, reverse: false, skip: false, designate: false };
+  const effect: NnEffect = { total, reverse: false, designate: false };
   switch (card.rank) {
     case 14:
       effect.total = card.suit === 'spades' ? 0 : total + 1;
@@ -34,7 +33,7 @@ export function nnApply(total: number, card: Card, choice?: NnChoice): NnEffect 
       effect.designate = true;
       break;
     case 11:
-      effect.skip = true;
+      // J = PASS：點數不變，正常換下一位
       break;
     case 13:
       effect.total = NN_MAX;

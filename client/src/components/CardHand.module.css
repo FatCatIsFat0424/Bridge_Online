@@ -60,6 +60,26 @@
     var(--shadow-md);
 }
 
+/* 標示但仍清楚可讀（99：會超過 99 的牌） */
+.cardMarked img { filter: saturate(0.6) brightness(0.9); }
+
+.cardMarked::after {
+  content: '✕';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 50%;
+  background: var(--color-danger);
+  color: var(--text-inverse);
+  font-size: calc(var(--card-w) * 0.2);
+  font-weight: 800;
+  line-height: 1;
+}
+
 /* 手機：13 張需塞進 390px —— 寬 ≈ W·(1 + 12·(1 − overlap)) + 兩端旋轉外擴 */
 @media (max-width: 767px) {
   .handContainer {

@@ -7,6 +7,7 @@ import type {
   BridgeGameState,
   Card,
   GameType,
+  NinetyNineGameState,
   PlayerInfo,
   PlayerVisibleGameState,
   RedPointsGameState,
@@ -16,6 +17,8 @@ import type {
 import * as bridge from './games/bridge-game';
 import * as bigtwo from './games/bigtwo-game';
 import * as redpoints from './games/redpoints-game';
+import * as ninetynine from './games/ninetynine-game';
+import type { NnChoice } from '@shared/rules/ninetynine';
 
 type Result = { success: true } | { success: false; reason: string };
 
@@ -35,17 +38,19 @@ export function startGame(
   removeGame(roomCode);
   if (gameType === 'bigtwo') bigtwo.startGame(roomCode, players);
   else if (gameType === 'redpoints') redpoints.startGame(roomCode, players);
+  else if (gameType === 'ninetynine') ninetynine.startGame(roomCode, players);
   else bridge.startGame(roomCode, players);
   return { success: true };
 }
 
 export function getPlayerVisibleState(roomCode: RoomCode, seat: Seat): PlayerVisibleGameState | null {
   return bridge.getPlayerVisibleState(roomCode, seat) ?? bigtwo.getPlayerVisibleState(roomCode, seat)
-    ?? redpoints.getPlayerVisibleState(roomCode, seat);
+    ?? redpoints.getPlayerVisibleState(roomCode, seat) ?? ninetynine.getPlayerVisibleState(roomCode, seat);
 }
 
 export function getGameState(roomCode: RoomCode): AnyGameState | null {
-  return bridge.getGameState(roomCode) ?? bigtwo.getGameState(roomCode) ?? redpoints.getGameState(roomCode);
+  return bridge.getGameState(roomCode) ?? bigtwo.getGameState(roomCode) ?? redpoints.getGameState(roomCode)
+    ?? ninetynine.getGameState(roomCode);
 }
 
 /** Ends a game without a match record. */
@@ -53,6 +58,7 @@ export function abortGame(roomCode: RoomCode): void {
   bridge.abortGame(roomCode);
   bigtwo.abortGame(roomCode);
   redpoints.abortGame(roomCode);
+  ninetynine.abortGame(roomCode);
 }
 
 export function removeGame(roomCode: RoomCode): void {
@@ -64,13 +70,15 @@ export function hasActiveGame(roomCode: RoomCode): boolean {
 }
 
 export function exportGames(): AnyGameState[] {
-  return [...bridge.exportGames(), ...bigtwo.exportGames(), ...redpoints.exportGames()];
+  return [...bridge.exportGames(), ...bigtwo.exportGames(), ...redpoints.exportGames(),
+    ...ninetynine.exportGames()];
 }
 
 export function restoreGames(records: AnyGameState[]): void {
   bridge.restoreGames(records.filter((game): game is BridgeGameState => game.gameType === 'bridge'));
   bigtwo.restoreGames(records.filter((game): game is BigTwoGameState => game.gameType === 'bigtwo'));
   redpoints.restoreGames(records.filter((game): game is RedPointsGameState => game.gameType === 'redpoints'));
+  ninetynine.restoreGames(records.filter((game): game is NinetyNineGameState => game.gameType === 'ninetynine'));
 }
 
 export function handleRedealResponse(roomCode: RoomCode, seat: Seat, accept: boolean): Result {
@@ -99,4 +107,10 @@ export function handleRedPointsPlay(roomCode: RoomCode, seat: Seat, card: Card, 
 
 export function handleRedPointsChooseFlip(roomCode: RoomCode, seat: Seat, capture: Card): Result {
   return isGame(roomCode, 'redpoints') ? redpoints.chooseFlip(roomCode, seat, capture) : WRONG_GAME;
+}
+
+export function handleNinetyNinePlay(
+  roomCode: RoomCode, seat: Seat, card: Card, choice?: NnChoice, target?: Seat,
+): Result {
+  return isGame(roomCode, 'ninetynine') ? ninetynine.play(roomCode, seat, card, choice, target) : WRONG_GAME;
 }

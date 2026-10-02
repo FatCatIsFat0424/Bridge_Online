@@ -15,6 +15,7 @@ import type {
   BigTwoVisibleState,
   PlayerVisibleGameState,
   RedPointsVisibleState,
+  NinetyNineVisibleState,
 } from '@shared/types';
 import { equalSnapshotValue, retainSnapshotValue } from './snapshot-equality';
 
@@ -22,6 +23,7 @@ import { equalSnapshotValue, retainSnapshotValue } from './snapshot-equality';
 interface GameStoreState {
   bigTwo: BigTwoVisibleState | null;
   redPoints: RedPointsVisibleState | null;
+  ninetyNine: NinetyNineVisibleState | null;
   gameType: GameType | null;
   phase: GamePhase | null;
   myHand: Card[];
@@ -57,6 +59,7 @@ interface GameStoreActions {
 const initialState: GameStoreState = {
   bigTwo: null,
   redPoints: null,
+  ninetyNine: null,
   gameType: null,
   phase: null,
   myHand: [],
@@ -86,9 +89,16 @@ export const useGameStore = create<GameStoreState & GameStoreActions>((set) => (
       phase: game.phase,
       currentTurnSeat: game.phase === 'playing' ? game.currentTurnSeat : null,
       redPoints: retainSnapshotValue(state.redPoints, game),
+    } : game.gameType === 'ninetynine' ? {
+      ...initialState,
+      gameType: 'ninetynine',
+      phase: game.phase,
+      currentTurnSeat: game.phase === 'playing' ? game.currentTurnSeat : null,
+      ninetyNine: retainSnapshotValue(state.ninetyNine, game),
     } : {
       bigTwo: null,
       redPoints: null,
+      ninetyNine: null,
       gameType: 'bridge',
       phase: game.phase,
       dealerSeat: game.dealerSeat,
