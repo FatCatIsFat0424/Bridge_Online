@@ -1,194 +1,170 @@
-/* ─── GamePage 樣式 ─── */
+/* ─── GamePage 樣式：滿版牌桌，無頁面捲動 ─── */
 
 .gameContainer {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background:
-    radial-gradient(ellipse at center, color-mix(in srgb, var(--bg-table) 30%, transparent) 0%, transparent 60%),
-    var(--bg-page);
-}
-
-.actionError { color: var(--color-danger); padding: var(--spacing-sm); }
-
-.gameHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--spacing-sm) var(--spacing-lg);
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-color);
-  flex-wrap: wrap;
-  gap: var(--spacing-sm);
-}
-
-.gameHeaderInfo {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-lg);
-  flex-wrap: wrap;
-}
-
-.phaseLabel {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  padding: 2px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--color-primary);
-  color: var(--text-on-primary);
-}
-
-.contractLabel {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-}
-
-.gameBody {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--spacing-lg);
-  gap: var(--spacing-lg);
-}
-
-.tableArea {
+  height: calc(100dvh - var(--topbar-height));
+  overflow: hidden;
   display: grid;
-  grid-template-areas:
-    '.    north .'
-    'west table east'
-    '.    south .';
-  grid-template-columns: 120px 1fr 120px;
-  grid-template-rows: 60px 1fr 60px;
-  gap: var(--spacing-sm);
-  width: 100%;
-  max-width: 700px;
-  aspect-ratio: 4 / 3;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(280px, 320px);
+  gap: 12px;
+  padding: 12px;
 }
 
-.tableCenterArea {
-  grid-area: table;
+.gameContainer > * { min-height: 0; min-width: 0; }
+
+.chatCollapsed { grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) 48px; }
+
+.centreText {
+  color: var(--table-ink);
+  opacity: 0.75;
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.actionError {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: 90%;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+/* ─── 中央：牌桌 + 手牌 ─── */
+.centreColumn {
+  display: flex;
+  flex-direction: column;
+}
+
+.table {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border: var(--table-rim-width) solid transparent;
+  border-radius: 28px;
+  background:
+    var(--table-surface) padding-box,
+    var(--table-rim) border-box;
+  box-shadow: var(--shadow-inset), var(--shadow-lg);
+  color: var(--table-ink);
+}
+
+.tableCentre {
+  position: absolute;
+  /* 左右留給 W/E 座位名牌 */
+  inset: 20% max(16%, 190px) 22%;
+  z-index: 4;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-table);
-  border: 2px solid var(--bg-table-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-inset);
-  padding: var(--spacing-md);
+  pointer-events: none;
 }
 
-.seatIndicator {
-  min-width: 0;
+.tableCentre > * { pointer-events: auto; }
+
+.handZone {
+  position: relative;
+  z-index: 5;
+  flex: none;
+  margin-top: -34px;
+}
+
+/* ─── 右側：聊天欄 ─── */
+.chatRail {
+  display: flex;
+  flex-direction: column;
+}
+
+.chatBody { flex: 1; min-height: 0; }
+
+.hidden { display: none; }
+
+.chatStrip {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  font-size: var(--text-sm);
-  color: var(--text-muted);
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-md);
+  height: 100%;
+  border-radius: var(--radius-lg);
+  background: var(--rail-bg);
+  border: 1px solid var(--rail-border);
+  font-size: var(--text-lg);
 }
 
-.seatIndicatorActive {
-  color: var(--color-primary);
-  font-weight: 700;
-}
-
-.seatName {
+.unread {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--color-danger);
+  color: var(--text-on-primary);
   font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
 }
 
-.seatN { grid-area: north; }
-.seatE { grid-area: east; }
-.seatS { grid-area: south; }
-.seatW { grid-area: west; }
-
-.handArea {
+/* ─── 浮層：倒牌確認、結算 ─── */
+.overlayCard {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--spacing-xl);
+  max-width: 400px;
   width: 100%;
-  max-width: 700px;
+  text-align: center;
+  color: var(--text-primary);
+  animation: slideUp 0.5s ease;
 }
 
-.chatArea { width: 100%; max-width: 44rem; min-width: 0; }
-
-.sidePanel {
-  width: 100%;
-  max-width: 44rem;
-  overflow-y: auto;
+.overlayTitle {
+  font-family: var(--font-display);
+  margin-bottom: var(--spacing-md);
 }
 
-@media (max-width: 40rem) {
-  .gameBody { padding: var(--spacing-md); }
-  .gameHeader { padding: var(--spacing-sm) var(--spacing-md); }
-  .tableArea {
-    grid-template-columns: 4rem minmax(0, 1fr) 4rem;
-    grid-template-rows: auto minmax(16rem, 1fr) auto;
-    aspect-ratio: auto;
-  }
-  .tableCenterArea { padding: var(--spacing-sm); min-width: 0; }
+.overlayText {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-lg);
+}
+
+.overlayActions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: center;
 }
 
 .scoreOverlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: var(--bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: var(--spacing-md);
   animation: fadeIn 0.3s ease;
   z-index: 100;
 }
 
-.scoreCard {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  padding: var(--spacing-2xl);
-  max-width: 400px;
-  width: 100%;
-  text-align: center;
-  animation: slideUp 0.5s ease;
-}
-
 .scoreTitle {
+  font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 700;
   margin-bottom: var(--spacing-lg);
 }
 
-.scoreWin {
-  color: var(--color-success);
-}
-
-.scoreLose {
-  color: var(--color-danger);
-}
+.scoreWin { color: var(--color-success); }
+.scoreLose { color: var(--color-danger); }
 
 .scoreDetails {
   font-size: var(--text-base);
   color: var(--text-secondary);
   margin-bottom: var(--spacing-xl);
   line-height: 2;
-}
-
-.turnIndicator {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  text-align: center;
-  padding: var(--spacing-sm);
-}
-
-.turnIndicatorMyTurn {
-  color: var(--color-primary);
-  font-weight: 700;
-  animation: pulse 1.5s infinite;
-}
-
-.suitRed {
-  color: var(--suit-red-ui);
 }

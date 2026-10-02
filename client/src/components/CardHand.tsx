@@ -1,8 +1,9 @@
-// ─── CardHand 元件：手牌顯示 ───
+// ─── CardHand 元件：手牌顯示（扇形） ───
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { Card } from '@shared/types';
 import { SUIT_SYMBOLS, RANK_DISPLAY } from '@shared/constants';
+import { cardImageUrl } from '../cards';
 import styles from './CardHand.module.css';
 
 interface CardHandProps {
@@ -17,32 +18,27 @@ function isCardPlayable(card: Card, playableCards?: readonly Card[]): boolean {
   return playableCards.some((c) => c.suit === card.suit && c.rank === card.rank);
 }
 
-function getSuitColorClass(suit: Card['suit']): string {
-  return suit === 'hearts' || suit === 'diamonds' ? styles.suitRed : styles.suitBlack;
-}
-
 export function CardHand({ cards, playableCards, onCardClick, disabled }: CardHandProps): ReactNode {
+  const middle = (cards.length - 1) / 2;
   return (
     <div className={styles.handContainer}>
-      {cards.map((card) => {
+      {cards.map((card, index) => {
         const playable = isCardPlayable(card, playableCards);
         const cardClasses = [
           styles.card,
-          getSuitColorClass(card.suit),
-          playable ? styles.cardPlayable : '',
-          disabled ? styles.cardDisabled : '',
+          playable && !disabled ? styles.cardPlayable : '',
         ].filter(Boolean).join(' ');
 
         return (
           <button
             key={`${card.suit}-${card.rank}`}
             className={cardClasses}
+            style={{ '--fan': index - middle } as CSSProperties}
             onClick={() => playable && onCardClick?.(card)}
             disabled={disabled || !playable}
             aria-label={`${RANK_DISPLAY[card.rank]}${SUIT_SYMBOLS[card.suit]}`}
           >
-            <span className={styles.rankText}>{RANK_DISPLAY[card.rank]}</span>
-            <span className={styles.suitIcon}>{SUIT_SYMBOLS[card.suit]}</span>
+            <img src={cardImageUrl(card)} alt="" draggable={false} />
           </button>
         );
       })}

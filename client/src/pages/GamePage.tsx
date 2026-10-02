@@ -1,42 +1,43 @@
-// ─── GamePage：遊戲頁面 ───
+// ─── GamePage：遊戲頁面（滿版牌桌：資訊欄 + 牌桌 + 聊天欄） ───
 
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { socket } from '../socket';
+import { useChatStore } from '../stores/chat-store';
 import { useGameStore } from '../stores/game-store';
 import { useRoomStore } from '../stores/room-store';
 import { useI18nStore } from '../stores/i18n-store';
-import { PlayerLink } from '../components/PlayerLink';
+import { BidLabel } from '../components/AuctionTable';
 import { CardHand } from '../components/CardHand';
 import { BiddingPanel } from '../components/BiddingPanel';
 import { ChatPanel } from '../components/ChatPanel';
+import { GameInfoRail } from '../components/GameInfoRail';
+import { TableSeat } from '../components/TableSeat';
 import { TrickArea } from '../components/TrickArea';
-import { SUIT_SYMBOLS } from '@shared/constants';
-import type { Card, Seat, BidSuit } from '@shared/types';
+import { tablePosition } from '../game-view';
+import type { Card, Seat } from '@shared/types';
 import styles from './GamePage.module.css';
 
-function getSuitLabel(suit: BidSuit): ReactNode {
-  if (suit === 'nt') return 'NT';
-  const red = suit === 'hearts' || suit === 'diamonds';
-  return <span className={red ? styles.suitRed : undefined}>{SUIT_SYMBOLS[suit]}</span>;
-}
+const SEATS: readonly Seat[] = ['N', 'E', 'S', 'W'];
 
 export function GamePage(): ReactNode {
   const { roomCode } = useParams<{ roomCode: string }>();
   const navigate = useNavigate();
   const mySeat = useRoomStore((state) => state.mySeat);
   const roomInfo = useRoomStore((state) => state.roomInfo);
+  const messageCount = useChatStore((state) => state.messages.length);
   const { t } = useI18nStore();
   const [actionError, setActionError] = useState('');
   const [actionPending, setActionPending] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
+  const [seenMessages, setSeenMessages] = useState(0);
   const {
     phase,
     myHand,
     currentTurnSeat,
     validCards,
-    contract,
     playing,
     result,
     redealPendingSeat,
@@ -45,7 +46,6 @@ export function GamePage(): ReactNode {
     myHand: state.myHand,
     currentTurnSeat: state.currentTurnSeat,
     validCards: state.validCards,
-    contract: state.contract,
     playing: state.playing,
     result: state.result,
     redealPendingSeat: state.redealPendingSeat,
@@ -58,8 +58,10 @@ export function GamePage(): ReactNode {
   }, [roomInfo, phase, roomCode, navigate]);
 
   const isMyTurn = mySeat === currentTurnSeat;
+  const bottomSeat: Seat = mySeat ?? 'S';
+  const unread = chatOpen ? 0 : Math.max(0, messageCount - seenMessages);
 
-  const seatLabel = (seat: Seat): string => t(`seat.${seat}` as 'seat.N');
+  const seatLabel = (seat: Seat): string => t(`seat.${seat}`);
 
   const handleActionResult = useCallback((
     timeout: Error | null,
@@ -88,114 +90,63 @@ export function GamePage(): ReactNode {
     socket.timeout(10000).emit('game:continue', handleActionResult);
   }, [handleActionResult]);
 
+  const collapseChat = (): void => {
+    setSeenMessages(messageCount);
+    setChatOpen(false);
+  };
+
   if (!phase) {
     return (
       <div className={styles.gameContainer}>
-        <div className={styles.gameBody}>
-          <p>{t('common.loading')}</p>
-        </div>
+        <p className={styles.centreText}>{t('common.loading')}</p>
       </div>
     );
   }
 
-  const phaseKey = `game.${phase}` as 'game.dealing';
+  let centre: ReactNode;
+  if (phase === 'playing' && playing) {
+    centre = <TrickArea currentTrick={playing.currentTrick} leadSeat={playing.trickLeadSeat}
+      bottomSeat={bottomSeat} myTurn={isMyTurn} />;
+  } else if (phase === 'bidding') {
+    centre = <BiddingPanel />;
+  } else if (phase === 'redeal_pending' && redealPendingSeat === mySeat) {
+    centre = (
+      <div className={styles.overlayCard}>
+        <h2 className={styles.overlayTitle}>{t('redeal.title')}</h2>
+        <p className={styles.overlayText}>{t('redeal.description')}</p>
+        <div className={styles.overlayActions}>
+          <button className="btn btn-success" disabled={actionPending}
+            onClick={() => handleRedealResponse(true)}>
+            {t('redeal.accept')}
+          </button>
+          <button className="btn btn-outline" disabled={actionPending}
+            onClick={() => handleRedealResponse(false)}>
+            {t('redeal.decline')}
+          </button>
+        </div>
+      </div>
+    );
+  } else if (phase === 'redeal_pending') {
+    centre = <p className={styles.centreText}>{t('game.redealPending')}</p>;
+  } else if (phase !== 'scoring') {
+    centre = <p className={styles.centreText}>{t('common.loading')}</p>;
+  }
 
   return (
-    <div className={styles.gameContainer}>
-      {/* Header */}
-      <div className={styles.gameHeader}>
-        <div className={styles.gameHeaderInfo}>
-          <span className={styles.phaseLabel}>{t(phaseKey)}</span>
-          {contract && (
-            <span className={styles.contractLabel}>
-              {t('game.contract')}：{contract.level}{getSuitLabel(contract.suit)} by {seatLabel(contract.declarer)}
-            </span>
-          )}
-        </div>
-        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-          {t('game.mySeat')}：{mySeat ? seatLabel(mySeat) : '—'}
-        </span>
-      </div>
+    <div className={`${styles.gameContainer} ${chatOpen ? '' : styles.chatCollapsed}`}>
+      <GameInfoRail />
 
-      {/* Body */}
-      <div className={styles.gameBody}>
-        {actionError && phase !== 'scoring' &&
-          <p className={styles.actionError} role="alert">{actionError}</p>}
-        {/* 倒牌確認 */}
-        {phase === 'redeal_pending' && redealPendingSeat === mySeat && (
-          <div className={styles.scoreCard}>
-            <h2 style={{ marginBottom: 'var(--spacing-md)' }}>{t('redeal.title')}</h2>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-lg)' }}>
-              {t('redeal.description')}
-            </p>
-            <div style={{ display: 'flex', gap: 'var(--spacing-md)', justifyContent: 'center' }}>
-              <button className="btn btn-success" disabled={actionPending}
-                onClick={() => handleRedealResponse(true)}>
-                {t('redeal.accept')}
-              </button>
-              <button className="btn btn-outline" disabled={actionPending}
-                onClick={() => handleRedealResponse(false)}>
-                {t('redeal.decline')}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 叫牌面板 */}
-        {phase === 'bidding' && (
-          <div className={styles.sidePanel}>
-            <BiddingPanel />
-          </div>
-        )}
-
-        {/* 桌面區域 */}
-        <div className={styles.tableArea}>
-          {(['N', 'E', 'S', 'W'] as Seat[]).map((seat) => {
-            const seatStyleMap: Record<Seat, string> = {
-              N: styles.seatN,
-              E: styles.seatE,
-              S: styles.seatS,
-              W: styles.seatW,
-            };
-            return (
-              <div
-                key={seat}
-                className={`${styles.seatIndicator} ${seatStyleMap[seat]} ${currentTurnSeat === seat ? styles.seatIndicatorActive : ''}`}
-              >
-                <span className={styles.seatName}>{seatLabel(seat)}</span>
-                {roomInfo?.seats[seat].player &&
-                  <PlayerLink player={roomInfo.seats[seat].player} />}
-                {seat === mySeat && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-primary)' }}>{t('common.me')}</span>}
-              </div>
-            );
-          })}
-
-          <div className={styles.tableCenterArea}>
-            {phase === 'playing' && playing ? (
-              <TrickArea
-                currentTrick={playing.currentTrick}
-                trickCountEW={playing.trickCountEW}
-                trickCountNS={playing.trickCountNS}
-              />
-            ) : (
-              <div style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: 'var(--text-sm)' }}>
-                {phase === 'bidding' ? `${t('game.bidding')}...` : `${t('common.loading')}`}
-              </div>
-            )}
-          </div>
+      <main className={styles.centreColumn}>
+        <div className={styles.table}>
+          {SEATS.map((seat) => (
+            <TableSeat key={seat} seat={seat} position={tablePosition(seat, bottomSeat)} />
+          ))}
+          <div className={styles.tableCentre}>{centre}</div>
+          {actionError && phase !== 'scoring' &&
+            <p className={styles.actionError} role="alert">{actionError}</p>}
         </div>
 
-        {/* 出牌提示 */}
-        {phase === 'playing' && (
-          <div className={`${styles.turnIndicator} ${isMyTurn ? styles.turnIndicatorMyTurn : ''}`}>
-            {isMyTurn
-              ? t('game.myTurn')
-              : t('game.waitingFor', { seat: currentTurnSeat ? seatLabel(currentTurnSeat) : '...' })}
-          </div>
-        )}
-
-        {/* 手牌區域 */}
-        <div className={styles.handArea}>
+        <div className={styles.handZone}>
           <CardHand
             cards={myHand}
             playableCards={isMyTurn ? validCards : []}
@@ -203,18 +154,30 @@ export function GamePage(): ReactNode {
             disabled={actionPending || !isMyTurn || phase !== 'playing'}
           />
         </div>
-        <div className={styles.chatArea}><ChatPanel /></div>
-      </div>
+      </main>
+
+      <aside className={styles.chatRail}>
+        {!chatOpen && (
+          <button type="button" className={styles.chatStrip} onClick={() => setChatOpen(true)}
+            aria-label={t('table.chatExpand')} title={t('table.chatExpand')}>
+            <span aria-hidden="true">💬</span>
+            {unread > 0 && <span className={styles.unread}>{unread}</span>}
+          </button>
+        )}
+        <div className={chatOpen ? styles.chatBody : styles.hidden}>
+          <ChatPanel onCollapse={collapseChat} />
+        </div>
+      </aside>
 
       {/* 結算彈窗 */}
       {phase === 'scoring' && result && (
         <div className={styles.scoreOverlay}>
-          <div className={styles.scoreCard}>
+          <div className={styles.overlayCard}>
             <h2 className={`${styles.scoreTitle} ${result.declarerTeamWins ? styles.scoreWin : styles.scoreLose}`}>
               {result.declarerTeamWins ? t('score.declarerWins') : t('score.defenderWins')}
             </h2>
             <div className={styles.scoreDetails}>
-              <div>{t('game.contract')}：{result.contract.level}{getSuitLabel(result.contract.suit)} by {seatLabel(result.contract.declarer)}</div>
+              <div>{t('game.contract')}：<BidLabel level={result.contract.level} suit={result.contract.suit} /> by {seatLabel(result.contract.declarer)}</div>
               <div>{t('score.required')}：{result.requiredTricks}</div>
               <div>{t('score.declarerTricks')}：{result.declarerTeamTricks}</div>
               <div>{t('score.defenderTricks')}：{result.defenderTeamTricks}</div>

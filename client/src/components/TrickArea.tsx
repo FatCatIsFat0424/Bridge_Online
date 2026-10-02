@@ -3,50 +3,44 @@
 import type { ReactNode } from 'react';
 import type { Card, Seat } from '@shared/types';
 import { SUIT_SYMBOLS, RANK_DISPLAY } from '@shared/constants';
+import { cardImageUrl } from '../cards';
+import { tablePosition } from '../game-view';
+import { useI18nStore } from '../stores/i18n-store';
 import styles from './TrickArea.module.css';
 
 interface TrickAreaProps {
   currentTrick: Partial<Record<Seat, Card>>;
-  trickCountEW: number;
-  trickCountNS: number;
+  leadSeat: Seat;
+  bottomSeat: Seat;
+  myTurn: boolean;
 }
 
-const SEAT_STYLE_MAP: Record<Seat, string> = {
-  N: styles.trickCardN,
-  E: styles.trickCardE,
-  S: styles.trickCardS,
-  W: styles.trickCardW,
-};
+const SEATS: readonly Seat[] = ['N', 'E', 'S', 'W'];
 
-function getSuitColorClass(suit: Card['suit']): string {
-  return suit === 'hearts' || suit === 'diamonds' ? styles.suitRed : styles.suitBlack;
-}
-
-export function TrickArea({ currentTrick, trickCountEW, trickCountNS }: TrickAreaProps): ReactNode {
-  const seats: Seat[] = ['N', 'E', 'S', 'W'];
+export function TrickArea({ currentTrick, leadSeat, bottomSeat, myTurn }: TrickAreaProps): ReactNode {
+  const { t } = useI18nStore();
 
   return (
     <div className={styles.trickContainer}>
-      {seats.map((seat) => {
+      {SEATS.map((seat) => {
         const card = currentTrick[seat];
-        if (!card) return null;
-
+        const slotClass = `${styles.slot} ${styles[tablePosition(seat, bottomSeat)]}`;
+        if (!card) {
+          return seat === bottomSeat && myTurn
+            ? <div key={seat} className={`${slotClass} ${styles.placeholder}`}>{t('table.yourCard')}</div>
+            : null;
+        }
         return (
-          <div
-            key={seat}
-            className={`${styles.trickCard} ${SEAT_STYLE_MAP[seat]} ${getSuitColorClass(card.suit)}`}
-          >
-            <span className={styles.rankText}>{RANK_DISPLAY[card.rank]}</span>
-            <span className={styles.suitIcon}>{SUIT_SYMBOLS[card.suit]}</span>
+          <div key={seat} className={slotClass}>
+            <div className={styles.trickCard} role="img"
+              aria-label={`${t(`seat.${seat}`)} ${RANK_DISPLAY[card.rank]}${SUIT_SYMBOLS[card.suit]}`}>
+              <img src={cardImageUrl(card)} alt="" draggable={false} />
+              {seat === leadSeat && <span className={styles.lead}>{t('table.lead')}</span>}
+            </div>
+            <span className={styles.who}>{t(`seat.${seat}`)}</span>
           </div>
         );
       })}
-
-      <div className={styles.trickInfo}>
-        <div className={styles.trickScore}>
-          NS: {trickCountNS} | EW: {trickCountEW}
-        </div>
-      </div>
     </div>
   );
 }

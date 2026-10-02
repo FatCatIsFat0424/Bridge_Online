@@ -6,7 +6,12 @@ import { useI18nStore } from '../stores/i18n-store';
 import { Avatar } from './Avatar';
 import styles from './ChatPanel.module.css';
 
-export function ChatPanel(): ReactNode {
+interface ChatPanelProps {
+  /** 提供時：面板填滿容器高度，標題列顯示收合按鈕 */
+  onCollapse?: () => void;
+}
+
+export function ChatPanel({ onCollapse }: ChatPanelProps): ReactNode {
   const messages = useChatStore((state) => state.messages);
   const { t } = useI18nStore();
   const [input, setInput] = useState('');
@@ -34,8 +39,12 @@ export function ChatPanel(): ReactNode {
   };
 
   return (
-    <section className={styles.chatContainer}>
-      <h2 className={styles.chatHeader}>{t('chat.title')}</h2>
+    <section className={`${styles.chatContainer} ${onCollapse ? styles.fill : ''}`}>
+      <div className={styles.chatHeader}>
+        <h2 className={styles.chatTitle}>{t('chat.title')}</h2>
+        {onCollapse && <button type="button" className={styles.collapseBtn} onClick={onCollapse}
+          aria-label={t('table.chatCollapse')} title={t('table.chatCollapse')}>›</button>}
+      </div>
       <div ref={messagesRef} className={styles.chatMessages} role="log" aria-live="polite">
         {messages.map((message) => (
           <div key={message.id} className={styles.chatMessage}>

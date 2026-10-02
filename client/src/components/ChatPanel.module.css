@@ -12,13 +12,39 @@
 
 .error { color: var(--color-danger); padding: var(--spacing-sm); }
 
+.fill {
+  height: 100%;
+  background: var(--rail-bg);
+  border-color: var(--rail-border);
+}
+
 .chatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-surface);
+}
+
+.chatTitle {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-surface);
+}
+
+.collapseBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
+.collapseBtn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
 }
 
 .chatMessages {

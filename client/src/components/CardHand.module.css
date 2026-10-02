@@ -1,72 +1,51 @@
 /* ─── CardHand 元件樣式 ─── */
 
 .handContainer {
+  --card-w: clamp(48px, 8.5dvh, 72px);
   display: flex;
   justify-content: center;
-  gap: 2px;
-  padding: var(--spacing-md);
-  perspective: 800px;
+  align-items: flex-end;
+  padding: 18px var(--spacing-md) 0;
 }
 
 .card {
-  width: 56px;
-  height: 80px;
-  border-radius: var(--radius-md);
+  flex: none;
+  width: var(--card-w);
+  aspect-ratio: 224 / 313;
+  margin-left: calc(var(--card-w) * -0.42);
+  padding: 0;
+  border-radius: calc(var(--card-w) * 0.08);
   background: var(--card-face);
-  border: 1.5px solid var(--card-border);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-size: var(--text-base);
-  font-weight: 700;
-  user-select: none;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
   position: relative;
-  box-shadow: var(--shadow-sm);
+  user-select: none;
+  transform-origin: 50% 260%;
+  transform: rotate(calc(var(--fan) * 2.2deg)) translateY(var(--lift, 0px));
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.card:hover {
-  transform: translateY(-12px);
-  box-shadow: var(--shadow-md);
-  z-index: 10;
+.card:first-child { margin-left: 0; }
+
+.card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
+
+.card:disabled { cursor: default; }
 
 .cardPlayable {
-  border-color: var(--turn-glow);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--turn-glow) 30%, transparent);
+  --lift: -10px;
+  box-shadow:
+    0 0 0 2px var(--turn-glow),
+    0 0 16px color-mix(in srgb, var(--turn-glow) 55%, transparent),
+    var(--shadow-md);
 }
 
-.cardPlayable:hover {
-  border-color: var(--turn-glow);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--turn-glow) 40%, transparent);
-  transform: translateY(-16px) scale(1.05);
-}
-
-.cardDisabled {
-  cursor: default;
-}
-
-.cardDisabled:hover {
-  transform: none;
-  box-shadow: var(--shadow-sm);
-}
-
-.suitIcon {
-  font-size: var(--text-lg);
-  line-height: 1;
-}
-
-.rankText {
-  font-size: var(--text-lg);
-  line-height: 1;
-}
-
-.suitBlack {
-  color: var(--card-ink-black);
-}
-
-.suitRed {
-  color: var(--card-ink-red);
+.cardPlayable:hover,
+.cardPlayable:focus-visible {
+  --lift: -20px;
+  z-index: 10;
 }

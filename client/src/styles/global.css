@@ -64,6 +64,7 @@
   --card-ink-black: #1e293b;
   --card-ink-red: #dc2626;
   --card-back: repeating-linear-gradient(45deg, #2b5fb8 0 3px, #1d4690 3px 6px);
+  --card-back-image: url('../assets/cards/BLUE_BACK.svg');
 
   /* 邊框 */
   --border-color: #334155;
@@ -171,6 +172,7 @@
     repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.13) 0 2px, transparent 2px 6px),
     radial-gradient(circle at 50% 50%, #7a1b2c 0 28%, transparent 29%),
     linear-gradient(135deg, #1c2b5a, #14204a 50%, #1c2b5a);
+  --card-back-image: url('../assets/cards/RED_BACK.svg');
 
   --border-color: rgba(227, 185, 100, 0.25);
   --border-color-hover: rgba(227, 185, 100, 0.5);
