@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import type { RoomCode, RoomInfo, Seat } from '@shared/types';
+import { retainSnapshotValue } from './snapshot-equality';
 
 interface RoomStoreState {
   currentRoomCode: RoomCode | null;
@@ -24,8 +25,16 @@ const initialState: RoomStoreState = {
 
 export const useRoomStore = create<RoomStoreState & RoomStoreActions>((set) => ({
   ...initialState,
-  setRoom: (roomCode, roomInfo) => set({ currentRoomCode: roomCode, roomInfo }),
-  updateRoomInfo: (roomInfo) => set({ roomInfo }),
-  setMySeat: (seat) => set({ mySeat: seat }),
-  leaveRoom: () => set(initialState),
+  setRoom: (roomCode, roomInfo) => set((state) => {
+    const nextRoom = retainSnapshotValue(state.roomInfo, roomInfo);
+    return state.currentRoomCode === roomCode && state.roomInfo === nextRoom
+      ? state : { currentRoomCode: roomCode, roomInfo: nextRoom };
+  }),
+  updateRoomInfo: (roomInfo) => set((state) => {
+    const nextRoom = retainSnapshotValue(state.roomInfo, roomInfo);
+    return state.roomInfo === nextRoom ? state : { roomInfo: nextRoom };
+  }),
+  setMySeat: (seat) => set((state) => state.mySeat === seat ? state : { mySeat: seat }),
+  leaveRoom: () => set((state) => state.currentRoomCode === null && state.roomInfo === null &&
+    state.mySeat === null ? state : initialState),
 }));

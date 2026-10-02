@@ -11,7 +11,9 @@ import type {
   GamePhase,
   GameResult,
   GameLogEntry,
+  PlayerVisibleGameState,
 } from '@shared/types';
+import { equalSnapshotValue, retainSnapshotValue } from './snapshot-equality';
 
 interface GameStoreState {
   phase: GamePhase | null;
@@ -28,6 +30,7 @@ interface GameStoreState {
 }
 
 interface GameStoreActions {
+  restore: (game: PlayerVisibleGameState) => void;
   setPhase: (phase: GamePhase) => void;
   setMyHand: (hand: Card[]) => void;
   setDealerSeat: (seat: Seat) => void;
@@ -60,6 +63,24 @@ const initialState: GameStoreState = {
 
 export const useGameStore = create<GameStoreState & GameStoreActions>((set) => ({
   ...initialState,
+  restore: (game) => set((state) => {
+    const nextState: GameStoreState = {
+      phase: game.phase,
+      dealerSeat: game.dealerSeat,
+      myHand: equalSnapshotValue(state.myHand, game.myHand) ? state.myHand : [...game.myHand],
+      log: equalSnapshotValue(state.log, game.log) ? state.log : [...game.log],
+      currentTurnSeat: game.playing?.currentTurnSeat ?? game.bidding?.currentBidderSeat ?? null,
+      validCards: equalSnapshotValue(state.validCards, game.validCards)
+        ? state.validCards : [...game.validCards],
+      bidding: retainSnapshotValue(state.bidding, game.bidding),
+      contract: retainSnapshotValue(state.contract, game.contract),
+      playing: retainSnapshotValue(state.playing, game.playing),
+      result: retainSnapshotValue(state.result, game.result),
+      redealPendingSeat: game.redealPendingSeat,
+    };
+    return (Object.keys(nextState) as (keyof GameStoreState)[])
+      .every((key) => Object.is(state[key], nextState[key])) ? state : nextState;
+  }),
   setPhase: (phase) => set({ phase }),
   setMyHand: (hand) => set({ myHand: hand }),
   setDealerSeat: (seat) => set({ dealerSeat: seat }),
@@ -97,5 +118,6 @@ export const useGameStore = create<GameStoreState & GameStoreActions>((set) => (
         playing: state.playing ? { ...state.playing, currentTrick: newTrick } : null,
       };
     }),
-  reset: () => set(initialState),
+  reset: () => set((state) => (Object.keys(initialState) as (keyof GameStoreState)[])
+    .every((key) => equalSnapshotValue(state[key], initialState[key])) ? state : initialState),
 }));

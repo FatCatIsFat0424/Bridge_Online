@@ -1,46 +1,41 @@
-// ─── Server 進入點 ───
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+import { createJsonRepository } from './database/json-repository';
+import { createApplication } from './app';
 
-import express from 'express';
-import { createServer } from 'http';
-import { Server as SocketIOServer } from 'socket.io';
-import cors from 'cors';
-import type {
-  ClientToServerEvents,
-  ServerToClientEvents,
-} from '@shared/types';
-import { setupConnectionHandler } from './socket/connection';
-import { setupGameCallbacks } from './socket/game-handler';
+const port = Number(process.env.PORT ?? 3001);
+const databasePath = process.env.DATABASE_PATH
+  ? resolve(process.env.DATABASE_PATH)
+  : fileURLToPath(new URL('../data/database.json', import.meta.url));
+const allowedOrigins = (process.env.CLIENT_ORIGIN ?? 'http://localhost:5173,http://127.0.0.1:5173')
+  .split(',').map((origin) => origin.trim()).filter(Boolean);
 
-const PORT = process.env.PORT ?? 3001;
+async function main(): Promise<void> {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be between 1 and 65535.');
+  if (process.env.NODE_ENV === 'production' && !process.env.CLIENT_ORIGIN) {
+    throw new Error('Set CLIENT_ORIGIN to the public application origin in production.');
+  }
+  const repository = await createJsonRepository(databasePath);
+  const application = await createApplication(repository, {
+    allowedOrigins, secureCookies: process.env.NODE_ENV === 'production',
+  });
+  application.httpServer.listen(port, () => {
+    console.warn(`[server] Bridge Online listening on port ${port}`);
+  });
+  let stopping = false;
+  const shutdown = (): void => {
+    if (stopping) return;
+    stopping = true;
+    void application.close().then(() => process.exit(0)).catch((error: unknown) => {
+      console.error('[server] Shutdown failed:', error);
+      process.exit(1);
+    });
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+}
 
-// 1. 建立 Express app
-const app = express();
-app.use(cors());
-
-// 健康檢查端點
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: Date.now() });
+void main().catch((error: unknown) => {
+  console.error('[server] Startup failed:', error);
+  process.exitCode = 1;
 });
-
-// 2. 建立 HTTP server
-const httpServer = createServer(app);
-
-// 3. 建立 Socket.IO server
-const io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(httpServer, {
-  cors: {
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
-    methods: ['GET', 'POST'],
-  },
-  transports: ['websocket', 'polling'],
-});
-
-// 4. 設定遊戲 callbacks 與連線處理
-setupGameCallbacks(io);
-setupConnectionHandler(io);
-
-// 5. 啟動 HTTP server
-httpServer.listen(PORT, () => {
-  console.warn(`[server] Bridge Online server running on port ${PORT}`);
-});
-
-export { io, httpServer };

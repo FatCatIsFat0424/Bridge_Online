@@ -1,7 +1,7 @@
 // ─── 遊戲型別定義 ───
 
 import type { RoomCode } from './room';
-import type { Seat } from './player';
+import type { PlayerInfo, Seat } from './player';
 
 /** 花色 */
 export type Suit = 'clubs' | 'diamonds' | 'hearts' | 'spades';
@@ -89,6 +89,9 @@ export interface BiddingState {
 
 /** 完整遊戲狀態（伺服器內部） */
 export interface GameState {
+  readonly id: string;
+  readonly startedAt: number;
+  readonly players: Record<Seat, PlayerInfo>;
   readonly roomCode: RoomCode;
   phase: GamePhase;
   hands: Record<Seat, Card[]>;
@@ -99,10 +102,12 @@ export interface GameState {
   result: GameResult | null;
   log: GameLogEntry[];
   redealPendingSeat: Seat | null;
+  redealDeclinedSeats: Seat[];
 }
 
 /** 給特定玩家的可見遊戲狀態（隱藏他人手牌） */
 export interface PlayerVisibleGameState {
+  readonly validCards: readonly Card[];
   readonly phase: GamePhase;
   readonly myHand: readonly Card[];
   readonly mySeat: Seat;
@@ -113,4 +118,12 @@ export interface PlayerVisibleGameState {
   readonly result: GameResult | null;
   readonly log: readonly GameLogEntry[];
   readonly redealPendingSeat: Seat | null;
+}
+
+export interface MatchSummary {
+  readonly id: string;
+  readonly roomCode: RoomCode;
+  readonly accountIds: readonly string[];
+  readonly result: GameResult;
+  readonly finishedAt: number;
 }

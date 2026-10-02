@@ -33,4 +33,4 @@ export const RECONNECT_TIMEOUT_MS = 60_000;
 export const ROOM_CODE_LENGTH = 6;
 
 /** 暱稱最大長度 */
-export const NICKNAME_MAX_LENGTH = 10;
+export const NICKNAME_MAX_LENGTH = 20;

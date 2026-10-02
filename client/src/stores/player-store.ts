@@ -1,38 +1,22 @@
-// ─── Player Store：玩家自身狀態管理 ───
-
 import { create } from 'zustand';
-import type { PlayerId, ReconnectToken, PlayerColor } from '@shared/types';
+import type { PlayerInfo } from '@shared/types';
+import { retainSnapshotValue } from './snapshot-equality';
 
-interface PlayerStoreState {
-  playerId: PlayerId | null;
-  reconnectToken: ReconnectToken | null;
-  nickname: string;
-  color: PlayerColor;
-  isRegistered: boolean;
-}
-
-interface PlayerStoreActions {
-  setPlayer: (playerId: PlayerId, reconnectToken: ReconnectToken) => void;
-  setNickname: (nickname: string) => void;
-  setColor: (color: PlayerColor) => void;
-  setReconnectToken: (token: ReconnectToken) => void;
+interface PlayerStore {
+  playerId: string | null;
+  player: PlayerInfo | null;
+  setPlayer: (player: PlayerInfo) => void;
   reset: () => void;
 }
 
-const initialState: PlayerStoreState = {
+export const usePlayerStore = create<PlayerStore>((set) => ({
   playerId: null,
-  reconnectToken: null,
-  nickname: '',
-  color: '#4a9eff',
-  isRegistered: false,
-};
-
-export const usePlayerStore = create<PlayerStoreState & PlayerStoreActions>((set) => ({
-  ...initialState,
-  setPlayer: (playerId, reconnectToken) =>
-    set({ playerId, reconnectToken, isRegistered: true }),
-  setNickname: (nickname) => set({ nickname }),
-  setColor: (color) => set({ color }),
-  setReconnectToken: (token) => set({ reconnectToken: token }),
-  reset: () => set(initialState),
+  player: null,
+  setPlayer: (player) => set((state) => {
+    const nextPlayer = retainSnapshotValue(state.player, player);
+    return nextPlayer === state.player && state.playerId === player.id
+      ? state : { playerId: player.id, player: nextPlayer };
+  }),
+  reset: () => set((state) => state.playerId === null && state.player === null
+    ? state : { playerId: null, player: null }),
 }));

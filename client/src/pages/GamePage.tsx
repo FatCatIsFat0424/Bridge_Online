@@ -1,15 +1,17 @@
 // ─── GamePage：遊戲頁面 ───
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useShallow } from 'zustand/react/shallow';
 import { socket } from '../socket';
 import { useGameStore } from '../stores/game-store';
 import { useRoomStore } from '../stores/room-store';
 import { useI18nStore } from '../stores/i18n-store';
-import { useGameEvents } from '../hooks/use-game-events';
+import { PlayerLink } from '../components/PlayerLink';
 import { CardHand } from '../components/CardHand';
 import { BiddingPanel } from '../components/BiddingPanel';
+import { ChatPanel } from '../components/ChatPanel';
 import { TrickArea } from '../components/TrickArea';
 import { LanguageSwitch } from '../components/LanguageSwitch';
 import { SUIT_SYMBOLS } from '@shared/constants';
@@ -24,8 +26,11 @@ function getSuitLabel(suit: BidSuit): string {
 export function GamePage(): ReactNode {
   const { roomCode } = useParams<{ roomCode: string }>();
   const navigate = useNavigate();
-  const { mySeat } = useRoomStore();
+  const mySeat = useRoomStore((state) => state.mySeat);
+  const roomInfo = useRoomStore((state) => state.roomInfo);
   const { t } = useI18nStore();
+  const [actionError, setActionError] = useState('');
+  const [actionPending, setActionPending] = useState(false);
   const {
     phase,
     myHand,
@@ -35,29 +40,53 @@ export function GamePage(): ReactNode {
     playing,
     result,
     redealPendingSeat,
-    reset: resetGame,
-  } = useGameStore();
+  } = useGameStore(useShallow((state) => ({
+    phase: state.phase,
+    myHand: state.myHand,
+    currentTurnSeat: state.currentTurnSeat,
+    validCards: state.validCards,
+    contract: state.contract,
+    playing: state.playing,
+    result: state.result,
+    redealPendingSeat: state.redealPendingSeat,
+  })));
 
-  useGameEvents();
+  useEffect(() => {
+    if (!roomInfo) navigate('/', { replace: true });
+    else if (!phase) navigate(`/room/${roomInfo.code}`, { replace: true });
+    else if (roomCode !== roomInfo.code) navigate(`/game/${roomInfo.code}`, { replace: true });
+  }, [roomInfo, phase, roomCode, navigate]);
 
   const isMyTurn = mySeat === currentTurnSeat;
 
   const seatLabel = (seat: Seat): string => t(`seat.${seat}` as 'seat.N');
 
+  const handleActionResult = useCallback((
+    timeout: Error | null,
+    response?: { success: boolean; error?: string },
+  ): void => {
+    setActionPending(false);
+    if (timeout) setActionError(t('auth.connectionError'));
+    else if (!response?.success) setActionError(response?.error ?? t('common.error'));
+  }, [t]);
+
   const handlePlayCard = useCallback((card: Card): void => {
-    socket.emit('game:playCard', { card }, () => {});
-  }, []);
+    setActionError('');
+    setActionPending(true);
+    socket.timeout(10000).emit('game:playCard', { card }, handleActionResult);
+  }, [handleActionResult]);
 
   const handleRedealResponse = useCallback((accept: boolean): void => {
-    socket.emit('game:redealResponse', { accept }, () => {});
-  }, []);
+    setActionError('');
+    setActionPending(true);
+    socket.timeout(10000).emit('game:redealResponse', { accept }, handleActionResult);
+  }, [handleActionResult]);
 
   const handleBackToRoom = useCallback((): void => {
-    socket.emit('game:continue', () => {
-      resetGame();
-      navigate(`/room/${roomCode}`);
-    });
-  }, [resetGame, navigate, roomCode]);
+    setActionError('');
+    setActionPending(true);
+    socket.timeout(10000).emit('game:continue', handleActionResult);
+  }, [handleActionResult]);
 
   if (!phase) {
     return (
@@ -93,6 +122,8 @@ export function GamePage(): ReactNode {
 
       {/* Body */}
       <div className={styles.gameBody}>
+        {actionError && phase !== 'scoring' &&
+          <p className={styles.actionError} role="alert">{actionError}</p>}
         {/* 倒牌確認 */}
         {phase === 'redeal_pending' && redealPendingSeat === mySeat && (
           <div className={styles.scoreCard}>
@@ -101,10 +132,12 @@ export function GamePage(): ReactNode {
               {t('redeal.description')}
             </p>
             <div style={{ display: 'flex', gap: 'var(--spacing-md)', justifyContent: 'center' }}>
-              <button className="btn btn-success" onClick={() => handleRedealResponse(true)}>
+              <button className="btn btn-success" disabled={actionPending}
+                onClick={() => handleRedealResponse(true)}>
                 {t('redeal.accept')}
               </button>
-              <button className="btn btn-outline" onClick={() => handleRedealResponse(false)}>
+              <button className="btn btn-outline" disabled={actionPending}
+                onClick={() => handleRedealResponse(false)}>
                 {t('redeal.decline')}
               </button>
             </div>
@@ -133,6 +166,8 @@ export function GamePage(): ReactNode {
                 className={`${styles.seatIndicator} ${seatStyleMap[seat]} ${currentTurnSeat === seat ? styles.seatIndicatorActive : ''}`}
               >
                 <span className={styles.seatName}>{seatLabel(seat)}</span>
+                {roomInfo?.seats[seat].player &&
+                  <PlayerLink player={roomInfo.seats[seat].player} />}
                 {seat === mySeat && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-primary)' }}>{t('common.me')}</span>}
               </div>
             );
@@ -168,9 +203,10 @@ export function GamePage(): ReactNode {
             cards={myHand}
             playableCards={isMyTurn ? validCards : []}
             onCardClick={handlePlayCard}
-            disabled={!isMyTurn || phase !== 'playing'}
+            disabled={actionPending || !isMyTurn || phase !== 'playing'}
           />
         </div>
+        <div className={styles.chatArea}><ChatPanel /></div>
       </div>
 
       {/* 結算彈窗 */}
@@ -186,7 +222,8 @@ export function GamePage(): ReactNode {
               <div>{t('score.declarerTricks')}：{result.declarerTeamTricks}</div>
               <div>{t('score.defenderTricks')}：{result.defenderTeamTricks}</div>
             </div>
-            <button className="btn btn-primary" onClick={handleBackToRoom}>
+            {actionError && <p className={styles.actionError} role="alert">{actionError}</p>}
+            <button className="btn btn-primary" disabled={actionPending} onClick={handleBackToRoom}>
               {t('score.backToRoom')}
             </button>
           </div>

@@ -1,136 +1,100 @@
-// ─── Connection Handler：連線管理 ───
-
-import type { Server as SocketIOServer, Socket } from 'socket.io';
-import type {
-  ClientToServerEvents,
-  ServerToClientEvents,
-} from '@shared/types';
 import { RECONNECT_TIMEOUT_MS } from '@shared/constants';
+import type { SocketContext } from './context';
+import { affectedAccounts, broadcastState, leaveCurrentRoom, playerSnapshot, runAction } from './context';
 import * as playerManager from '../managers/player-manager';
 import * as roomManager from '../managers/room-manager';
-import * as gameManager from '../managers/game-manager';
 import { registerRoomHandlers } from './room-handler';
-import { registerChatHandlers } from './chat-handler';
 import { registerGameHandlers } from './game-handler';
+import { registerChatHandlers } from './chat-handler';
+import { leaveVoice, reconcileVoiceMembership, registerVoiceHandlers } from './voice-handler';
 
-type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
-type TypedServer = SocketIOServer<ClientToServerEvents, ServerToClientEvents>;
+export function setupConnectionHandler(context: SocketContext): () => void {
+  const { io, auth, runtime } = context;
+  let closing = false;
+  io.use((socket, next) => {
+    void auth.resolveSession(socket.handshake.headers.cookie).then((session) => {
+      if (!session) { next(new Error('Sign in to play.')); return; }
+      socket.data = {
+        accountId: session.account.id, tokenHash: session.session.tokenHash,
+        cookie: socket.handshake.headers.cookie ?? '', expiresAt: session.session.expiresAt,
+      };
+      next();
+    }).catch(() => next(new Error('Unable to authenticate.')));
+  });
 
-/** 斷線 timeout 計時器 */
-const disconnectTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
-
-export function setupConnectionHandler(io: TypedServer): void {
-  io.on('connection', (socket: TypedSocket) => {
-    console.warn(`[connection] Client connected: ${socket.id}`);
-
-    // 註冊所有 handler
-    registerRoomHandlers(io, socket);
-    registerChatHandlers(io, socket);
-    registerGameHandlers(io, socket);
-
-    // ─── player:reconnect ───
-    socket.on('player:reconnect', (payload, callback) => {
-      const result = playerManager.attemptReconnect(socket.id, payload.token);
-
-      if (!result.success) {
-        return callback({ success: false, error: result.reason });
+  io.on('connection', (socket) => {
+    void socket.join(`account:${socket.data.accountId}`);
+    const expiry = setTimeout(() => socket.disconnect(true),
+      Math.max(0, socket.data.expiresAt - Date.now()));
+    expiry.unref();
+    let count = 0;
+    let voiceCount = 0;
+    let resetAt = Date.now() + 60_000;
+    socket.use((packet, next) => {
+      if (Date.now() >= resetAt) { count = 0; voiceCount = 0; resetAt = Date.now() + 60_000; }
+      const isVoice = typeof packet[0] === 'string' && packet[0].startsWith('voice:');
+      if (isVoice) voiceCount += 1;
+      else count += 1;
+      if ((isVoice && voiceCount > 1200) || (!isVoice && count > 240)) {
+        const callback: unknown = packet[packet.length - 1];
+        if (typeof callback === 'function') callback({ success: false, error: 'Too many actions. Please slow down.' });
+        return;
       }
-
-      const { playerId, roomCode } = result;
-
-      // 清除斷線計時器
-      if (disconnectTimers.has(playerId)) {
-        clearTimeout(disconnectTimers.get(playerId)!);
-        disconnectTimers.delete(playerId);
-      }
-
-      // 如果在房間中，重新加入 socket room
-      if (roomCode) {
-        socket.join(roomCode);
-        const seat = roomManager.getPlayerSeat(roomCode, playerId);
-        if (seat) {
-          socket.to(roomCode).emit('player:reconnected', { seat });
-        }
-
-        const room = roomManager.getRoomInfo(roomCode);
-        const gameState = gameManager.hasActiveGame(roomCode) && seat
-          ? gameManager.getPlayerVisibleState(roomCode, seat)
-          : undefined;
-
-        return callback({
-          success: true,
-          room: room ?? undefined,
-          gameState: gameState ?? undefined,
-        });
-      }
-
-      callback({ success: true });
+      next();
     });
 
-    // ─── 斷線處理 ───
-    socket.on('disconnect', (reason) => {
-      console.warn(`[connection] Client disconnected: ${socket.id}, reason: ${reason}`);
+    registerRoomHandlers(context, socket);
+    registerGameHandlers(context, socket);
+    registerChatHandlers(context, socket);
+    registerVoiceHandlers(context, socket);
+    socket.on('player:resume', (callback) => runAction(context, socket, callback, () =>
+      playerSnapshot(socket.data.accountId), { skipUnchanged: true }));
 
-      const result = playerManager.markDisconnected(socket.id);
-      if (!result) return;
-
-      const { playerId } = result;
-      const state = playerManager.getPlayerState(playerId);
-
-      if (state?.currentRoomCode) {
-        const seat = roomManager.getPlayerSeat(state.currentRoomCode, playerId);
-        if (seat) {
-          // 通知房間其他人有人斷線
-          socket.to(state.currentRoomCode).emit('player:disconnected', { seat });
-        }
-
-        const roomInfo = roomManager.getRoomInfo(state.currentRoomCode);
-
-        if (roomInfo && roomInfo.status === 'waiting') {
-          // 等待中直接離開
-          const { seat: leftSeat } = roomManager.leaveRoom(state.currentRoomCode, playerId);
-          playerManager.setPlayerRoom(playerId, null);
-          playerManager.removePlayer(playerId);
-
-          if (leftSeat) {
-            socket.to(state.currentRoomCode).emit('room:playerLeft', { playerId, seat: leftSeat });
-          }
-          const updatedRoom = roomManager.getRoomInfo(state.currentRoomCode);
-          if (updatedRoom) {
-            io.to(state.currentRoomCode).emit('room:updated', { room: updatedRoom });
-          }
-        } else if (roomInfo && roomInfo.status === 'playing') {
-          // 遊戲中：啟動重連倒數
-          const timer = setTimeout(() => {
-            // 超時未重連 → 中止遊戲
-            if (playerManager.isDisconnectTimedOut(playerId, RECONNECT_TIMEOUT_MS)) {
-              const playerInfo = playerManager.getPlayerInfo(playerId);
-              const name = playerInfo?.nickname ?? playerId;
-              gameManager.abortGame(state.currentRoomCode!, `玩家 ${name} 斷線超時`);
-
-              // 清理所有玩家狀態
-              const seatMap = roomManager.getSeatPlayerMap(state.currentRoomCode!);
-              for (const [, pid] of Object.entries(seatMap)) {
-                if (pid) {
-                  roomManager.leaveRoom(state.currentRoomCode!, pid);
-                  playerManager.setPlayerRoom(pid, null);
-                }
-              }
-
-              const updatedRoom = roomManager.getRoomInfo(state.currentRoomCode!);
-              if (updatedRoom) {
-                io.to(state.currentRoomCode!).emit('room:updated', { room: updatedRoom });
-              }
-            }
-            disconnectTimers.delete(playerId);
-          }, RECONNECT_TIMEOUT_MS);
-
-          disconnectTimers.set(playerId, timer);
-        }
-      } else {
-        // 不在任何房間，直接移除
-        playerManager.removePlayer(playerId);
-      }
+    socket.on('disconnect', () => {
+      clearTimeout(expiry);
+      if (closing) { context.voice.leave(socket.id); return; }
+      leaveVoice(context, socket.id, 'Voice connection closed.');
+      const recipients = new Set<string>();
+      void runtime.mutate(() => {
+        for (const id of affectedAccounts(socket.data.accountId)) recipients.add(id);
+        playerManager.markDisconnected(socket.id);
+      }, { skipUnchanged: true }).then(() => broadcastState(io, recipients))
+        .catch((error: unknown) => console.error('[disconnect]', error));
     });
   });
+
+  const cleanup = setInterval(() => {
+    if (closing || playerManager.getExpiredPlayers(RECONNECT_TIMEOUT_MS).length === 0) return;
+    const recipients = new Set<string>();
+    void runtime.mutate(() => {
+      for (const player of playerManager.getExpiredPlayers(RECONNECT_TIMEOUT_MS)) {
+        for (const id of affectedAccounts(player.info.id)) recipients.add(id);
+        leaveCurrentRoom(player.info.id);
+        playerManager.removePlayer(player.info.id);
+      }
+    }, { skipUnchanged: true,
+      afterCommit: () => reconcileVoiceMembership(context, recipients),
+    }).then(() => broadcastState(io, recipients))
+      .catch((error: unknown) => console.error('[cleanup]', error));
+  }, 5_000);
+  cleanup.unref();
+
+  return (): void => {
+    closing = true;
+    clearInterval(cleanup);
+  };
+}
+
+export async function updateConnectedProfile(
+  context: SocketContext,
+  account: Parameters<typeof playerManager.updatePlayerInfo>[0],
+): Promise<void> {
+  const recipients = new Set<string>();
+  await context.runtime.mutate(() => {
+    for (const id of affectedAccounts(account.id)) recipients.add(id);
+    playerManager.updatePlayerInfo(account);
+    roomManager.updateRoomPlayer(account,
+      playerManager.getPlayerState(account.id)?.currentRoomCode ?? null);
+  }, { skipUnchanged: true });
+  broadcastState(context.io, recipients);
 }

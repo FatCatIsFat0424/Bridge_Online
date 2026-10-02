@@ -67,7 +67,8 @@ Socket 層 → Manager 層 → Engine 層 → Shared (types/constants)
 
 ### 後端規範
 
-- 所有資料僅存於記憶體（Map/Object），無資料庫
+- 帳號、Session、好友、對局紀錄與遊戲狀態透過非同步 Repository 寫入 JSON 資料庫；未來 SQL adapter 必須維持相同原子性與資料約束
+- Manager 的 Map/Object 是執行期狀態；Socket 異動必須透過 runtime coordinator，成功儲存後才回應與廣播
 - Socket.IO 事件使用 `namespace:action` 命名格式（如 `room:create`）
 - 所有 Client→Server 事件使用 callback 回傳結果
 - 錯誤回傳格式：`{ success: false, error: string }`

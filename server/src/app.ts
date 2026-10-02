@@ -1,0 +1,84 @@
+import { createServer } from 'node:http';
+import express from 'express';
+import cors from 'cors';
+import { Server } from 'socket.io';
+import type { Repository } from './database/repository';
+import { createAuthService } from './auth/auth-service';
+import { getRequestSession, protectMutations, requireSession } from './auth/http-middleware';
+import { createAuthRouter } from './http/auth-routes';
+import { createFriendRouter } from './http/friend-routes';
+import { createPlayerRouter } from './http/player-routes';
+import { createRuntimeCoordinator } from './runtime/coordinator';
+import { createVoiceManager } from './managers/voice-manager';
+import type { TypedServer } from './socket/context';
+import { setupConnectionHandler, updateConnectedProfile } from './socket/connection';
+
+export interface ApplicationOptions {
+  allowedOrigins: readonly string[];
+  secureCookies?: boolean;
+}
+
+export async function createApplication(repository: Repository, options: ApplicationOptions): Promise<{
+  httpServer: ReturnType<typeof createServer>;
+  io: TypedServer;
+  close: () => Promise<void>;
+}> {
+  const app = express();
+  app.disable('x-powered-by');
+  app.use(cors({ origin: [...options.allowedOrigins], credentials: true }));
+  app.use(express.json({ limit: '16kb' }));
+  app.use('/api', (_request, response, next) => {
+    response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    next();
+  });
+  app.use('/api', protectMutations(options.allowedOrigins));
+  app.get('/health', (_request, response) => response.json({ status: 'ok' }));
+  const httpServer = createServer(app);
+  const io: TypedServer = new Server(httpServer, {
+    cors: { origin: [...options.allowedOrigins], credentials: true },
+    maxHttpBufferSize: 16_384,
+    allowRequest: (request, callback) => {
+      callback(null, options.allowedOrigins.includes(request.headers.origin ?? ''));
+    },
+  });
+  const auth = createAuthService(repository);
+  const runtime = await createRuntimeCoordinator(repository);
+  const context = { io, auth, runtime, voice: createVoiceManager() };
+  const stopConnections = setupConnectionHandler(context);
+  app.use('/api/auth', createAuthRouter(auth, {
+    ...options,
+    onAccountUpdated: (account) => updateConnectedProfile(context, account),
+    onSessionsRevoked: (accountId, tokenHash) => {
+      for (const socket of io.sockets.sockets.values()) {
+        if (socket.data.accountId === accountId && (!tokenHash || socket.data.tokenHash === tokenHash)) {
+          socket.disconnect(true);
+        }
+      }
+    },
+  }));
+  app.use('/api/friends', createFriendRouter(repository, auth));
+  app.use('/api/players', createPlayerRouter(repository, auth));
+  app.get('/api/account/history', requireSession(auth), (_request, response, next) => {
+    void repository.listMatches(getRequestSession(response).account.id, 50)
+      .then((matches) => response.json({ success: true, matches })).catch(next);
+  });
+  app.use('/api', (_request, response) => response.status(404).json({ success: false, error: 'Not found.' }));
+  app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+    const status = error instanceof Error && 'status' in error && typeof error.status === 'number'
+      && error.status >= 400 && error.status < 500 ? error.status : 500;
+    if (status === 500) console.error('[http]', error);
+    response.status(status).json({ success: false,
+      error: status === 500 ? 'Unable to complete the request. Please try again.' : 'Invalid request.' });
+  });
+
+  return {
+    httpServer, io,
+    close: async (): Promise<void> => {
+      stopConnections();
+      await new Promise<void>((resolve) => io.close(() => resolve()));
+      await runtime.idle();
+      await repository.close();
+    },
+  };
+}

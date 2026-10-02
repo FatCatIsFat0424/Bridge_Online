@@ -1,5 +1,11 @@
 # Bridge Online — 詳細設計文件 (Detailed Design)
 
+> 2026-10-03 更新：帳號、好友、JSON 持久化與 Session 重連已取代初版訪客／token 設計。現行介面以 [帳號與資料庫](wiki/accounts-and-storage.md) 與 [API](wiki/api-events.md) 為準；下方保留初版遊戲設計供參考。
+
+> 同日擴充：[效能優化](wiki/performance.md) 保留資料與遊戲契約，加入索引、限定房間同步及前端去重；[玩家個人頁與背景音樂](wiki/player-profiles-and-music.md) 說明公開身分端點、好友入口及由使用者啟動的音訊控制。
+
+> [牌桌語音](wiki/voice-chat.md) 使用已驗證的 Socket 協商與四人 WebRTC 音訊，提供獨立靜音 / 拒聽，保持 JSON schema 與遊戲判定；正式對局亦共用文字聊天。
+
 > **文件版本**: v1.0  
 > **建立日期**: 2026-07-18  
 > **輸入來源**: [proposal.md](file:///c:/Users/ben91/Desktop/Bridge_Online/docs/proposal.md)

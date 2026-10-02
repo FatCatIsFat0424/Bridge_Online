@@ -1,6 +1,6 @@
 // ─── BiddingPanel 元件：叫牌面板 ───
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { BidAction, BidLevel, BidSuit } from '@shared/types';
 import { SUIT_SYMBOLS } from '@shared/constants';
@@ -23,9 +23,12 @@ const LEVELS: BidLevel[] = [1, 2, 3, 4, 5, 6, 7];
 const SUITS: BidSuit[] = ['clubs', 'diamonds', 'hearts', 'spades', 'nt'];
 
 export function BiddingPanel(): ReactNode {
-  const { log, currentTurnSeat } = useGameStore();
-  const { mySeat } = useRoomStore();
+  const log = useGameStore((state) => state.log);
+  const currentTurnSeat = useGameStore((state) => state.currentTurnSeat);
+  const mySeat = useRoomStore((state) => state.mySeat);
   const { t } = useI18nStore();
+  const [error, setError] = useState('');
+  const [pending, setPending] = useState(false);
 
   const isMyTurn = mySeat === currentTurnSeat;
 
@@ -49,14 +52,19 @@ export function BiddingPanel(): ReactNode {
   }, [highestBid]);
 
   const handleBid = useCallback((action: BidAction): void => {
-    socket.emit('game:bid', { bid: action }, () => {
-      // callback handled
+    setError('');
+    setPending(true);
+    socket.timeout(10000).emit('game:bid', { bid: action }, (timeout, response) => {
+      setPending(false);
+      if (timeout) setError(t('auth.connectionError'));
+      else if (!response.success) setError(response.error ?? t('common.error'));
     });
-  }, []);
+  }, [t]);
 
   return (
     <div className={styles.biddingContainer}>
       <div className={styles.biddingTitle}>{t('game.bidding')}</div>
+      {error && <p className={styles.error} role="alert">{error}</p>}
 
       {/* 叫牌歷史 */}
       <div className={styles.bidHistory}>
@@ -85,7 +93,7 @@ export function BiddingPanel(): ReactNode {
                   <button
                     key={`${level}${suit}`}
                     className={styles.bidBtn}
-                    disabled={!enabled}
+                    disabled={pending || !enabled}
                     onClick={() => handleBid({ type: 'bid', level, suit })}
                   >
                     {level}{BID_SUIT_LABELS[suit]}
@@ -98,6 +106,7 @@ export function BiddingPanel(): ReactNode {
           {/* Pass 按鈕 */}
           <button
             className={styles.passBtn}
+            disabled={pending}
             onClick={() => handleBid({ type: 'pass' })}
           >
             {t('game.pass')}

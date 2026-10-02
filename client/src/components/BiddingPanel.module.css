@@ -8,6 +8,8 @@
   animation: fadeIn 0.3s ease;
 }
 
+.error { color: var(--color-danger); margin-bottom: var(--spacing-sm); }
+
 .biddingTitle {
   font-size: var(--text-lg);
   font-weight: 600;

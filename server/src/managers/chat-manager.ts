@@ -35,6 +35,7 @@ export function addMessage(
   const history = chatHistory.get(roomCode);
   if (history) {
     history.push(message);
+    if (history.length > 200) history.splice(0, history.length - 200);
   }
 
   return message;
@@ -52,4 +53,13 @@ export function getChatHistory(roomCode: RoomCode): ChatMessage[] {
  */
 export function clearRoomChat(roomCode: RoomCode): void {
   chatHistory.delete(roomCode);
+}
+
+export function exportChat(): { roomCode: string; messages: ChatMessage[] }[] {
+  return [...chatHistory].map(([roomCode, messages]) => ({ roomCode, messages }));
+}
+
+export function restoreChat(records: { roomCode: string; messages: ChatMessage[] }[]): void {
+  chatHistory.clear();
+  for (const record of records) chatHistory.set(record.roomCode, record.messages);
 }

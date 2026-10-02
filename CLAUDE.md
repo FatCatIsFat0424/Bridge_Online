@@ -10,7 +10,7 @@
 
 ### 核心功能
 
-- 暱稱 + 顏色選擇（無帳號系統）
+- 使用者名稱／密碼帳號、持久 Session、可編輯暱稱／顏色／頭像、好友邀請與對局紀錄
 - 房間制度（建立/加入/座位選擇/準備）
 - 完整橋牌規則（發牌、倒牌重洗、叫牌、出牌、結算）
 - 即時聊天（房間級別）
@@ -27,7 +27,7 @@
 | 後端 | Node.js + Express + Socket.IO + TypeScript |
 | 共用 | `shared/` 目錄（型別 + 常數） |
 | 測試 | Vitest |
-| i18n | react-i18next |
+| i18n | 型別化中英文辭典 + Zustand |
 | 套件管理 | npm（monorepo with workspaces） |
 
 ---
@@ -112,7 +112,9 @@ Socket 層 → Manager 層 → Engine 層 → Shared (types/constants)
 
 ### 後端
 
-- 所有資料僅存於記憶體（Map/Object），無資料庫
+- 帳號、Session、好友、對局紀錄與遊戲狀態存於版本化 JSON 資料庫；透過非同步 Repository 隔離，預留 SQL 遷移
+- Manager 異動透過 runtime coordinator 序列化；儲存成功後才 ACK／廣播，失敗還原
+- 詳見 [帳號與資料庫](docs/wiki/accounts-and-storage.md)，目前 JSON adapter 限單一 server process
 - Socket.IO 事件格式：`namespace:action`（如 `room:create`）
 - 所有 Client→Server 事件使用 callback 回傳
 - 錯誤格式：`{ success: false, error: string }`

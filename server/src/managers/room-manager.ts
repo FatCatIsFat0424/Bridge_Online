@@ -1,281 +1,133 @@
-// ─── Room Manager：房間生命週期管理 ───
-
-import type {
-  RoomCode,
-  GameType,
-  RoomStatus,
-  RoomInfo,
-  SeatMap,
-  Seat,
-  PlayerId,
-} from '@shared/types';
+import { isDeepStrictEqual } from 'node:util';
+import type { GameType, PlayerInfo, RoomCode, RoomInfo, RoomStatus, Seat, SeatMap } from '@shared/types';
+import type { PersistedRoom } from '../runtime/types';
 import { generateRoomCode } from '../utils/id-generator';
-import { getPlayerInfo } from './player-manager';
 
-// ─── 模組私有狀態 ───
+const rooms = new Map<RoomCode, PersistedRoom>();
+const seats: Seat[] = ['N', 'E', 'S', 'W'];
+type Result = { success: true } | { success: false; reason: string };
 
-interface RoomState {
-  info: RoomInfo;
-  playerIdToSeat: Map<PlayerId, Seat>;
-}
-
-/** roomCode → 房間完整狀態 */
-const rooms: Map<RoomCode, RoomState> = new Map();
-
-// ─── 輔助函式 ───
-
-function createEmptySeatMap(): SeatMap {
+function emptySeats(): SeatMap {
   return {
-    N: { player: null, isReady: false },
-    E: { player: null, isReady: false },
-    S: { player: null, isReady: false },
-    W: { player: null, isReady: false },
+    N: { player: null, isReady: false }, E: { player: null, isReady: false },
+    S: { player: null, isReady: false }, W: { player: null, isReady: false },
   };
 }
 
-function rebuildSeatMap(room: RoomState): SeatMap {
-  const seats = createEmptySeatMap();
-  for (const [playerId, seat] of room.playerIdToSeat) {
-    const playerInfo = getPlayerInfo(playerId);
-    if (playerInfo) {
-      seats[seat] = { player: playerInfo, isReady: seats[seat].isReady };
-    }
-  }
-  return seats;
-}
-
-// ─── 匯出函式 ───
-
-/**
- * 建立新房間
- */
-export function createRoom(gameType: GameType): RoomCode {
-  let code: RoomCode;
-  do {
-    code = generateRoomCode();
-  } while (rooms.has(code));
-
-  const room: RoomState = {
-    info: {
-      code,
-      gameType,
-      status: 'waiting',
-      seats: createEmptySeatMap(),
-      createdAt: Date.now(),
-    },
-    playerIdToSeat: new Map(),
-  };
-
-  rooms.set(code, room);
+export function createRoom(gameType: GameType, creatorId: string): RoomCode {
+  let code = generateRoomCode();
+  while (rooms.has(code)) code = generateRoomCode();
+  rooms.set(code, {
+    info: { code, gameType, status: 'waiting', seats: emptySeats(), createdAt: Date.now() },
+    memberIds: [creatorId],
+  });
   return code;
 }
 
-/**
- * 取得房間資訊
- */
-export function getRoomInfo(roomCode: RoomCode): RoomInfo | null {
-  const room = rooms.get(roomCode);
-  if (!room) return null;
-  // 重建 seats 以確保玩家資訊最新
-  room.info = { ...room.info, seats: rebuildSeatMap(room) };
-  return room.info;
+export function getRoomInfo(code: RoomCode): RoomInfo | null {
+  return rooms.get(code)?.info ?? null;
 }
 
-/**
- * 玩家加入房間（尚未選座位）
- */
-export function joinRoom(
-  roomCode: RoomCode,
-  playerId: PlayerId,
-): { success: true } | { success: false; reason: string } {
-  const room = rooms.get(roomCode);
-  if (!room) {
-    return { success: false, reason: 'Room not found' };
-  }
-  if (room.info.status === 'playing') {
-    return { success: false, reason: 'Game is in progress' };
-  }
-  // 檢查是否已在房間
-  if (room.playerIdToSeat.has(playerId)) {
-    return { success: false, reason: 'Already in room' };
-  }
+export function getRoomMemberIds(code: RoomCode): readonly string[] {
+  return rooms.get(code)?.memberIds.slice() ?? [];
+}
+
+export function joinRoom(code: RoomCode, playerId: string): Result {
+  const room = rooms.get(code);
+  if (!room) return { success: false, reason: 'Room not found' };
+  if (room.memberIds.includes(playerId)) return { success: true };
+  if (room.info.status === 'playing') return { success: false, reason: 'Game is in progress' };
+  if (room.memberIds.length >= 4) return { success: false, reason: 'Room is full' };
+  room.memberIds.push(playerId);
   return { success: true };
 }
 
-/**
- * 玩家離開房間
- */
-export function leaveRoom(
-  roomCode: RoomCode,
-  playerId: PlayerId,
-): { seat: Seat | null; roomEmpty: boolean } {
-  const room = rooms.get(roomCode);
+export function leaveRoom(code: RoomCode, playerId: string): { seat: Seat | null; roomEmpty: boolean } {
+  const room = rooms.get(code);
   if (!room) return { seat: null, roomEmpty: true };
-
-  const seat = room.playerIdToSeat.get(playerId) ?? null;
-  if (seat) {
-    room.info = {
-      ...room.info,
-      seats: {
-        ...room.info.seats,
-        [seat]: { player: null, isReady: false },
-      },
-    };
-    room.playerIdToSeat.delete(playerId);
-  }
-
-  const roomEmpty = room.playerIdToSeat.size === 0;
-  if (roomEmpty) {
-    rooms.delete(roomCode);
-  }
-
+  const seat = getPlayerSeat(code, playerId);
+  if (seat) room.info = {
+    ...room.info, seats: { ...room.info.seats, [seat]: { player: null, isReady: false } },
+  };
+  room.memberIds = room.memberIds.filter((id) => id !== playerId);
+  const roomEmpty = room.memberIds.length === 0;
+  if (roomEmpty) rooms.delete(code);
   return { seat, roomEmpty };
 }
 
-/**
- * 玩家更換座位
- */
-export function changeSeat(
-  roomCode: RoomCode,
-  playerId: PlayerId,
-  targetSeat: Seat,
-): { success: true } | { success: false; reason: string } {
-  const room = rooms.get(roomCode);
-  if (!room) return { success: false, reason: 'Room not found' };
-  if (room.info.status === 'playing') {
-    return { success: false, reason: 'Cannot change seat during game' };
-  }
-
-  // 檢查目標座位是否為空
-  const seatInfo = room.info.seats[targetSeat];
-  if (seatInfo.player !== null) {
-    // 如果是同一位玩家，不需要做任何事
-    const currentSeat = room.playerIdToSeat.get(playerId);
-    if (currentSeat === targetSeat) {
-      return { success: true };
-    }
-    return { success: false, reason: 'Seat is occupied' };
-  }
-
-  const playerInfo = getPlayerInfo(playerId);
-  if (!playerInfo) return { success: false, reason: 'Player not found' };
-
-  // 清除舊座位
-  const oldSeat = room.playerIdToSeat.get(playerId);
-  const newSeats = { ...room.info.seats };
-  if (oldSeat) {
-    newSeats[oldSeat] = { player: null, isReady: false };
-  }
-
-  // 設定新座位
-  newSeats[targetSeat] = { player: playerInfo, isReady: false };
-  room.info = { ...room.info, seats: newSeats };
-  room.playerIdToSeat.set(playerId, targetSeat);
-
+export function changeSeat(code: RoomCode, player: PlayerInfo, target: Seat): Result {
+  const room = rooms.get(code);
+  if (!room || !room.memberIds.includes(player.id)) return { success: false, reason: 'Not in room' };
+  if (room.info.status === 'playing') return { success: false, reason: 'Cannot change seat during game' };
+  const occupant = room.info.seats[target].player;
+  if (occupant && occupant.id !== player.id) return { success: false, reason: 'Seat is occupied' };
+  const previous = getPlayerSeat(code, player.id);
+  if (previous === target) return { success: true };
+  const next = { ...room.info.seats };
+  if (previous) next[previous] = { player: null, isReady: false };
+  next[target] = { player, isReady: false };
+  room.info = { ...room.info, seats: next };
   return { success: true };
 }
 
-/**
- * 設定玩家準備狀態
- */
-export function setReady(
-  roomCode: RoomCode,
-  playerId: PlayerId,
-  ready: boolean,
-): { success: true } | { success: false; reason: string } {
-  const room = rooms.get(roomCode);
-  if (!room) return { success: false, reason: 'Room not found' };
+export function setReady(code: RoomCode, playerId: string, ready: boolean): Result {
+  const room = rooms.get(code);
+  const seat = getPlayerSeat(code, playerId);
+  if (!room || !seat) return { success: false, reason: 'Not seated' };
+  if (room.info.status === 'playing') return { success: false, reason: 'Game is in progress' };
+  room.info = { ...room.info, seats: {
+    ...room.info.seats, [seat]: { ...room.info.seats[seat], isReady: ready },
+  } };
+  return { success: true };
+}
 
-  const seat = room.playerIdToSeat.get(playerId);
-  if (!seat) return { success: false, reason: 'Not seated' };
+export function isAllReady(code: RoomCode): boolean {
+  const room = rooms.get(code);
+  return Boolean(room && seats.every((seat) => room.info.seats[seat].player && room.info.seats[seat].isReady));
+}
 
-  const currentSeatInfo = room.info.seats[seat];
-  room.info = {
-    ...room.info,
-    seats: {
-      ...room.info.seats,
-      [seat]: { ...currentSeatInfo, isReady: ready },
-    },
+export function getPlayerSeat(code: RoomCode, playerId: string): Seat | null {
+  const room = rooms.get(code);
+  return room ? seats.find((seat) => room.info.seats[seat].player?.id === playerId) ?? null : null;
+}
+
+export function getSeatPlayers(code: RoomCode): Record<Seat, PlayerInfo> | null {
+  const room = rooms.get(code);
+  if (!room || seats.some((seat) => !room.info.seats[seat].player)) return null;
+  return {
+    N: room.info.seats.N.player!, E: room.info.seats.E.player!,
+    S: room.info.seats.S.player!, W: room.info.seats.W.player!,
   };
-
-  return { success: true };
 }
 
-/**
- * 檢查是否所有座位已滿且全部準備
- */
-export function isAllReady(roomCode: RoomCode): boolean {
-  const room = rooms.get(roomCode);
-  if (!room) return false;
-
-  const seats = room.info.seats;
-  const seatKeys: Seat[] = ['N', 'E', 'S', 'W'];
-  return seatKeys.every((s) => seats[s].player !== null && seats[s].isReady);
+export function setRoomStatus(code: RoomCode, status: RoomStatus): void {
+  const room = rooms.get(code);
+  if (room) room.info = { ...room.info, status };
 }
 
-/**
- * 取得玩家在房間中的座位
- */
-export function getPlayerSeat(roomCode: RoomCode, playerId: PlayerId): Seat | null {
-  const room = rooms.get(roomCode);
-  if (!room) return null;
-  return room.playerIdToSeat.get(playerId) ?? null;
-}
-
-/**
- * 取得座位上的玩家 ID
- */
-export function getPlayerIdBySeat(roomCode: RoomCode, seat: Seat): PlayerId | null {
-  const room = rooms.get(roomCode);
-  if (!room) return null;
-  for (const [pid, s] of room.playerIdToSeat) {
-    if (s === seat) return pid;
-  }
-  return null;
-}
-
-/**
- * 設定房間狀態（waiting / playing）
- */
-export function setRoomStatus(roomCode: RoomCode, status: RoomStatus): void {
-  const room = rooms.get(roomCode);
-  if (room) {
-    room.info = { ...room.info, status };
-  }
-}
-
-/**
- * 重設所有玩家的準備狀態為 false
- */
-export function resetAllReady(roomCode: RoomCode): void {
-  const room = rooms.get(roomCode);
+export function resetAllReady(code: RoomCode): void {
+  const room = rooms.get(code);
   if (!room) return;
-
-  const newSeats = { ...room.info.seats };
-  const seatKeys: Seat[] = ['N', 'E', 'S', 'W'];
-  for (const s of seatKeys) {
-    newSeats[s] = { ...newSeats[s], isReady: false };
-  }
-  room.info = { ...room.info, seats: newSeats };
+  const next = { ...room.info.seats };
+  for (const seat of seats) next[seat] = { ...next[seat], isReady: false };
+  room.info = { ...room.info, seats: next };
 }
 
-/**
- * 移除空房間
- */
-export function removeRoom(roomCode: RoomCode): void {
-  rooms.delete(roomCode);
-}
-
-/**
- * 取得房間內的座位到玩家ID映射
- */
-export function getSeatPlayerMap(roomCode: RoomCode): Record<Seat, PlayerId | null> {
+export function updateRoomPlayer(player: PlayerInfo, roomCode: RoomCode | null): void {
+  if (!roomCode) return;
   const room = rooms.get(roomCode);
-  const result: Record<Seat, PlayerId | null> = { N: null, E: null, S: null, W: null };
-  if (!room) return result;
+  const seat = getPlayerSeat(roomCode, player.id);
+  if (!room || !seat || isDeepStrictEqual(room.info.seats[seat].player, player)) return;
+  room.info = { ...room.info, seats: {
+    ...room.info.seats, [seat]: { ...room.info.seats[seat], player },
+  } };
+}
 
-  for (const [pid, seat] of room.playerIdToSeat) {
-    result[seat] = pid;
-  }
-  return result;
+export function exportRooms(): PersistedRoom[] {
+  return [...rooms.values()];
+}
+
+export function restoreRooms(records: PersistedRoom[]): void {
+  rooms.clear();
+  for (const room of records) rooms.set(room.info.code, room);
 }

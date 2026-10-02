@@ -1,199 +1,77 @@
-// ─── LobbyPage：大廳頁面 ───
-
-import { useState, useCallback } from 'react';
-import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { socket, connectSocket } from '../socket';
-import { usePlayerStore } from '../stores/player-store';
+import { useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { socket } from '../socket';
+import { useAccountStore } from '../stores/account-store';
 import { useRoomStore } from '../stores/room-store';
+import { useGameStore } from '../stores/game-store';
 import { useI18nStore } from '../stores/i18n-store';
-import { LanguageSwitch } from '../components/LanguageSwitch';
+import { Avatar } from '../components/Avatar';
 import styles from './LobbyPage.module.css';
-
-const PRESET_COLORS = [
-  '#4a9eff', '#818cf8', '#a78bfa', '#f472b6',
-  '#fb923c', '#fbbf24', '#4ade80', '#2dd4bf',
-  '#f87171', '#e879f9', '#60a5fa', '#34d399',
-];
 
 export function LobbyPage(): ReactNode {
   const navigate = useNavigate();
-  const { nickname, color, isRegistered, setNickname, setColor, setPlayer } = usePlayerStore();
-  const { setRoom, setMySeat } = useRoomStore();
+  const account = useAccountStore((state) => state.account);
+  const currentRoomCode = useRoomStore((state) => state.currentRoomCode);
+  const phase = useGameStore((state) => state.phase);
   const { t } = useI18nStore();
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const ensureRegistered = useCallback((): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if (isRegistered) {
-        resolve(true);
-        return;
-      }
-
-      if (!nickname.trim()) {
-        setError(t('lobby.nicknamePlaceholder'));
-        resolve(false);
-        return;
-      }
-
-      connectSocket();
-
-      const onConnect = (): void => {
-        socket.emit('player:setNickname', { nickname: nickname.trim(), color }, (res) => {
-          if (res.success && res.playerId && res.reconnectToken) {
-            setPlayer(res.playerId, res.reconnectToken);
-            setError('');
-            resolve(true);
-          } else {
-            setError(res.error ?? t('common.error'));
-            resolve(false);
-          }
-        });
-        socket.off('connect', onConnect);
-      };
-
-      if (socket.connected) {
-        onConnect();
-      } else {
-        socket.on('connect', onConnect);
-      }
-    });
-  }, [isRegistered, nickname, color, setPlayer, t]);
-
-  const handleCreateRoom = useCallback(async (): Promise<void> => {
+  const createRoom = (): void => {
     setLoading(true);
     setError('');
-
-    const registered = await ensureRegistered();
-    if (!registered) {
+    socket.timeout(10000).emit('room:create', { gameType: 'bridge' }, (timeout, result) => {
       setLoading(false);
-      return;
-    }
-
-    socket.emit('room:create', { gameType: 'bridge' }, (res) => {
-      setLoading(false);
-      if (res.success && res.roomCode) {
-        setRoom(res.roomCode, {
-          code: res.roomCode,
-          gameType: 'bridge',
-          status: 'waiting',
-          seats: { N: { player: null, isReady: false }, E: { player: null, isReady: false }, S: { player: null, isReady: false }, W: { player: null, isReady: false } },
-          createdAt: Date.now(),
-        });
-        setMySeat(null);
-        navigate(`/room/${res.roomCode}`);
-      } else {
-        setError(res.error ?? t('common.error'));
-      }
+      if (timeout) setError(t('auth.connectionError'));
+      else if (result.success && result.roomCode) navigate(`/room/${result.roomCode}`);
+      else setError(result.error ?? t('common.error'));
     });
-  }, [ensureRegistered, setRoom, setMySeat, navigate, t]);
+  };
 
-  const handleJoinRoom = useCallback(async (): Promise<void> => {
+  const joinRoom = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
     const code = roomCodeInput.trim().toUpperCase();
-    if (!code) {
-      setError(t('lobby.roomCodePlaceholder'));
-      return;
-    }
-
+    if (!code) return;
     setLoading(true);
     setError('');
-
-    const registered = await ensureRegistered();
-    if (!registered) {
+    socket.timeout(10000).emit('room:join', { roomCode: code }, (timeout, result) => {
       setLoading(false);
-      return;
-    }
-
-    socket.emit('room:join', { roomCode: code }, (res) => {
-      setLoading(false);
-      if (res.success && res.room) {
-        setRoom(code, res.room);
-        setMySeat(null);
-        navigate(`/room/${code}`);
-      } else {
-        setError(res.error ?? t('common.error'));
-      }
+      if (timeout) setError(t('auth.connectionError'));
+      else if (result.success && result.room) navigate(`/room/${code}`);
+      else setError(result.error ?? t('common.error'));
     });
-  }, [roomCodeInput, ensureRegistered, setRoom, setMySeat, navigate, t]);
+  };
 
+  if (!account) return null;
   return (
-    <div className={styles.lobbyContainer}>
+    <main className={styles.lobbyContainer}>
       <div className={styles.lobbyCard}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-sm)' }}>
-          <LanguageSwitch />
-        </div>
-
         <div className={styles.lobbyTitle}>
-          <h1>🃏 {t('lobby.title')}</h1>
-          <p>{t('lobby.subtitle')}</p>
+          <Avatar avatar={account.avatar} color={account.color} size="large" />
+          <h1>{t('lobby.welcome', { nickname: account.nickname })}</h1>
+          <p>@{account.username} · {t('lobby.subtitle')}</p>
+          <Link to="/account">{t('nav.account')}</Link>
         </div>
-
-        {/* 暱稱 */}
-        <div className={styles.formGroup}>
-          <label htmlFor="nickname-input">{t('lobby.nickname')}</label>
-          <input
-            id="nickname-input"
-            type="text"
-            placeholder={t('lobby.nicknamePlaceholder')}
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            maxLength={10}
-            disabled={isRegistered}
-          />
-        </div>
-
-        {/* 顏色選擇 */}
-        <div className={styles.formGroup}>
-          <label>{t('lobby.color')}</label>
-          <div className={styles.colorPicker}>
-            {PRESET_COLORS.map((c) => (
-              <button
-                key={c}
-                className={`${styles.colorSwatch} ${c === color ? styles.colorSwatchActive : ''}`}
-                style={{ backgroundColor: c, color: c }}
-                onClick={() => setColor(c)}
-                disabled={isRegistered}
-                aria-label={`Select color ${c}`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className={styles.divider}>{t('room.title')}</div>
-
-        {/* 房間操作 */}
-        <div className={styles.roomActions}>
-          <button
-            className={`btn btn-primary ${styles.fullWidthBtn}`}
-            onClick={handleCreateRoom}
-            disabled={loading}
-          >
-            {loading ? t('common.loading') : t('lobby.createRoom')}
-          </button>
-
-          <div className={styles.joinRow}>
-            <input
-              id="room-code-input"
-              type="text"
-              placeholder={t('lobby.roomCodePlaceholder')}
-              value={roomCodeInput}
-              onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
-              maxLength={6}
-            />
-            <button
-              className="btn btn-outline"
-              onClick={handleJoinRoom}
-              disabled={loading}
-            >
-              {t('lobby.join')}
-            </button>
-          </div>
-        </div>
-
-        {error && <p className={styles.errorMsg}>{error}</p>}
+        {currentRoomCode ? <Link className={`btn btn-primary ${styles.fullWidthBtn}`}
+          to={`/${phase ? 'game' : 'room'}/${currentRoomCode}`}>
+          {t('lobby.resume')} · {currentRoomCode}
+        </Link> : <div className={styles.roomActions}>
+          <button className={`btn btn-primary ${styles.fullWidthBtn}`} onClick={createRoom}
+            disabled={loading}>{loading ? t('common.loading') : t('lobby.createRoom')}</button>
+          <div className={styles.divider}>{t('lobby.joinRoom')}</div>
+          <form className={styles.joinRow} onSubmit={joinRoom}>
+            <input id="room-code-input" type="text" aria-label={t('room.code')}
+              placeholder={t('lobby.roomCodePlaceholder')} value={roomCodeInput}
+              onChange={(event) => setRoomCodeInput(event.target.value.toUpperCase())}
+              maxLength={6} required autoComplete="off" />
+            <button type="submit" className="btn btn-outline" disabled={loading}>
+              {t('lobby.join')}</button>
+          </form>
+        </div>}
+        {error && <p className={styles.errorMsg} role="alert">{error}</p>}
       </div>
-    </div>
+    </main>
   );
 }

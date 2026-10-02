@@ -2,7 +2,7 @@
 
 .trickContainer {
   position: relative;
-  width: 280px;
+  width: min(17.5rem, 100%);
   height: 220px;
   margin: 0 auto;
 }

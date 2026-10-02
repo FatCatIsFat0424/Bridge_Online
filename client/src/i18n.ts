@@ -1,8 +1,17 @@
 // ─── i18n 多語系系統 ───
 
+import { accountTranslations } from './account-i18n';
+import type { AccountTranslationKey } from './account-i18n';
+import { playerTranslations } from './player-i18n';
+import type { PlayerTranslationKey } from './player-i18n';
+import { voiceTranslations } from './voice-i18n';
+import type { VoiceTranslationKey } from './voice-i18n';
+
 export type Locale = 'zh-TW' | 'en';
 
-type TranslationKeys = {
+type TranslationKeys = Record<
+  AccountTranslationKey | PlayerTranslationKey | VoiceTranslationKey, string
+> & {
   // Lobby
   'lobby.title': string;
   'lobby.subtitle': string;
@@ -64,6 +73,9 @@ type TranslationKeys = {
 
 const translations: Record<Locale, TranslationKeys> = {
   'zh-TW': {
+    ...accountTranslations['zh-TW'],
+    ...playerTranslations['zh-TW'],
+    ...voiceTranslations['zh-TW'],
     'lobby.title': 'Bridge Online',
     'lobby.subtitle': '線上橋牌',
     'lobby.nickname': '暱稱',
@@ -115,6 +127,9 @@ const translations: Record<Locale, TranslationKeys> = {
     'common.loading': '載入中...',
   },
   en: {
+    ...accountTranslations.en,
+    ...playerTranslations.en,
+    ...voiceTranslations.en,
     'lobby.title': 'Bridge Online',
     'lobby.subtitle': 'Online Bridge Game',
     'lobby.nickname': 'Nickname',

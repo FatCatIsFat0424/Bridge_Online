@@ -136,6 +136,12 @@ button {
   font-size: var(--text-base);
 }
 
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
 input,
 textarea {
   font-family: var(--font-primary);

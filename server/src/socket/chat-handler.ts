@@ -1,46 +1,17 @@
-// ─── Chat Handler：聊天事件處理（膠水層） ───
-
-import type { Server as SocketIOServer, Socket } from 'socket.io';
-import type {
-  ClientToServerEvents,
-  ServerToClientEvents,
-} from '@shared/types';
+import type { SocketContext, TypedSocket } from './context';
+import { actionError, requireRoom, runAction } from './context';
 import * as playerManager from '../managers/player-manager';
 import * as chatManager from '../managers/chat-manager';
 
-type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
-type TypedServer = SocketIOServer<ClientToServerEvents, ServerToClientEvents>;
-
-export function registerChatHandlers(_io: TypedServer, socket: TypedSocket): void {
-  socket.on('chat:send', (payload, callback) => {
-    const playerId = playerManager.getPlayerIdBySocketId(socket.id);
-    if (!playerId) {
-      return callback({ success: false, error: 'Player not found' });
+export function registerChatHandlers(context: SocketContext, socket: TypedSocket): void {
+  socket.on('chat:send', (payload, callback) => runAction(context, socket, callback, () => {
+    const content = payload?.message;
+    if (typeof content !== 'string' || !content.trim() || content.trim().length > 500) {
+      throw actionError('Messages must contain 1–500 characters.');
     }
-
-    const state = playerManager.getPlayerState(playerId);
-    if (!state?.currentRoomCode) {
-      return callback({ success: false, error: 'Not in a room' });
-    }
-
-    const playerInfo = playerManager.getPlayerInfo(playerId);
-    if (!playerInfo) {
-      return callback({ success: false, error: 'Player info not found' });
-    }
-
-    if (!payload.message || payload.message.trim().length === 0) {
-      return callback({ success: false, error: 'Message is empty' });
-    }
-
-    const message = chatManager.addMessage(
-      state.currentRoomCode,
-      playerInfo,
-      payload.message.trim(),
-    );
-
-    callback({ success: true });
-
-    // 廣播給房間所有人（含發送者，以確認顯示）
-    socket.to(state.currentRoomCode).emit('chat:received', { message });
-  });
+    const player = playerManager.getPlayerInfo(socket.data.accountId);
+    if (!player) throw actionError('Player not found.');
+    chatManager.addMessage(requireRoom(socket), player, content.trim());
+    return { success: true };
+  }));
 }

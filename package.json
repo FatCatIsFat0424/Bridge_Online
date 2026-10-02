@@ -14,13 +14,20 @@
     "build:client": "cd client && npm run build",
     "test": "cd server && npx vitest run",
     "test:watch": "cd server && npx vitest",
+    "bench:database": "cd server && npx tsx tests/database/repository-benchmark.ts",
+    "bench:socket": "cd server && npx tsx benchmarks/socket-benchmark.ts",
     "lint": "eslint \"shared/src/**/*.ts\" \"server/src/**/*.ts\" \"client/src/**/*.{ts,tsx}\"",
     "typecheck": "npm run typecheck:shared && npm run typecheck:server && npm run typecheck:client",
     "typecheck:shared": "cd shared && npx tsc --noEmit",
     "typecheck:server": "cd server && npx tsc --noEmit",
-    "typecheck:client": "cd client && npx tsc --noEmit"
+    "typecheck:client": "cd client && npx tsc -p tsconfig.app.json --noEmit && npx tsc -p tsconfig.node.json --noEmit"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.13.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "typescript-eslint": "^8.71.0"
   }
 }

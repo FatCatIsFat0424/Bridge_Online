@@ -1,155 +1,121 @@
-# 🃏 Bridge Online
+# Bridge Online
 
-> 線上橋牌 PvP 網頁遊戲 — Online Bridge Card Game
+線上四人橋牌遊戲，採用 React 19、TypeScript、Express、Socket.IO 與 npm workspaces。
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/)
-[![Socket.IO](https://img.shields.io/badge/Socket.IO-4.x-black)](https://socket.io/)
-[![Vitest](https://img.shields.io/badge/Vitest-66%20tests-green)](https://vitest.dev/)
+## 功能
 
-## 📋 概述
+- 使用者名稱／密碼註冊與登入、七天 Session、登出所有裝置與修改密碼
+- 可編輯暱稱、顏色與六種頭像；好友邀請、接受／拒絕／取消與移除好友
+- 公開玩家個人頁，可從好友、房間與對局中的玩家入口開啟並管理好友關係
+- 可選背景音樂：預設停止，支援播放／暫停、音量與跨頁持續播放
+- 建立／加入房間、四方位選座、準備、聊天
+- 牌桌四人語音、麥克風靜音與拒聽；等待房間及正式對局皆可文字聊天
+- 發牌、倒牌重洗、叫牌、出牌、結算與永久對局紀錄
+- 重新整理／斷線／伺服器重啟後恢復房間與手牌（60 秒重連窗口）
+- 中文與 English
+- JSON 持久化與非同步 Repository 介面，預留未來 SQL adapter
 
-Bridge Online 是一款即時線上橋牌遊戲，支援 4 人 PvP 對局。採用前後端分離的 monorepo 架構，以 Socket.IO 實現即時通訊，所有遊戲邏輯在伺服器端執行（Server-Authoritative）。
+## 啟動
 
-### 主要功能
-
-- 🏠 **大廳系統**：建立/加入房間、暱稱設定、顏色選擇
-- 💺 **座位系統**：四方位（N/E/S/W）自由選座、準備機制
-- 🎴 **完整橋牌流程**：發牌 → 倒牌重洗 → 叫牌 → 出牌 → 結算
-- 💬 **即時聊天**：房間內文字聊天
-- 🔄 **斷線重連**：60 秒重連窗口，遊戲中斷線自動恢復
-- 🌐 **多語系**：中文 / English 即時切換
-
-## 🏗️ 技術架構
-
-```
-Bridge_Online/
-├── shared/          # 共用型別與常數
-│   └── src/
-│       ├── types/   # TypeScript 型別定義
-│       └── constants/ # 遊戲規則常數
-├── server/          # Node.js + Express + Socket.IO
-│   └── src/
-│       ├── engine/   # 純函式遊戲引擎
-│       ├── managers/ # 狀態管理層
-│       ├── socket/   # Socket.IO 事件處理
-│       └── utils/    # 工具函式
-├── client/          # React 19 + Vite + Zustand
-│   └── src/
-│       ├── components/ # UI 元件
-│       ├── pages/      # 頁面
-│       ├── stores/     # Zustand 狀態
-│       └── hooks/      # Custom Hooks
-└── docs/            # 文件
-```
-
-### 模組依賴方向
-
-```
-Socket 層 → Manager 層 → Engine 層 → Shared (types/constants)
-```
-
-- **Engine 層**：純函式，無副作用，輸入→輸出
-- **Manager 層**：維護記憶體中的 Map/Object 狀態
-- **Socket 層**：膠水層，僅事件路由與 payload 轉換
-
-## 🚀 快速開始
-
-### 環境需求
-
-- Node.js ≥ 18
-- npm ≥ 9
-
-### 安裝
+需要 Node.js 22.13+（建議 Node.js 24）與 npm。
 
 ```bash
-# Clone
-git clone <repo-url>
-cd Bridge_Online
-
-# 安裝所有依賴（npm workspaces）
-npm install
+npm ci
+npm run dev:server
 ```
 
-### 開發模式
+另一個終端啟動前端：
 
 ```bash
-# 啟動後端（port 3001）
-cd server
-npm run dev
-
-# 啟動前端（port 5173）
-cd client
-npm run dev
+npm run dev:client
 ```
 
-### 測試
+開啟 http://localhost:5173，建立帳號後即可使用。後端預設 port 3001；
+前端透過 Vite proxy 存取 `/api` 與 `/socket.io`。
+背景音樂需自行按播放，每次重新載入保持停止；瀏覽器僅記住音量。
+進入房間後可按「加入語音」授權麥克風；靜音與拒聽各自控制，離開房間自動結束。
+正式部署的語音需要 HTTPS；限制較嚴格的網路需設定 TURN。
+可在 `client/.env.local` 設定 `VITE_WEBRTC_ICE_SERVERS`，格式與限制見[牌桌語音](docs/wiki/voice-chat.md)。
+
+## 資料與設定
+
+第一次啟動自動建立 `server/data/database.json`，儲存帳號、Session、好友、
+房間、遊戲狀態、聊天與對局紀錄。此目錄不加入 Git。JSON adapter 每個資料檔
+限一個 server process；所有寫入先驗證並原子替換，毀損檔案不會自動清空。
+
+環境變數：
+
+| 名稱 | 預設／用途 |
+| --- | --- |
+| `PORT` | `3001` |
+| `DATABASE_PATH` | `server/data/database.json`；可指定絕對路徑 |
+| `CLIENT_ORIGIN` | `http://localhost:5173,http://127.0.0.1:5173`；正式環境必填 |
+| `NODE_ENV` | `production` 時 cookie 啟用 Secure，須使用 HTTPS |
+
+請將變數設定於執行環境；`server/.env.example` 僅為範例，不會自動載入。
+備份、還原、資料結構與未來 SQL 遷移步驟見
+[帳號與資料庫](docs/wiki/accounts-and-storage.md)。
+
+## 結構
+
+```text
+shared/src/         共用型別、帳號／Socket 契約與遊戲常數
+server/src/
+  auth/             密碼、Session、HTTP 驗證與限流
+  database/         Repository、JSON adapter、schema 驗證
+  http/             帳號與好友 HTTP API
+  social/           好友生命週期
+  runtime/          遊戲狀態儲存、還原與交易協調
+  socket/           已認證的遊戲操作與狀態同步
+  managers/         玩家、房間、遊戲、聊天執行期狀態
+  engine/           橋牌純函式
+server/tests/       引擎、帳號、資料庫、好友與完整對局測試
+client/src/
+  pages/            登入／註冊、大廳、房間、遊戲、帳號、好友、玩家個人頁
+  audio/            原創背景音樂合成與 Web Audio 控制
+  voice/            WebRTC 語音、音訊生命週期與 ICE 設定
+  components/       頭像、導覽、叫牌、手牌、聊天等 UI
+  hooks/            帳號 Session 與 Socket 狀態同步
+  stores/           Zustand 狀態
+docs/               需求、設計、任務進度與 Wiki
+```
+
+遊戲流程由伺服器控制；Socket 操作透過 runtime coordinator 儲存成功後，
+才回應與傳送每位玩家自己的 `player:state`。密碼與 Session 不存入前端
+localStorage；不會將其他玩家的手牌傳送給客戶端。
+
+## 驗證
 
 ```bash
-cd server
-npx vitest run
+npm run typecheck
+npm run lint
+npm test
+npm run build:client
 ```
 
-## 🧪 測試覆蓋
+測試涵蓋帳號與好友授權、毀損資料保護、並行寫入、失敗還原、
+伺服器重啟後恢復對局、52 張牌完整出牌以及持久對局紀錄。
 
-| 模組 | 測試案例 | 說明 |
-|------|---------|------|
-| `deck.ts` | 9 | 牌組生成、洗牌、可確定性 |
-| `dealing.ts` | 12 | 發牌、排序、HCP 計算、倒牌重洗 |
-| `bidding.ts` | 20 | 叫牌驗證、比較、結束條件 |
-| `playing.ts` | 18 | 出牌驗證、跟牌、墩贏家 |
-| `scoring.ts` | 7 | 結算、隊伍判定 |
-| **合計** | **66** | **全部通過** |
+## 效能量測
 
-## 🎮 遊戲規則
+```bash
+npm run bench:database
+npm run bench:socket
+```
 
-1. **發牌**：52 張牌平均分配給 4 位玩家（每人 13 張）
-2. **倒牌重洗**：無 A 且 HCP ≤ 4 的玩家可申請重洗
-3. **叫牌**：莊家右方開始，依序叫牌（1♣-7NT），連續 3 pass 結束
-4. **出牌**：莊家左方首引，必須跟出首引花色，王牌可切牌
-5. **結算**：莊家方達到 6+合約等級 的墩數即獲勝
+Benchmark 使用獨立暫存資料，不使用正式資料庫。測試分別涵蓋大型 JSON 查詢 / 持久寫入，
+以及三房十二玩家的快照傳送、payload bytes 與 runtime 寫入次數。
+索引、廣播範圍、前端載入的前後量測及限制見[效能與驗證](docs/wiki/performance.md)。
 
-## 📝 API 事件
+## 文件
 
-### Client → Server
-
-| 事件 | 說明 |
-|------|------|
-| `player:setNickname` | 設定暱稱與顏色 |
-| `room:create` | 建立房間 |
-| `room:join` | 加入房間 |
-| `room:changeSeat` | 換座位 |
-| `room:ready` / `room:unready` | 準備/取消 |
-| `game:bid` | 叫牌 |
-| `game:playCard` | 出牌 |
-| `game:redealResponse` | 倒牌重洗回應 |
-| `chat:send` | 發送聊天訊息 |
-| `player:reconnect` | 斷線重連 |
-
-### Server → Client
-
-| 事件 | 說明 |
-|------|------|
-| `room:updated` | 房間資訊更新 |
-| `game:dealt` | 發牌完成 |
-| `game:biddingStart` | 叫牌開始 |
-| `game:bidMade` | 有人叫牌 |
-| `game:biddingEnd` | 叫牌結束 |
-| `game:turnStart` | 輪到出牌 |
-| `game:cardPlayed` | 有人出牌 |
-| `game:trickEnd` | 一墩結束 |
-| `game:ended` | 遊戲結束 |
-| `chat:received` | 收到聊天訊息 |
-
-## 📚 文件
-
-- [需求文件](docs/agents.md)
-- [工程計劃](docs/proposal.md)
-- [詳細設計](docs/design.md)
-- [Wiki 首頁](docs/wiki/index.md)
-- [元件清單](docs/wiki/components.md)
+- [Wiki](docs/wiki/index.md)
+- [API](docs/wiki/api-events.md)
+- [帳號／JSON／SQL 遷移](docs/wiki/accounts-and-storage.md)
+- [架構](docs/wiki/architecture.md)
+- [效能與 Benchmark](docs/wiki/performance.md)
+- [玩家個人頁與背景音樂](docs/wiki/player-profiles-and-music.md)
+- [牌桌語音、靜音與拒聽](docs/wiki/voice-chat.md)
 - [任務進度](docs/tasks/progress.md)
-
-## 📄 授權
 
 MIT License

@@ -1,0 +1,82 @@
+import { Router } from 'express';
+import type { NextFunction, Request, RequestHandler, Response } from 'express';
+import type { AuthService } from '../auth/auth-service';
+import { getRequestSession, requireSession } from '../auth/http-middleware';
+import type { Repository } from '../database/repository';
+import { createFriendService } from '../social/friend-service';
+
+function handleAsync(
+  handler: (request: Request, response: Response) => Promise<void>,
+): RequestHandler {
+  return (request: Request, response: Response, next: NextFunction): void => {
+    void handler(request, response).catch(next);
+  };
+}
+
+function usernameFromBody(body: unknown): unknown {
+  return typeof body === 'object' && body !== null && 'username' in body
+    ? body.username
+    : undefined;
+}
+
+export function createFriendRouter(repository: Repository, authService: AuthService): Router {
+  const router = Router();
+  const friends = createFriendService(repository);
+  router.use(requireSession(authService));
+
+  router.get('/', handleAsync(async (_request, response): Promise<void> => {
+    const { account } = getRequestSession(response);
+    response.json({ success: true, ...await friends.list(account.id) });
+  }));
+
+  router.get('/search', handleAsync(async (request, response): Promise<void> => {
+    const result = await friends.findByUsername(request.query.username);
+    if (!result.success) {
+      response.status(result.status).json({ success: false, error: result.error });
+      return;
+    }
+    response.json({ success: true, account: result.data });
+  }));
+
+  router.post('/requests', handleAsync(async (request, response): Promise<void> => {
+    const { account } = getRequestSession(response);
+    const result = await friends.request(account.id, usernameFromBody(request.body));
+    if (!result.success) {
+      response.status(result.status).json({ success: false, error: result.error });
+      return;
+    }
+    response.status(201).json({ success: true, request: result.data });
+  }));
+
+  router.post('/requests/:id/accept', handleAsync(async (request, response): Promise<void> => {
+    const { account } = getRequestSession(response);
+    const result = await friends.accept(account.id, request.params.id);
+    if (!result.success) {
+      response.status(result.status).json({ success: false, error: result.error });
+      return;
+    }
+    response.json({ success: true });
+  }));
+
+  router.delete('/requests/:id', handleAsync(async (request, response): Promise<void> => {
+    const { account } = getRequestSession(response);
+    const result = await friends.dismiss(account.id, request.params.id);
+    if (!result.success) {
+      response.status(result.status).json({ success: false, error: result.error });
+      return;
+    }
+    response.json({ success: true });
+  }));
+
+  router.delete('/:accountId', handleAsync(async (request, response): Promise<void> => {
+    const { account } = getRequestSession(response);
+    const result = await friends.remove(account.id, request.params.accountId);
+    if (!result.success) {
+      response.status(result.status).json({ success: false, error: result.error });
+      return;
+    }
+    response.json({ success: true });
+  }));
+
+  return router;
+}

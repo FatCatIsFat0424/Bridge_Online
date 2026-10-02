@@ -1,5 +1,7 @@
 # Bridge Online — 工程計劃文件 (Proposal)
 
+> 2026-10-03 更新：帳號、好友、JSON 持久化與 Session 重連已取代初版訪客／token 設計。現行介面以 [帳號與資料庫](wiki/accounts-and-storage.md) 與 [API](wiki/api-events.md) 為準；下方保留初版遊戲設計供參考。
+
 > **文件版本**: v1.0  
 > **建立日期**: 2026-07-18  
 > **輸入來源**: [agents.md](file:///c:/Users/ben91/Desktop/Bridge_Online/docs/agents.md)
@@ -56,8 +58,8 @@ Bridge Online 是一款線上橋牌 PvP 網頁遊戲。玩家透過瀏覽器進�
 | 編號 | 需求 | 說明 |
 |------|------|------|
 | NF-01 | 桌機瀏覽器 | 僅需支援桌機瀏覽器，不需響應式/手機版 |
-| NF-02 | 無帳號系統 | 僅使用暱稱，無需註冊/登入 |
-| NF-03 | 記憶體儲存 | 所有資料僅存於記憶體，伺服器重啟即清除 |
+| NF-02 | 帳號系統 | 使用者名稱／密碼、持久 Session、暱稱／頭像與好友 |
+| NF-03 | JSON 持久化 | 非同步 Repository、原子寫入、重啟恢復；未來替換 SQL adapter |
 | NF-04 | 可擴展性 | 架構設計需考慮中等規模可擴展性 |
 | NF-05 | i18n | 支援中文與英文雙語介面 |
 | NF-06 | 核心邏輯測試 | 叫牌規則、出牌規則、結算邏輯需有單元測試 |
@@ -76,7 +78,7 @@ Bridge Online 是一款線上橋牌 PvP 網頁遊戲。玩家透過瀏覽器進�
 | **後端框架** | Node.js + Express | 成熟穩定，生態系豐富 |
 | **後端語言** | TypeScript | 前後端型別共用 |
 | **即時通訊** | Socket.IO | 封裝 WebSocket，自動重連、房間機制、fallback |
-| **資料儲存** | 記憶體 (Map/Object) | 無需資料庫，伺服器重啟即清除 |
+| **資料儲存** | 版本化 JSON + Repository | 帳號／好友／Session／遊戲資料持久化；SQL 遷移介面 |
 | **測試框架** | Vitest | 與 Vite 原生整合，支援 TypeScript |
 | **建置工具** | Vite | 前端打包與開發伺服器 |
 | **套件管理** | npm | 標準套件管理工具 |

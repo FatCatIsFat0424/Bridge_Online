@@ -2,7 +2,6 @@
 
 export type {
   PlayerId,
-  ReconnectToken,
   Seat,
   PlayerColor,
   PlayerInfo,
@@ -38,8 +37,20 @@ export type {
 } from './game';
 
 export type { ChatMessage } from './chat';
+export type { AccountProfile, AvatarPreset, AvatarId } from './account';
 
 export type {
   ClientToServerEvents,
   ServerToClientEvents,
+  PlayerSnapshot,
 } from './socket-events';
+
+export type { MatchSummary } from './game';
+export type {
+  PublicAccount, FriendRequest, FriendsData, FriendsResponse, CreateFriendRequestResponse,
+} from './social';
+
+export type {
+  VoiceSettings, VoiceParticipant, VoiceRoomState, VoiceJoinResult,
+  VoiceDescription, VoiceCandidate, VoiceSignal, VoiceIncomingSignal,
+} from './voice';

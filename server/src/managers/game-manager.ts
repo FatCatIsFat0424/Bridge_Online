@@ -1,5 +1,6 @@
 // ─── Game Manager：遊戲流程管理 ───
 
+import { randomUUID } from 'node:crypto';
 import type {
   RoomCode,
   Seat,
@@ -10,6 +11,7 @@ import type {
   GameResult,
   GameLogEntry,
   PlayerVisibleGameState,
+  PlayerInfo,
 } from '@shared/types';
 import { SEAT_ORDER_CLOCKWISE } from '@shared/constants';
 import { createDeck, shuffleDeck } from '../engine/deck';
@@ -69,7 +71,7 @@ export function registerCallbacks(cb: GameCallbacks): void {
 /**
  * 開始新遊戲
  */
-export function startGame(roomCode: RoomCode): void {
+export function startGame(roomCode: RoomCode, players: Record<Seat, PlayerInfo>): void {
   const dealerIdx = Math.floor(Math.random() * 4);
   const dealerSeat = SEAT_ORDER_CLOCKWISE[dealerIdx];
 
@@ -85,6 +87,9 @@ export function startGame(roomCode: RoomCode): void {
   };
 
   const gameState: GameState = {
+    id: randomUUID(),
+    startedAt: Date.now(),
+    players: structuredClone(players),
     roomCode,
     phase: 'dealing',
     hands,
@@ -95,6 +100,7 @@ export function startGame(roomCode: RoomCode): void {
     result: null,
     log: [],
     redealPendingSeat: null,
+    redealDeclinedSeats: [],
   };
 
   games.set(roomCode, gameState);
@@ -131,6 +137,7 @@ export function handleRedealResponse(
   addLog(game, { type: 'redeal', seat, accepted: accept, timestamp: Date.now() });
 
   if (accept) {
+    game.redealDeclinedSeats = [];
     // 重洗牌
     const deck = shuffleDeck(createDeck());
     const rawHands = dealCards(deck);
@@ -154,6 +161,7 @@ export function handleRedealResponse(
       startBidding(roomCode, biddingStartSeat);
     }
   } else {
+    game.redealDeclinedSeats.push(seat);
     // 拒絕：繼續檢查下一位
     const biddingStartSeat = getNextSeat(game.dealerSeat);
     const nextSeat = getNextSeat(seat);
@@ -165,7 +173,7 @@ export function handleRedealResponse(
     for (let i = 0; i < 4; i++) {
       const checkSeat = SEAT_ORDER_CLOCKWISE[(startIdx + i) % 4];
       // 已經檢查過的不再檢查
-      if (checkSeat === seat) continue;
+      if (game.redealDeclinedSeats.includes(checkSeat)) continue;
 
       const hand = game.hands[checkSeat];
       if (isRedealEligibleCheck(hand)) {
@@ -311,6 +319,8 @@ export function getPlayerVisibleState(
   if (!game) return null;
 
   return {
+    validCards: game.playing && game.phase === 'playing' && game.playing.currentTurnSeat === seat
+      ? getValidPlays(game.hands[seat], game.playing) : [],
     phase: game.phase,
     myHand: game.hands[seat],
     mySeat: seat,
@@ -343,6 +353,15 @@ export function removeGame(roomCode: RoomCode): void {
  */
 export function hasActiveGame(roomCode: RoomCode): boolean {
   return games.has(roomCode);
+}
+
+export function exportGames(): GameState[] {
+  return [...games.values()];
+}
+
+export function restoreGames(records: GameState[]): void {
+  games.clear();
+  for (const game of records) games.set(game.roomCode, game);
 }
 
 // ─── 內部輔助函式 ───
@@ -384,6 +403,7 @@ function startPlaying(roomCode: RoomCode, contract: Contract): void {
 function restartDeal(roomCode: RoomCode): void {
   const game = games.get(roomCode);
   if (!game) return;
+  game.redealDeclinedSeats = [];
 
   const deck = shuffleDeck(createDeck());
   const rawHands = dealCards(deck);
