@@ -28,9 +28,11 @@ describe('persistent authenticated application', () => {
   let baseUrl: string;
   const clients: Client[] = [];
 
-  async function start(): Promise<void> {
+  async function start(trustProxyLoopback: boolean = false): Promise<void> {
     repository = await createJsonRepository(filePath);
-    application = await createApplication(repository, { allowedOrigins: [ORIGIN] });
+    application = await createApplication(repository, {
+      allowedOrigins: [ORIGIN], trustProxyLoopback,
+    });
     const server = application.httpServer;
     await new Promise<void>((resolve, reject): void => {
       server.once('error', reject);
@@ -109,6 +111,48 @@ describe('persistent authenticated application', () => {
     }
     return players;
   }
+
+  it('should ignore spoofed forwarded addresses when proxy trust is disabled', async () => {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const response = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { ...headers(), 'X-Forwarded-For': `192.0.2.${attempt + 1}` },
+        body: '{}',
+      });
+      expect(response.status).toBe(400);
+    }
+    const blocked = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { ...headers(), 'X-Forwarded-For': '198.51.100.1' },
+      body: '{}',
+    });
+    expect(blocked.status).toBe(429);
+  });
+
+  it('should rate limit clients separately behind a trusted loopback proxy', async () => {
+    await stop();
+    await start(true);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const response = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { ...headers(), 'X-Forwarded-For': '192.0.2.1' },
+        body: '{}',
+      });
+      expect(response.status).toBe(400);
+    }
+    const blocked = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { ...headers(), 'X-Forwarded-For': '192.0.2.1' },
+      body: '{}',
+    });
+    expect(blocked.status).toBe(429);
+    const otherClient = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { ...headers(), 'X-Forwarded-For': '198.51.100.1' },
+      body: '{}',
+    });
+    expect(otherClient.status).toBe(400);
+  });
 
   it('should reject anonymous sockets and revoke a connected socket on logout', async () => {
     await expect(connect()).rejects.toThrow('Sign in');

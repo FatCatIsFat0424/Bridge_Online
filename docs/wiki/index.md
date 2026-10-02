@@ -4,6 +4,7 @@
 
 ## 目錄
 
+- [Deploy with systemd](./deployment.md) — One-command deployment, subpath hosting, updates, and backups
 - [系統架構](./architecture.md) — HTTP、Socket、遊戲流程與儲存邊界
 - [HTTP 與 Socket API](./api-events.md) — 帳號、好友、歷史 endpoints 與玩家狀態快照
 - [帳號、好友與持久化儲存](./accounts-and-storage.md) — 登入、JSON 資料、設定、備份與未來 SQL 遷移

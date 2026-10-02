@@ -4,6 +4,10 @@
 
 ## 高層架構
 
+Production uses one systemd-managed backend and local Nginx for HTTPS and
+`/bridge_online/` static, API, and WebSocket routing. Persistent data lives outside
+the application tree. See [deployment](./deployment.md).
+
 Bridge Online 是 TypeScript monorepo。React 前端透過 HTTP 管理帳號、好友與歷史紀錄，
 透過已驗證的 Socket.IO 連線操作房間和遊戲。後端決定遊戲結果；前端顯示伺服器提供的狀態。
 

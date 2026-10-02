@@ -16,6 +16,7 @@ import { setupConnectionHandler, updateConnectedProfile } from './socket/connect
 export interface ApplicationOptions {
   allowedOrigins: readonly string[];
   secureCookies?: boolean;
+  trustProxyLoopback?: boolean;
 }
 
 export async function createApplication(repository: Repository, options: ApplicationOptions): Promise<{
@@ -25,6 +26,7 @@ export async function createApplication(repository: Repository, options: Applica
 }> {
   const app = express();
   app.disable('x-powered-by');
+  if (options.trustProxyLoopback) app.set('trust proxy', 'loopback');
   app.use(cors({ origin: [...options.allowedOrigins], credentials: true }));
   app.use(express.json({ limit: '16kb' }));
   app.use('/api', (_request, response, next) => {
