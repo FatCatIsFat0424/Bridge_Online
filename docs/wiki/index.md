@@ -12,6 +12,7 @@
 - [玩家個人頁與背景音樂](./player-profiles-and-music.md) — 公開身分、好友操作與可選音樂控制
 - [牌桌語音與文字聊天](./voice-chat.md) — 四人語音、靜音、拒聽與 WebRTC 部署
 - [遊戲規則](./game-rules.md) — 橋牌規則、狀態機與對局流程
+- [大老二規則](./big-two-rules.md) — 台式房規：牌型、順子排序、炸彈、計分
 - [元件清單](./components.md) — Shared、Server、Client 模組及測試位置
 
 ## 專案概述
