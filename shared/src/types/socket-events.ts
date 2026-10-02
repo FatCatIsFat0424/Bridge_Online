@@ -2,6 +2,7 @@ import type { PlayerInfo, Seat } from './player';
 import type { RoomCode, RoomInfo, GameType } from './room';
 import type { Card, BidAction, PlayerVisibleGameState } from './game';
 import type { ChatMessage } from './chat';
+import type { PublicAccount } from './social';
 import type { VoiceIncomingSignal, VoiceJoinResult, VoiceRoomState, VoiceSettings, VoiceSignal } from './voice';
 
 export interface PlayerSnapshot {
@@ -32,6 +33,9 @@ export interface ClientToServerEvents {
     payload: { roomCode: RoomCode },
     callback: (response: ActionResult & { room?: RoomInfo }) => void,
   ) => void;
+  'room:invite': (
+    payload: { accountId: string }, callback: (response: ActionResult) => void,
+  ) => void;
   'room:leave': (callback: (response: ActionResult) => void) => void;
   'room:changeSeat': (
     payload: { seat: Seat }, callback: (response: ActionResult) => void,
@@ -58,4 +62,13 @@ export interface ServerToClientEvents {
   'voice:signal': (payload: VoiceIncomingSignal) => void;
   'voice:left': (payload: { reason: string }) => void;
   'player:state': (payload: PlayerSnapshot) => void;
+  'room:invited': (payload: RoomInvite) => void;
+}
+
+/** Ephemeral friend invite; never persisted. */
+export interface RoomInvite {
+  roomCode: RoomCode;
+  gameType: GameType;
+  from: PublicAccount;
+  seatsFree: number;
 }

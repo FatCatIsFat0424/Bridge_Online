@@ -4,6 +4,7 @@ import type { PlayerSnapshot } from '@shared/types/socket-events';
 import type { AuthService } from '../auth/auth-service';
 import type { RuntimeCoordinator, RuntimeMutationOptions } from '../runtime/coordinator';
 import type { VoiceManager } from '../managers/voice-manager';
+import type { FriendService } from '../social/friend-service';
 import { reconcileVoiceMembership } from './voice-handler';
 import * as playerManager from '../managers/player-manager';
 import * as roomManager from '../managers/room-manager';
@@ -29,6 +30,7 @@ export interface SocketContext {
   runtime: RuntimeCoordinator;
   auth: AuthService;
   voice: VoiceManager;
+  friends: FriendService;
 }
 
 export function actionError(message: string): Error & { publicMessage: string } {

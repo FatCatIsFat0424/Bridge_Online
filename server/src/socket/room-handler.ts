@@ -1,10 +1,11 @@
-import type { Seat } from '@shared/types';
+import type { RoomInvite, Seat } from '@shared/types';
 import type { SocketContext, TypedSocket } from './context';
 import { actionError, requireRoom, requireSuccess, runAction, leaveCurrentRoom } from './context';
 import * as playerManager from '../managers/player-manager';
 import * as roomManager from '../managers/room-manager';
 import * as gameManager from '../managers/game-manager';
 import * as chatManager from '../managers/chat-manager';
+import * as inviteManager from '../managers/invite-manager';
 
 export function registerRoomHandlers(context: SocketContext, socket: TypedSocket): void {
   socket.on('room:create', (payload, callback) => runAction(context, socket, callback, () => {
@@ -27,6 +28,39 @@ export function registerRoomHandlers(context: SocketContext, socket: TypedSocket
     playerManager.setPlayerRoom(accountId, roomCode);
     return { success: true, room: roomManager.getRoomInfo(roomCode) ?? undefined };
   }));
+
+  socket.on('room:invite', (payload, callback) => {
+    if (typeof callback !== 'function') return;
+    const targetId = payload?.accountId;
+    if (typeof targetId !== 'string') { callback({ success: false, error: 'Choose a friend to invite.' }); return; }
+    void context.friends.areFriends(socket.data.accountId, targetId).then((isFriend) => {
+      let invite: RoomInvite | null = null;
+      runAction(context, socket, callback, () => {
+        const code = requireRoom(socket);
+        const room = roomManager.getRoomInfo(code);
+        const members = roomManager.getRoomMemberIds(code);
+        if (!room || room.status !== 'waiting') throw actionError('The game has already started.');
+        if (members.length >= 4) throw actionError('Room is full.');
+        if (!isFriend) throw actionError('You can only invite friends.');
+        if (members.includes(targetId)) throw actionError('This friend is already in the room.');
+        if (playerManager.getPlayerState(targetId)?.connectionStatus !== 'connected') {
+          throw actionError('This friend is offline.');
+        }
+        const from = playerManager.getPlayerInfo(socket.data.accountId);
+        if (!from) throw actionError('Player not found.');
+        if (!inviteManager.tryReserveInvite(from.id, targetId)) {
+          throw actionError('Please wait before inviting this friend again.');
+        }
+        invite = { roomCode: code, gameType: room.gameType, from, seatsFree: 4 - members.length };
+        return { success: true };
+      }, { skipUnchanged: true, afterCommit: () => {
+        if (invite) context.io.to(`account:${targetId}`).emit('room:invited', invite);
+      } });
+    }, (error: unknown) => {
+      console.error('[room:invite]', error);
+      callback({ success: false, error: 'Unable to send the invite. Please try again.' });
+    });
+  });
 
   socket.on('room:leave', (callback) => runAction(context, socket, callback, () => {
     requireRoom(socket);

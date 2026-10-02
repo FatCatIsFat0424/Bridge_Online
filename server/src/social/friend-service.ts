@@ -10,8 +10,12 @@ interface FriendError {
 
 type FriendResult<T> = { readonly success: true; readonly data: T } | FriendError;
 
+/** Presence is added by the HTTP route, so the service lists plain profiles. */
+export type FriendList = Omit<FriendsData, 'friends'> & { readonly friends: PublicAccount[] };
+
 export interface FriendService {
-  list(accountId: string): Promise<FriendsData>;
+  list(accountId: string): Promise<FriendList>;
+  areFriends(accountId: string, otherId: string): Promise<boolean>;
   findByUsername(username: unknown): Promise<FriendResult<PublicAccount | null>>;
   request(accountId: string, username: unknown): Promise<FriendResult<FriendRequest>>;
   accept(accountId: string, requestId: string): Promise<FriendResult<null>>;
@@ -55,8 +59,21 @@ function notFound(): FriendError {
 
 /** Every transition is checked atomically by the repository, including pair uniqueness. */
 export function createFriendService(repository: Repository): FriendService {
+  async function acceptedFriendship(
+    accountId: string,
+    friendId: string,
+  ): Promise<FriendshipRecord | undefined> {
+    const relationships = await repository.listFriendships(accountId);
+    return relationships.find((relationship): boolean => (
+      relationship.status === 'accepted'
+      && (relationship.requesterId === accountId
+        ? relationship.recipientId === friendId
+        : relationship.requesterId === friendId)
+    ));
+  }
+
   return {
-    async list(accountId: string): Promise<FriendsData> {
+    async list(accountId: string): Promise<FriendList> {
       const relationships = await repository.listFriendships(accountId);
       const accountIds = new Set<string>([accountId]);
       for (const relationship of relationships) {
@@ -152,14 +169,12 @@ export function createFriendService(repository: Repository): FriendService {
       return deleted ? { success: true, data: null } : notFound();
     },
 
+    async areFriends(accountId: string, otherId: string): Promise<boolean> {
+      return Boolean(await acceptedFriendship(accountId, otherId));
+    },
+
     async remove(accountId: string, friendId: string): Promise<FriendResult<null>> {
-      const relationships = await repository.listFriendships(accountId);
-      const friendship = relationships.find((relationship): boolean => (
-        relationship.status === 'accepted'
-        && (relationship.requesterId === accountId
-          ? relationship.recipientId === friendId
-          : relationship.requesterId === friendId)
-      ));
+      const friendship = await acceptedFriendship(accountId, friendId);
       if (friendship
         && await repository.deleteFriendship(friendship.id, accountId, 'accepted')) {
         return { success: true, data: null };

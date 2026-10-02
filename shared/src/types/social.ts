@@ -13,8 +13,14 @@ export interface FriendRequest {
   readonly createdAt: number;
 }
 
+/** A friend plus live presence, computed per request and never persisted. */
+export type FriendEntry = PublicAccount & {
+  readonly online: boolean;
+  readonly inRoom: boolean;
+};
+
 export interface FriendsData {
-  readonly friends: PublicAccount[];
+  readonly friends: FriendEntry[];
   readonly incoming: FriendRequest[];
   readonly outgoing: FriendRequest[];
 }
