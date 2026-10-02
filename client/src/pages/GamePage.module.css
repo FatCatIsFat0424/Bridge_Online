@@ -53,6 +53,15 @@
   color: var(--table-ink);
 }
 
+/* 自訂牌桌背景：圖片墊底，上蓋主題色調以保持牌面可讀 */
+.customTable {
+  background:
+    linear-gradient(color-mix(in srgb, var(--bg-surface) 55%, transparent),
+      color-mix(in srgb, var(--bg-surface) 55%, transparent)) padding-box,
+    var(--table-image) center / cover no-repeat padding-box,
+    var(--table-rim) border-box;
+}
+
 .tableCentre {
   position: absolute;
   /* 左右留給 W/E 座位名牌 */

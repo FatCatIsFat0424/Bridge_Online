@@ -33,7 +33,7 @@
 .section { margin-top: var(--spacing-lg); }
 .status { display: grid; place-content: center; min-height: 50vh; padding: var(--spacing-xl); gap: var(--spacing-md); text-align: center; }
 .wide { grid-column: 1 / -1; }
-.history { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--spacing-sm); padding: var(--spacing-md) 0; border-top: 1px solid var(--border-color); }
+.backgroundPreview { display: block; width: 100%; max-width: 20rem; aspect-ratio: 16 / 9; object-fit: cover; margin-top: var(--spacing-md); border: 1px solid var(--border-color); border-radius: var(--radius-lg); }
 @media (max-width: 40rem) {
   .page { padding: var(--spacing-md); }
   .authCard { padding: var(--spacing-lg); }

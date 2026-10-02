@@ -1,10 +1,12 @@
 // ─── GamePage：遊戲頁面（滿版牌桌：資訊欄 + 牌桌 + 聊天欄） ───
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
+import { mediaUrl } from '../media';
 import { socket } from '../socket';
+import { useAccountStore } from '../stores/account-store';
 import { useChatStore } from '../stores/chat-store';
 import { useGameStore } from '../stores/game-store';
 import { useRoomStore } from '../stores/room-store';
@@ -33,6 +35,7 @@ export function GamePage(): ReactNode {
   const navigate = useNavigate();
   const mySeat = useRoomStore((state) => state.mySeat);
   const roomInfo = useRoomStore((state) => state.roomInfo);
+  const tableBackground = useAccountStore((state) => state.account?.tableBackground);
   const messageCount = useChatStore((state) => state.messages.length);
   const { t } = useI18nStore();
   const [actionError, setActionError] = useState('');
@@ -187,7 +190,9 @@ export function GamePage(): ReactNode {
       </div>
 
       <main className={styles.centreColumn}>
-        <div className={styles.table}>
+        <div className={`${styles.table} ${tableBackground ? styles.customTable : ''}`}
+          style={tableBackground
+            ? { '--table-image': `url("${mediaUrl(tableBackground)}")` } as CSSProperties : undefined}>
           <div className={styles.tableTools}>
             <button type="button" className={styles.toolBtn} onClick={openInfo}
               aria-label={t('table.info')} title={t('table.info')}

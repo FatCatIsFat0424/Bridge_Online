@@ -159,6 +159,50 @@ describe('public player profile HTTP routes', () => {
     });
   });
 
+  it('should show match history to its owner and to others only once made public', async () => {
+    const extra = ['charlie', 'delta'].map((username) => ({
+      ...accounts.alice, id: randomUUID(), username, usernameNormalized: username,
+    }));
+    for (const account of extra) await repository.createAccount(account);
+    await repository.saveMatch({
+      id: randomUUID(),
+      roomCode: 'ABC123',
+      accountIds: [accounts.alice.id, accounts.bravo.id, ...extra.map((account) => account.id)],
+      finishedAt: 500,
+      result: {
+        contract: { level: 1, suit: 'nt', declarer: 'N' },
+        declarerTeamTricks: 7,
+        defenderTeamTricks: 6,
+        requiredTricks: 7,
+        declarerTeamWins: true,
+      },
+    });
+    const history = `${baseUrl}/api/players/${accounts.bravo.id}/history`;
+    const own = await fetch(history, { headers: headers('bravo') });
+    expect(own.status).toBe(200);
+    const body = await own.json();
+    expect(body.matches).toHaveLength(1);
+    expect(body.players[accounts.alice.id]).toMatchObject({ username: 'alice', avatarImage: null });
+    expect(body.players[accounts.alice.id]).not.toHaveProperty('passwordHash');
+
+    const hidden = await fetch(history, { headers: headers() });
+    expect(hidden.status).toBe(403);
+    expect((await hidden.json()).success).toBe(false);
+
+    const published = await fetch(`${baseUrl}/api/auth/profile`, {
+      method: 'PATCH',
+      headers: headers('bravo'),
+      body: JSON.stringify({ matchesPublic: true }),
+    });
+    expect(published.status).toBe(200);
+    const visible = await fetch(history, { headers: headers() });
+    expect(visible.status).toBe(200);
+    expect((await visible.json()).matches).toHaveLength(1);
+
+    const missing = await fetch(`${baseUrl}/api/players/${randomUUID()}/history`, { headers: headers() });
+    expect(missing.status).toBe(404);
+  });
+
   it('should use the application error handler without exposing repository details', async () => {
     const lookup = repository.getAccountById.bind(repository);
     vi.spyOn(repository, 'getAccountById').mockImplementation(async (id) => {

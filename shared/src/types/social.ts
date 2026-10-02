@@ -1,10 +1,17 @@
 import type { AccountProfile } from './account';
+import type { MatchSummary } from './game';
 
 /** Account details visible to other signed-in players. */
 export type PublicAccount = Pick<
   AccountProfile,
   'id' | 'username' | 'nickname' | 'color' | 'avatar' | 'avatarImage'
 >;
+
+/** `GET /api/players/:id/history`; `players` resolves every match participant still on record. */
+export interface MatchHistory {
+  readonly matches: MatchSummary[];
+  readonly players: Record<string, PublicAccount>;
+}
 
 export interface FriendRequest {
   readonly id: string;

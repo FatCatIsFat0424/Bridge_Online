@@ -48,6 +48,7 @@ export type {
 export type { MatchSummary } from './game';
 export type {
   PublicAccount, FriendRequest, FriendsData, FriendsResponse, CreateFriendRequestResponse,
+  MatchHistory,
 } from './social';
 
 export type {

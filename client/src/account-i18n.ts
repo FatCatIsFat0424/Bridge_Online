@@ -59,8 +59,17 @@ const english = {
   'lobby.resume': 'Return to your room',
   'lobby.welcome': 'Welcome, {nickname}',
   'history.title': 'Recent matches',
-  'history.empty': 'Your completed matches will appear here.',
+  'history.empty': 'Completed matches will appear here.',
   'history.completed': 'Completed',
+  'history.public': 'Make my match history public',
+  'history.private': 'This player’s match history is not public.',
+  'profile.uploadAvatar': 'Upload avatar',
+  'profile.removeAvatar': 'Remove custom avatar',
+  'profile.background': 'Table background',
+  'profile.backgroundHelp': 'Shown under your cards at the table. Only you see it.',
+  'profile.uploadBackground': 'Upload background',
+  'profile.removeBackground': 'Clear background',
+  'profile.uploading': 'Uploading…',
 } as const;
 
 export type AccountTranslationKey = keyof typeof english;
@@ -130,5 +139,14 @@ export const accountTranslations: Record<'en' | 'zh-TW', Record<AccountTranslati
     'history.title': '近期對局',
     'history.empty': '完成的對局將顯示在這裡。',
     'history.completed': '已完成',
+    'history.public': '公開我的對局紀錄',
+    'history.private': '對局紀錄未公開',
+    'profile.uploadAvatar': '上傳頭像',
+    'profile.removeAvatar': '移除自訂頭像',
+    'profile.background': '牌桌背景',
+    'profile.backgroundHelp': '顯示在牌桌底下，只有你看得到。',
+    'profile.uploadBackground': '上傳背景',
+    'profile.removeBackground': '清除背景',
+    'profile.uploading': '上傳中…',
   },
 };
