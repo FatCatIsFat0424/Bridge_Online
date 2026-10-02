@@ -152,3 +152,19 @@
   font-weight: 700;
   color: var(--table-ink);
 }
+
+/* 大老二：剩餘張數是關鍵資訊，放大顯示 */
+.bigCount {
+  padding: 1px 10px;
+  font-size: var(--text-base);
+  font-weight: 800;
+}
+
+.locked {
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--text-primary) 18%, transparent);
+  color: var(--text-primary);
+  font-weight: 800;
+  line-height: 1.5;
+}

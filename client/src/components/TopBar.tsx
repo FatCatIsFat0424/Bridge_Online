@@ -35,10 +35,19 @@ function GameChips(): ReactNode {
   const contract = useGameStore((state) => state.contract);
   const playing = useGameStore((state) => state.playing);
   const gameType = useGameStore((state) => state.gameType);
+  const bigTwoResult = useGameStore((state) => state.bigTwo?.result ?? null);
+  const mySeat = useRoomStore((state) => state.mySeat);
+  const seats = useRoomStore((state) => state.roomInfo?.seats);
   const seatLabel = (seat: Seat): string => t(`seat.${seat}`);
   return <div className={styles.chips}>
     {roomCode && <span className={`${styles.chip} ${styles.roomChip}`} title={t('topbar.room')}>{roomCode}</span>}
-    {gameType && gameType !== 'bridge' ? <span className={styles.chip}>{t(`gameType.${gameType}`)}</span>
+    {gameType && gameType !== 'bridge' ? <>
+      <span className={styles.chip}>{t(`gameType.${gameType}`)}</span>
+      {bigTwoResult && <span className={styles.chip}>
+        🏆 {seats?.[bigTwoResult.winnerSeat].player?.nickname ?? seatLabel(bigTwoResult.winnerSeat)}
+        {mySeat && <> · {t('bigtwo.myPenalty', { n: String(bigTwoResult.scores[mySeat]) })}</>}
+      </span>}
+    </>
       : contract ? <span className={styles.chip} title={t('topbar.contract')}>
       <BidLabel level={contract.level} suit={contract.suit} /> · {seatLabel(contract.declarer)}
     </span> : bidding && <span className={styles.chip}>

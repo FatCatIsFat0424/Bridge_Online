@@ -1,13 +1,25 @@
 import type { ReactNode } from 'react';
-import type { MatchHistory, MatchResult } from '@shared/types';
-import { SUIT_SYMBOLS } from '@shared/constants';
+import type { MatchHistory, MatchSummary, PublicAccount } from '@shared/types';
+import { SEAT_ORDER_CLOCKWISE, SUIT_SYMBOLS } from '@shared/constants';
+import { useAccountStore } from '../stores/account-store';
 import { useI18nStore } from '../stores/i18n-store';
 import { PlayerLink } from './PlayerLink';
 import styles from './MatchHistoryList.module.css';
 
-function MatchResultLabel({ result }: { result: MatchResult }): ReactNode {
+function MatchResultLabel({ match, players }: {
+  match: MatchSummary; players: Record<string, PublicAccount>;
+}): ReactNode {
   const { t } = useI18nStore();
-  if (result.gameType !== 'bridge') return <span>{t(`gameType.${result.gameType}`)}</span>;
+  const myId = useAccountStore((state) => state.account?.id);
+  const { result } = match;
+  if (result.gameType === 'bigtwo') {
+    // accountIds 依座位 N, E, S, W 排序
+    const winnerId = match.accountIds[SEAT_ORDER_CLOCKWISE.indexOf(result.winnerSeat)];
+    const mySeat = SEAT_ORDER_CLOCKWISE[match.accountIds.indexOf(myId ?? '')];
+    return <span>{t('gameType.bigtwo')} · 🏆 {players[winnerId]?.nickname ?? t(`seat.${result.winnerSeat}`)}
+      {result.dragon && ' 🐉'}
+      {mySeat && <> · {t('bigtwo.myPenalty', { n: String(result.scores[mySeat]) })}</>}</span>;
+  }
   return <span>{t('gameType.bridge')} · {result.contract.level}{result.contract.suit === 'nt' ? 'NT'
     : SUIT_SYMBOLS[result.contract.suit]} · {result.declarerTeamTricks}
     /{result.requiredTricks} · {t(result.declarerTeamWins
@@ -21,7 +33,7 @@ export function MatchHistoryList({ matches, players }: MatchHistory): ReactNode 
     <li key={match.id} className={styles.match}>
       <div className={styles.summary}>
         <span>{t('room.title')} {match.roomCode}</span>
-        <MatchResultLabel result={match.result} />
+        <MatchResultLabel match={match} players={players} />
         <time dateTime={new Date(match.finishedAt).toISOString()} className={styles.time}>
           {new Date(match.finishedAt).toLocaleString(locale)}
         </time>

@@ -22,15 +22,17 @@ export function TableSeat({ seat, position }: TableSeatProps): ReactNode {
   const { t } = useI18nStore();
   const player = useRoomStore((state) => state.roomInfo?.seats[seat].player ?? null);
   const isMe = useRoomStore((state) => state.mySeat === seat);
-  const { phase, turn, declarer, dealer, playing } = useGameStore(useShallow((state) => ({
+  const { phase, turn, declarer, dealer, playing, bigTwoCards, locked } = useGameStore(useShallow((state) => ({
     phase: state.phase,
     turn: state.currentTurnSeat === seat,
     declarer: state.contract?.declarer === seat,
     dealer: state.dealerSeat === seat,
     playing: state.playing,
+    bigTwoCards: state.bigTwo?.handCounts[seat] ?? null,
+    locked: state.bigTwo?.phase === 'playing' && state.bigTwo.lockedSeats.includes(seat),
   })));
   const active = turn && (phase === 'bidding' || phase === 'playing');
-  const cards = remainingCards(seat, playing);
+  const cards = bigTwoCards ?? remainingCards(seat, playing);
 
   return (
     <div className={`${styles.seat} ${styles[position]} ${active ? styles.turn : ''}`}>
@@ -41,6 +43,7 @@ export function TableSeat({ seat, position }: TableSeatProps): ReactNode {
           {isMe && <span className={styles.me}>{t('common.me')}</span>}
           {declarer && <span className={styles.declarer}>{t('table.declarer')}</span>}
           {dealer && phase === 'bidding' && <span className={styles.dealer}>{t('table.dealer')}</span>}
+          {locked && <span className={styles.locked}>🔒 {t('bigtwo.locked')}</span>}
         </span>
         {active && <span className={styles.turnFlag}>{t('table.turn')}</span>}
       </div>
@@ -48,7 +51,9 @@ export function TableSeat({ seat, position }: TableSeatProps): ReactNode {
         <span className={styles.fan} aria-hidden="true">
           {Array.from({ length: Math.min(cards, MAX_BACKS) }, (_, i) => <span key={i} className={styles.back} />)}
         </span>
-        <span className={styles.count}>{t('table.cards', { n: String(cards) })}</span>
+        <span className={`${styles.count} ${bigTwoCards !== null ? styles.bigCount : ''}`}>
+          {t('table.cards', { n: String(cards) })}
+        </span>
       </div>}
     </div>
   );
