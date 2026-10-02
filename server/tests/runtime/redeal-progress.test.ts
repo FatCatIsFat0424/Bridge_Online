@@ -5,7 +5,8 @@ import { isRedealEligible } from '../../src/engine/dealing';
 import { exportGames, getGameState, handleRedealResponse, restoreGames } from '../../src/managers/game-manager';
 
 function player(seat: Seat): PlayerInfo {
-  return { id: seat, username: `player_${seat}`, nickname: seat, color: '#2563eb', avatar: 'cat' };
+  return { id: seat, username: `player_${seat}`, nickname: seat, color: '#2563eb', avatar: 'cat',
+    avatarImage: null };
 }
 
 function twoEligiblePlayers(): GameState {

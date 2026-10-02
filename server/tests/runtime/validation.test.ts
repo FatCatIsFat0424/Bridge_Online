@@ -13,7 +13,7 @@ import type { RuntimeSnapshot } from '../../src/runtime/types';
 const SEATS: Seat[] = ['N', 'E', 'S', 'W'];
 
 function player(id: string): PlayerInfo {
-  return { id, username: id, nickname: id, color: '#123456', avatar: 'cat' };
+  return { id, username: id, nickname: id, color: '#123456', avatar: 'cat', avatarImage: null };
 }
 
 /** A full table waiting for its first bid, with all 52 distinct cards. */

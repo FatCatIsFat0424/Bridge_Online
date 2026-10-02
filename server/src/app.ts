@@ -8,6 +8,8 @@ import { getRequestSession, protectMutations, requireSession } from './auth/http
 import { createAuthRouter } from './http/auth-routes';
 import { createFriendRouter } from './http/friend-routes';
 import { createPlayerRouter } from './http/player-routes';
+import { createMediaRouter } from './http/media-routes';
+import { createMediaStore } from './media/media-store';
 import { createRuntimeCoordinator } from './runtime/coordinator';
 import { createVoiceManager } from './managers/voice-manager';
 import type { TypedServer } from './socket/context';
@@ -17,6 +19,8 @@ export interface ApplicationOptions {
   allowedOrigins: readonly string[];
   secureCookies?: boolean;
   trustProxyLoopback?: boolean;
+  /** Uploaded image directory; media routes answer 503 without it. */
+  mediaDirectory?: string;
 }
 
 export async function createApplication(repository: Repository, options: ApplicationOptions): Promise<{
@@ -28,6 +32,8 @@ export async function createApplication(repository: Repository, options: Applica
   app.disable('x-powered-by');
   if (options.trustProxyLoopback) app.set('trust proxy', 'loopback');
   app.use(cors({ origin: [...options.allowedOrigins], credentials: true }));
+  // Uploads need a larger body; registered first so the 16kb parser skips parsed requests.
+  app.use('/api/media', express.json({ limit: '3mb' }));
   app.use(express.json({ limit: '16kb' }));
   app.use('/api', (_request, response, next) => {
     response.setHeader('Cache-Control', 'no-store');
@@ -44,7 +50,10 @@ export async function createApplication(repository: Repository, options: Applica
       callback(null, options.allowedOrigins.includes(request.headers.origin ?? ''));
     },
   });
-  const auth = createAuthService(repository);
+  const media = options.mediaDirectory ? createMediaStore(options.mediaDirectory) : null;
+  const auth = createAuthService(repository, {
+    mediaExists: (id) => Boolean(media?.path(id)),
+  });
   const runtime = await createRuntimeCoordinator(repository);
   const context = { io, auth, runtime, voice: createVoiceManager() };
   const stopConnections = setupConnectionHandler(context);
@@ -61,6 +70,7 @@ export async function createApplication(repository: Repository, options: Applica
   }));
   app.use('/api/friends', createFriendRouter(repository, auth));
   app.use('/api/players', createPlayerRouter(repository, auth));
+  app.use('/api/media', createMediaRouter(media, auth));
   app.get('/api/account/history', requireSession(auth), (_request, response, next) => {
     void repository.listMatches(getRequestSession(response).account.id, 50)
       .then((matches) => response.json({ success: true, matches })).catch(next);

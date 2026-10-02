@@ -37,7 +37,7 @@ export type {
 } from './game';
 
 export type { ChatMessage } from './chat';
-export type { AccountProfile, AvatarPreset, AvatarId } from './account';
+export type { AccountProfile, AvatarPreset, AvatarId, MediaId } from './account';
 
 export type {
   ClientToServerEvents,

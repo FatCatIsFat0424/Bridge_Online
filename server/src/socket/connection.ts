@@ -1,4 +1,5 @@
 import { RECONNECT_TIMEOUT_MS } from '@shared/constants';
+import type { AccountProfile } from '@shared/types';
 import type { SocketContext } from './context';
 import { affectedAccounts, broadcastState, leaveCurrentRoom, playerSnapshot, runAction } from './context';
 import * as playerManager from '../managers/player-manager';
@@ -87,13 +88,14 @@ export function setupConnectionHandler(context: SocketContext): () => void {
 
 export async function updateConnectedProfile(
   context: SocketContext,
-  account: Parameters<typeof playerManager.updatePlayerInfo>[0],
+  account: AccountProfile,
 ): Promise<void> {
   const recipients = new Set<string>();
+  const info = playerManager.toPlayerInfo(account);
   await context.runtime.mutate(() => {
     for (const id of affectedAccounts(account.id)) recipients.add(id);
-    playerManager.updatePlayerInfo(account);
-    roomManager.updateRoomPlayer(account,
+    playerManager.updatePlayerInfo(info);
+    roomManager.updateRoomPlayer(info,
       playerManager.getPlayerState(account.id)?.currentRoomCode ?? null);
   }, { skipUnchanged: true });
   broadcastState(context.io, recipients);

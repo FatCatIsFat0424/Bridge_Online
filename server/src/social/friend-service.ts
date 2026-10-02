@@ -26,6 +26,7 @@ export function publicProfile(account: AccountRecord): PublicAccount {
     nickname: account.nickname,
     color: account.color,
     avatar: account.avatar,
+    avatarImage: account.avatarImage,
   };
 }
 

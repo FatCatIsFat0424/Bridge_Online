@@ -22,6 +22,9 @@ function account(username: string): AccountRecord {
     nickname: username,
     color: '#123456',
     avatar: 'cat',
+    avatarImage: null,
+    tableBackground: null,
+    matchesPublic: false,
     passwordHash: PASSWORD_HASH,
     createdAt: 100,
     updatedAt: 100,
@@ -65,7 +68,7 @@ describe('JSON repository', () => {
     await repository.close();
     repository = await createJsonRepository(path);
     for (const entry of accounts) expect(await repository.getAccountById(entry.id)).toEqual(entry);
-    expect(JSON.parse(await readFile(path, 'utf8')).schemaVersion).toBe(1);
+    expect(JSON.parse(await readFile(path, 'utf8')).schemaVersion).toBe(2);
   });
 
   it('should enforce case-normalized uniqueness atomically during concurrent registration', async () => {
@@ -178,6 +181,7 @@ describe('JSON repository', () => {
               nickname: 'Unknown',
               color: '#123456',
               avatar: 'cat',
+              avatarImage: null,
             },
             currentRoomCode: null,
             disconnectedAt: 100,
@@ -363,6 +367,7 @@ describe('JSON repository', () => {
                 nickname: 'Unknown',
                 color: '#123456',
                 avatar: 'cat',
+                avatarImage: null,
               },
               currentRoomCode: null,
               disconnectedAt: 100,

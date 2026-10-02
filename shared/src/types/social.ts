@@ -1,7 +1,10 @@
 import type { AccountProfile } from './account';
 
 /** Account details visible to other signed-in players. */
-export type PublicAccount = Pick<AccountProfile, 'id' | 'username' | 'nickname' | 'color' | 'avatar'>;
+export type PublicAccount = Pick<
+  AccountProfile,
+  'id' | 'username' | 'nickname' | 'color' | 'avatar' | 'avatarImage'
+>;
 
 export interface FriendRequest {
   readonly id: string;

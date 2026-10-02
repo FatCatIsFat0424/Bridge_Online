@@ -16,7 +16,8 @@ import { useChatStore } from '../../../client/src/stores/chat-store';
 import { equalSnapshotValue } from '../../../client/src/stores/snapshot-equality';
 
 const player: PlayerInfo = {
-  id: 'alice', username: 'alice', nickname: 'Alice', avatar: 'cat', color: '#4a9eff',
+  id: 'alice', username: 'alice', nickname: 'Alice', avatar: 'cat', avatarImage: null,
+  color: '#4a9eff',
 };
 const account: AccountProfile = { ...player, createdAt: 100, updatedAt: 200 };
 const snapshot: PlayerSnapshot = {

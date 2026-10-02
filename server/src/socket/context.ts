@@ -84,12 +84,13 @@ export function runAction(
     if (!session || session.account.id !== socket.data.accountId || !socket.connected) {
       throw actionError('Your session has expired. Please sign in again.');
     }
+    const info = playerManager.toPlayerInfo(session.account);
     if (!playerManager.getPlayerIdBySocketId(socket.id)) {
-      playerManager.attachPlayer(socket.id, session.account);
+      playerManager.attachPlayer(socket.id, info);
     }
     for (const id of affectedAccounts(session.account.id)) recipients.add(id);
-    playerManager.updatePlayerInfo(session.account);
-    roomManager.updateRoomPlayer(session.account,
+    playerManager.updatePlayerInfo(info);
+    roomManager.updateRoomPlayer(info,
       playerManager.getPlayerState(session.account.id)?.currentRoomCode ?? null);
     const response = action();
     for (const id of affectedAccounts(session.account.id)) recipients.add(id);

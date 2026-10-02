@@ -26,7 +26,7 @@ function sessionHash(index: number): string {
 function createFixture(): DatabaseDocument {
   const runtime: RuntimeSnapshot = { players: [], rooms: [], games: [], chat: [] };
   const document: DatabaseDocument = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     runtime,
     accounts: Array.from({ length: RECORDS }, (_, index) => ({
       id: accountId(index),
@@ -35,6 +35,9 @@ function createFixture(): DatabaseDocument {
       nickname: `Player ${index}`,
       color: '#123456',
       avatar: 'cat',
+      avatarImage: null,
+      tableBackground: null,
+      matchesPublic: false,
       passwordHash: PASSWORD_HASH,
       createdAt: TIMESTAMP,
       updatedAt: TIMESTAMP,
@@ -66,6 +69,7 @@ function createFixture(): DatabaseDocument {
         declarerTeamWins: true,
       },
     })),
+    emojis: [],
   };
   const deck = createDeck();
   for (let table = 0; table < 25; table += 1) {
@@ -78,6 +82,7 @@ function createFixture(): DatabaseDocument {
         nickname: account.nickname,
         color: account.color,
         avatar: account.avatar,
+        avatarImage: account.avatarImage,
       };
     });
     const players = {

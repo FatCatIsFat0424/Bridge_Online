@@ -1,3 +1,4 @@
+import { isMediaId } from '@shared/constants';
 import type { GameState, Seat } from '@shared/types';
 import type { RuntimeSnapshot } from './types';
 
@@ -29,7 +30,8 @@ function player(value: unknown): boolean {
     text(value.nickname) &&
     typeof value.color === 'string' &&
     /^#[a-fA-F0-9]{6}$/.test(value.color) &&
-    oneOf(value.avatar, ['cat', 'fox', 'owl', 'bear', 'rabbit', 'panda'])
+    oneOf(value.avatar, ['cat', 'fox', 'owl', 'bear', 'rabbit', 'panda']) &&
+    (value.avatarImage === null || isMediaId(value.avatarImage))
   );
 }
 

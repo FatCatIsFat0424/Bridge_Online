@@ -1,14 +1,17 @@
 import { isRuntimeSnapshot } from '../runtime/validate';
-import { NICKNAME_MAX_LENGTH } from '@shared/constants';
+import { NICKNAME_MAX_LENGTH, isMediaId } from '@shared/constants';
 import type { RuntimeSnapshot } from '../runtime/types';
 import type { AccountRecord, FriendshipRecord, MatchRecord, SessionRecord } from './repository';
+import { CURRENT_SCHEMA_VERSION } from './migrations';
 
 export interface DatabaseDocument {
-  schemaVersion: 1;
+  schemaVersion: typeof CURRENT_SCHEMA_VERSION;
   accounts: AccountRecord[];
   sessions: SessionRecord[];
   friendships: FriendshipRecord[];
   matches: MatchRecord[];
+  /** Custom chat emoji; must stay empty until emoji records have a validator. */
+  emojis: unknown[];
   runtime: RuntimeSnapshot | null;
 }
 
@@ -38,6 +41,9 @@ function validAccount(value: unknown): value is AccountRecord {
     /^#[\da-f]{6}$/i.test(value.color) &&
     typeof value.avatar === 'string' &&
     ['cat', 'fox', 'owl', 'bear', 'rabbit', 'panda'].includes(value.avatar) &&
+    (value.avatarImage === null || isMediaId(value.avatarImage)) &&
+    (value.tableBackground === null || isMediaId(value.tableBackground)) &&
+    typeof value.matchesPublic === 'boolean' &&
     typeof value.passwordHash === 'string' &&
     /^scrypt\$131072\$8\$1\$[\da-f]{32}\$[\da-f]{128}$/.test(value.passwordHash) &&
     timestamp(value.createdAt) &&
@@ -110,7 +116,7 @@ function unique(values: readonly string[]): boolean {
 export function validateDocument(value: unknown): asserts value is DatabaseDocument {
   if (
     !isObject(value) ||
-    value.schemaVersion !== 1 ||
+    value.schemaVersion !== CURRENT_SCHEMA_VERSION ||
     !Array.isArray(value.accounts) ||
     !value.accounts.every(validAccount) ||
     !Array.isArray(value.sessions) ||
@@ -119,6 +125,8 @@ export function validateDocument(value: unknown): asserts value is DatabaseDocum
     !value.friendships.every(validFriendship) ||
     !Array.isArray(value.matches) ||
     !value.matches.every(validMatch) ||
+    !Array.isArray(value.emojis) ||
+    value.emojis.length !== 0 ||
     !(value.runtime === null || isRuntimeSnapshot(value.runtime))
   ) {
     throw new Error(
@@ -163,11 +171,12 @@ export function validateDocument(value: unknown): asserts value is DatabaseDocum
 
 export function emptyDocument(): DatabaseDocument {
   return {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     accounts: [],
     sessions: [],
     friendships: [],
     matches: [],
+    emojis: [],
     runtime: null,
   };
 }

@@ -36,6 +36,9 @@ describe('public player profile HTTP routes', () => {
         nickname: `${username} nickname`,
         color: '#2563eb',
         avatar: 'cat',
+        avatarImage: null,
+        tableBackground: null,
+        matchesPublic: false,
         createdAt: now,
         updatedAt: now,
         passwordHash: PASSWORD_HASH,
@@ -113,6 +116,7 @@ describe('public player profile HTTP routes', () => {
           nickname: account.nickname,
           color: account.color,
           avatar: account.avatar,
+          avatarImage: null,
         },
       });
     }
@@ -149,6 +153,7 @@ describe('public player profile HTTP routes', () => {
         username: 'bravo',
         nickname: 'New nickname',
         avatar: 'fox',
+        avatarImage: null,
         color: '#abcdef',
       },
     });

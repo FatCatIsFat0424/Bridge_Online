@@ -35,6 +35,9 @@ describe('friend HTTP routes', () => {
         nickname: username,
         color: '#2563eb',
         avatar: 'cat',
+        avatarImage: null,
+        tableBackground: null,
+        matchesPublic: false,
         createdAt: now,
         updatedAt: now,
       });
@@ -147,7 +150,10 @@ describe('friend HTTP routes', () => {
     const found = await fetch(`${baseUrl}/search?username=BOB`, { headers: headers('alice') });
     expect(await found.json()).toEqual({
       success: true,
-      account: { id: 'bob', username: 'bob', nickname: 'bob', color: '#2563eb', avatar: 'cat' },
+      account: {
+        id: 'bob', username: 'bob', nickname: 'bob', color: '#2563eb', avatar: 'cat',
+        avatarImage: null,
+      },
     });
   });
 });

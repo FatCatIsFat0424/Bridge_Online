@@ -41,7 +41,10 @@ export interface Repository {
   createAccount(account: AccountRecord): Promise<AccountRecord>;
   updateProfile(
     id: string,
-    profile: Pick<AccountProfile, 'nickname' | 'color' | 'avatar'>,
+    profile: Pick<
+      AccountProfile,
+      'nickname' | 'color' | 'avatar' | 'avatarImage' | 'tableBackground' | 'matchesPublic'
+    >,
     now: number,
   ): Promise<AccountRecord | null>;
   changePassword(
@@ -77,6 +80,9 @@ export function publicAccount(account: AccountRecord): AccountProfile {
     nickname: account.nickname,
     color: account.color,
     avatar: account.avatar,
+    avatarImage: account.avatarImage,
+    tableBackground: account.tableBackground,
+    matchesPublic: account.matchesPublic,
     createdAt: account.createdAt,
     updatedAt: account.updatedAt,
   };

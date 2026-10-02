@@ -20,3 +20,5 @@ export {
   ROOM_CODE_LENGTH,
   NICKNAME_MAX_LENGTH,
 } from './game-rules';
+
+export { isMediaId } from './media';

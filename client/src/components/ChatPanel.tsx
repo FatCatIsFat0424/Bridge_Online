@@ -48,7 +48,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps): ReactNode {
       <div ref={messagesRef} className={styles.chatMessages} role="log" aria-live="polite">
         {messages.map((message) => (
           <div key={message.id} className={styles.chatMessage}>
-            <Avatar avatar={message.sender.avatar} color={message.sender.color} size="small" />
+            <Avatar avatar={message.sender.avatar} image={message.sender.avatarImage} color={message.sender.color} size="small" />
             <span className={styles.chatSender}>{message.sender.nickname}</span>
             <span className={styles.chatContent}>{message.content}</span>
           </div>

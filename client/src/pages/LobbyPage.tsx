@@ -49,7 +49,7 @@ export function LobbyPage(): ReactNode {
     <main className={styles.lobbyContainer}>
       <div className={styles.lobbyCard}>
         <div className={styles.lobbyTitle}>
-          <Avatar avatar={account.avatar} color={account.color} size="large" />
+          <Avatar avatar={account.avatar} image={account.avatarImage} color={account.color} size="large" />
           <h1>{t('lobby.welcome', { nickname: account.nickname })}</h1>
           <p>@{account.username} · {t('lobby.subtitle')}</p>
           <Link to="/account">{t('nav.account')}</Link>

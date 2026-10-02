@@ -91,7 +91,7 @@ export function AccountPage(): ReactNode {
       <div className={styles.grid}>
         <section className={styles.card}>
           <div className={styles.identity}>
-            <Avatar avatar={avatar} color={color} size="large" />
+            <Avatar avatar={avatar} image={account?.avatarImage} color={color} size="large" />
             <div><h2>{nickname || account.username}</h2><small>@{account.username}</small>
               <small>{t('profile.joined')} {new Date(account.createdAt).toLocaleDateString(locale)}</small>
             </div>
