@@ -13,6 +13,7 @@ import { createEmojiRouter } from './http/emoji-routes';
 import { createMediaStore } from './media/media-store';
 import { createRuntimeCoordinator } from './runtime/coordinator';
 import { createVoiceManager } from './managers/voice-manager';
+import { createFriendService } from './social/friend-service';
 import type { TypedServer } from './socket/context';
 import { setupConnectionHandler, updateConnectedProfile } from './socket/connection';
 
@@ -56,7 +57,8 @@ export async function createApplication(repository: Repository, options: Applica
   const auth = createAuthService(repository, { mediaExists });
   const runtime = await createRuntimeCoordinator(repository);
   const context = {
-    io, auth, runtime, voice: createVoiceManager(), listEmojis: (accountId: string) => repository.listEmojis(accountId),
+    io, auth, runtime, voice: createVoiceManager(), friends: createFriendService(repository),
+    listEmojis: (accountId: string) => repository.listEmojis(accountId),
   };
   const stopConnections = setupConnectionHandler(context);
   app.use('/api/auth', createAuthRouter(auth, {

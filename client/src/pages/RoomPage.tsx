@@ -9,6 +9,7 @@ import { useGameStore } from '../stores/game-store';
 import { useI18nStore } from '../stores/i18n-store';
 import { PlayerLink } from '../components/PlayerLink';
 import { ChatPanel } from '../components/ChatPanel';
+import { InviteFriends } from '../components/InviteFriends';
 import styles from './RoomPage.module.css';
 
 const SEAT_STYLE_MAP: Record<Seat, string> = {
@@ -85,7 +86,10 @@ export function RoomPage(): ReactNode {
       <div className={styles.roomHeader}>
         <div><div className={styles.roomCodeLabel}>{t('room.code')}</div>
           <div className={styles.roomCode}>{roomInfo.code}</div></div>
-        <button className="btn btn-outline" onClick={leave} disabled={busy}>{t('room.leave')}</button>
+        <div className={styles.headerActions}>
+          <InviteFriends />
+          <button className="btn btn-outline" onClick={leave} disabled={busy}>{t('room.leave')}</button>
+        </div>
       </div>
       {error && <p className={styles.error} role="alert">{error}</p>}
       <div className={styles.seatLayout}>

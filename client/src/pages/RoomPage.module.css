@@ -11,6 +11,7 @@
     var(--bg-page);
 }
 
+.headerActions { display: flex; gap: var(--spacing-sm); }
 .chat { width: 100%; max-width: 50rem; margin-top: var(--spacing-md); }
 .error { color: var(--color-danger); }
 

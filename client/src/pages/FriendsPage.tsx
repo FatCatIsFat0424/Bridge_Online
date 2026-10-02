@@ -1,16 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
-import type { FriendRequest, PublicAccount } from '@shared/types/social';
+import type { FriendsData, PublicAccount } from '@shared/types/social';
 import { apiRequest } from '../api';
 import { useI18nStore } from '../stores/i18n-store';
 import { PlayerLink } from '../components/PlayerLink';
 import styles from './AccountPages.module.css';
-
-interface FriendsData {
-  friends: PublicAccount[];
-  incoming: FriendRequest[];
-  outgoing: FriendRequest[];
-}
 
 function FriendIdentity({ person }: { person: PublicAccount }): ReactNode {
   return <PlayerLink player={person} showUsername size="medium" />;
@@ -86,7 +80,11 @@ export function FriendsPage(): ReactNode {
           {data.friends.length === 0 && <p className={styles.empty}>{t('friends.empty')}</p>}
           <ul className={styles.list}>{data.friends.map((person) => (
             <li key={person.id} className={styles.person}>
-              <FriendIdentity person={person} />
+              <span className={styles.presence}>
+                <FriendIdentity person={person} />
+                {person.online && <span className={styles.onlineDot} role="img"
+                  aria-label={t('friends.online')} title={t('friends.online')} />}
+              </span>
               {removeId === person.id ? <div className={styles.actions}>
                 <span>{t('friends.confirmRemove')}</span>
                 <button className="btn btn-danger" disabled={busy}

@@ -44,11 +44,12 @@ export type {
   ClientToServerEvents,
   ServerToClientEvents,
   PlayerSnapshot,
+  RoomInvite,
 } from './socket-events';
 
 export type { MatchSummary } from './game';
 export type {
-  PublicAccount, FriendRequest, FriendsData, FriendsResponse, CreateFriendRequestResponse,
+  PublicAccount, FriendEntry, FriendRequest, FriendsData, FriendsResponse, CreateFriendRequestResponse,
   MatchHistory,
 } from './social';
 

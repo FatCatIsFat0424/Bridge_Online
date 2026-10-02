@@ -4,6 +4,7 @@ import { lazy, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { TopBar } from './components/TopBar';
+import { InviteToast } from './components/InviteToast';
 import { useAccountConnection } from './hooks/use-account-connection';
 import { restoreAccount, useAccountStore } from './stores/account-store';
 import { useI18nStore } from './stores/i18n-store';
@@ -71,9 +72,11 @@ function AppRoutes(): ReactNode {
 }
 
 export function App(): ReactNode {
+  const signedIn = useAccountStore((state) => Boolean(state.account));
   return (
     <BrowserRouter basename={APP_BASE_PATH}>
       <TopBar />
+      {signedIn && <InviteToast />}
       <AppRoutes />
     </BrowserRouter>
   );
