@@ -1,4 +1,4 @@
-import type { Seat } from '@shared/types';
+import type { Card, Seat } from '@shared/types';
 import type { SocketContext, TypedSocket } from './context';
 import { actionError, requireRoom, requireSuccess, runAction } from './context';
 import * as roomManager from '../managers/room-manager';
@@ -9,6 +9,13 @@ function playerSeat(socket: TypedSocket, code: string): Seat {
   const seat = roomManager.getPlayerSeat(code, socket.data.accountId);
   if (!seat) throw actionError('Select a seat first.');
   return seat;
+}
+
+function isCard(value: unknown): value is Card {
+  if (typeof value !== 'object' || value === null) return false;
+  const { suit, rank } = value as { suit?: unknown; rank?: unknown };
+  return typeof rank === 'number' && Number.isInteger(rank) && rank >= 2 && rank <= 14
+    && typeof suit === 'string' && ['clubs', 'diamonds', 'hearts', 'spades'].includes(suit);
 }
 
 /** Adds an abort-vote chat line about `accountId`, read from the room seats. */
@@ -40,10 +47,27 @@ export function registerGameHandlers(context: SocketContext, socket: TypedSocket
 
   socket.on('game:playCard', (payload, callback) => runAction(context, socket, callback, () => {
     const card = payload?.card;
-    if (!card || !Number.isInteger(card.rank) || card.rank < 2 || card.rank > 14
-      || !['clubs', 'diamonds', 'hearts', 'spades'].includes(card.suit)) throw actionError('Invalid card.');
+    if (!isCard(card)) throw actionError('Invalid card.');
     const code = requireRoom(socket);
     requireSuccess(gameManager.handlePlayCard(code, playerSeat(socket, code), card));
+    return { success: true };
+  }));
+
+  socket.on('game:bigtwo:play', (payload, callback) => runAction(context, socket, callback, () => {
+    const cards: unknown = payload?.cards;
+    if (!Array.isArray(cards) || cards.length < 1 || cards.length > 5 || !cards.every(isCard)
+      || new Set(cards.map((card: Card) => `${card.suit}-${card.rank}`)).size !== cards.length) {
+      throw actionError('Invalid cards.');
+    }
+    const code = requireRoom(socket);
+    const played = cards.map(({ suit, rank }: Card): Card => ({ suit, rank }));
+    requireSuccess(gameManager.handleBigTwoPlay(code, playerSeat(socket, code), played));
+    return { success: true };
+  }));
+
+  socket.on('game:bigtwo:pass', (callback) => runAction(context, socket, callback, () => {
+    const code = requireRoom(socket);
+    requireSuccess(gameManager.handleBigTwoPass(code, playerSeat(socket, code)));
     return { success: true };
   }));
 

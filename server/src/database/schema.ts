@@ -1,4 +1,4 @@
-import { isRuntimeSnapshot } from '../runtime/validate';
+import { isBigTwoResult, isRuntimeSnapshot } from '../runtime/validate';
 import {
   GAME_TYPES, MAX_EMOJIS_PER_ACCOUNT, NICKNAME_MAX_LENGTH, isEmojiName, isMediaId,
 } from '@shared/constants';
@@ -95,8 +95,7 @@ function validMatch(value: unknown): value is MatchRecord {
     return false;
   const validators: Record<GameType, (result: Record<string, unknown>) => boolean> = {
     bridge: validBridgeResult,
-    // Big Two match records are not written yet.
-    bigtwo: () => false,
+    bigtwo: isBigTwoResult,
   };
   const gameType = value.result.gameType;
   return typeof gameType === 'string' && GAME_TYPES.includes(gameType as GameType) &&

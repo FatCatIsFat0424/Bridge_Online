@@ -6,6 +6,7 @@ import type { Socket } from 'socket.io-client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccountProfile, ClientToServerEvents, Seat, ServerToClientEvents } from '@shared/types';
 import type { PlayerSnapshot } from '@shared/types/socket-events';
+import { identifyCombo, isBomb, legalPlays } from '@shared/rules/bigtwo';
 import { createApplication } from '../../src/app';
 import { createJsonRepository } from '../../src/database/json-repository';
 import type { Repository } from '../../src/database/repository';
@@ -358,9 +359,6 @@ describe('persistent authenticated application', () => {
     expect((await resume(players[1])).room).toMatchObject({
       gameType: 'bigtwo', hostId: accounts[0].account.id, abortVote: null,
     });
-    expect((await readyAll())[3]).toEqual({ success: false, error: 'Big Two is not available yet.' });
-    expect((await resume(players[0])).room?.status).toBe('waiting');
-
     expect(await players[1].timeout(5_000).emitWithAck('room:setGameType', { gameType: 'bridge' }))
       .toMatchObject({ success: false });
     expect(await players[0].timeout(5_000).emitWithAck('room:setGameType', { gameType: 'bridge' }))
@@ -393,4 +391,78 @@ describe('persistent authenticated application', () => {
     expect(await repository.listMatches(accounts[0].account.id)).toEqual([]);
     expect((await repository.loadRuntime())?.games).toEqual([]);
   }, 20_000);
+
+  it('should play a full Big Two game across a restart and record it', async () => {
+    const accounts: RegisteredAccount[] = [];
+    for (const username of ['big_north', 'big_east', 'big_south', 'big_west']) {
+      accounts.push(await register(username));
+    }
+    let players = await connectPlayers(accounts);
+    const created = await players[0].timeout(5_000).emitWithAck('room:create', { gameType: 'bigtwo' });
+    const roomCode = created.roomCode;
+    if (!roomCode) throw new Error('Expected room code');
+    for (let index = 0; index < 4; index += 1) {
+      if (index > 0) await players[index].timeout(5_000).emitWithAck('room:join', { roomCode });
+      await players[index].timeout(5_000).emitWithAck('room:changeSeat', { seat: SEATS[index] });
+      expect(await players[index].timeout(5_000).emitWithAck('room:ready')).toEqual({ success: true });
+    }
+
+    /** Leads the weakest play; follows with the weakest non-bomb, else passes. */
+    async function step(): Promise<PlayerSnapshot> {
+      const view = (await resume(players[0])).gameState;
+      if (view?.gameType !== 'bigtwo') throw new Error('Expected Big Two state');
+      const seat = view.currentTurnSeat;
+      const client = players[SEATS.indexOf(seat)];
+      const mine = (await resume(client)).gameState;
+      if (mine?.gameType !== 'bigtwo') throw new Error('Expected Big Two state');
+      const previous = mine.lastPlay ? identifyCombo(mine.lastPlay.cards) : null;
+      const choice = legalPlays(mine.myHand, previous, mine.firstPlay)
+        .find((combo) => previous === null || !isBomb(combo));
+      if (!previous) expect(await client.timeout(5_000).emitWithAck('game:bigtwo:pass')).toMatchObject({ success: false });
+      const response = choice
+        ? await client.timeout(5_000).emitWithAck('game:bigtwo:play', { cards: choice.cards })
+        : await client.timeout(5_000).emitWithAck('game:bigtwo:pass');
+      expect(response).toEqual({ success: true });
+      return resume(players[0]);
+    }
+
+    const opening = await Promise.all(players.map(resume));
+    const allCards = opening.flatMap((state) => state.gameState!.myHand.map((card) => `${card.suit}:${card.rank}`));
+    expect(new Set(allCards).size).toBe(52);
+    let snapshot = opening[0];
+    if (snapshot.gameState?.phase === 'playing') {
+      expect(await players[0].timeout(5_000).emitWithAck('game:bid', { bid: { type: 'pass' } }))
+        .toMatchObject({ success: false });
+      expect(await players[0].timeout(5_000).emitWithAck('game:bigtwo:play', { cards: [] }))
+        .toEqual({ success: false, error: 'Invalid cards.' });
+      for (let moves = 0; moves < 6 && snapshot.gameState?.phase === 'playing'; moves += 1) snapshot = await step();
+    }
+
+    const before = await Promise.all(players.map(resume));
+    await stop();
+    await start();
+    players = await connectPlayers(accounts);
+    const after = await Promise.all(players.map(resume));
+    for (let index = 0; index < 4; index += 1) expect(after[index].gameState).toEqual(before[index].gameState);
+
+    snapshot = after[0];
+    for (let moves = 0; snapshot.gameState?.phase === 'playing' && moves < 300; moves += 1) snapshot = await step();
+    const final = snapshot.gameState;
+    if (final?.gameType !== 'bigtwo' || !final.result) throw new Error('Expected a scored Big Two game');
+    expect(final.phase).toBe('scoring');
+    expect(final.revealedHands).not.toBeNull();
+    expect(final.result.scores[final.result.winnerSeat]).toBe(0);
+    expect(snapshot.room?.status).toBe('waiting');
+    const matches = await repository.listMatches(accounts[0].account.id);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({ roomCode, result: final.result });
+    expect(matches[0].result.gameType).toBe('bigtwo');
+    expect(matches[0].accountIds).toEqual(accounts.map(({ account }) => account.id));
+
+    await stop();
+    await start();
+    const finalPlayer = await connect(accounts[0].cookie);
+    expect((await resume(finalPlayer)).gameState).toEqual(final);
+    expect(await finalPlayer.timeout(5_000).emitWithAck('game:continue')).toEqual({ success: true });
+  }, 60_000);
 });

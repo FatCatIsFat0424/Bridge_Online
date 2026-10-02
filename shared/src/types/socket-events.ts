@@ -54,6 +54,10 @@ export interface ClientToServerEvents {
   'game:playCard': (
     payload: { card: Card }, callback: (response: ActionResult) => void,
   ) => void;
+  'game:bigtwo:play': (
+    payload: { cards: Card[] }, callback: (response: ActionResult) => void,
+  ) => void;
+  'game:bigtwo:pass': (callback: (response: ActionResult) => void) => void;
   'game:continue': (callback: (response: ActionResult) => void) => void;
   'game:abortVote:start': (callback: (response: ActionResult) => void) => void;
   'game:abortVote:cast': (
