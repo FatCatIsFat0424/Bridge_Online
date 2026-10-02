@@ -28,6 +28,15 @@ const english = {
   'voice.connectionFailed': 'A voice connection failed. Rejoin voice or check your network.',
   'voice.signalFailed': 'Voice could not connect to another player. Leave and rejoin voice to retry.',
   'voice.disconnected': 'Voice disconnected. Join again when your connection is ready.',
+  'voice.devices': '⚙ Devices',
+  'voice.input': 'Microphone',
+  'voice.output': 'Speaker',
+  'voice.defaultDevice': 'System default',
+  'voice.microphoneN': 'Microphone {n}',
+  'voice.speakerN': 'Speaker {n}',
+  'voice.outputUnsupported': 'This browser cannot switch the speaker; it uses the system output.',
+  'voice.peerMute': '🔇 Mute player',
+  'voice.peerVolume': 'Volume',
 } as const;
 
 export type VoiceTranslationKey = keyof typeof english;
@@ -64,5 +73,14 @@ export const voiceTranslations: Record<'en' | 'zh-TW', Record<VoiceTranslationKe
     'voice.connectionFailed': '語音連線失敗，請重新加入語音或檢查網路。',
     'voice.signalFailed': '無法連接其他玩家的語音，請離開後重新加入語音。',
     'voice.disconnected': '語音已中斷，待連線恢復後請重新加入。',
+    'voice.devices': '⚙ 裝置',
+    'voice.input': '麥克風',
+    'voice.output': '喇叭',
+    'voice.defaultDevice': '系統預設',
+    'voice.microphoneN': '麥克風 {n}',
+    'voice.speakerN': '喇叭 {n}',
+    'voice.outputUnsupported': '此瀏覽器無法切換喇叭，將使用系統預設輸出。',
+    'voice.peerMute': '🔇 個別拒聽',
+    'voice.peerVolume': '音量',
   },
 };
