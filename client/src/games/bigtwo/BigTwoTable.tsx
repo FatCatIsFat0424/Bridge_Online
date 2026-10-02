@@ -51,7 +51,7 @@ function Centre({ game }: { game: BigTwoVisibleState }): ReactNode {
   const bomb = isBomb(combo);
   return <div className={styles.centre}>
     {/* key 依出牌次數，讓每次出牌都重播進場動畫 */}
-    <div key={game.log.length} className={`${styles.lastPlay} ${bomb ? styles.bomb : ''}`}>
+    <div key={`${game.lastPlay.seat}-${game.lastPlay.cards.map((card) => `${card.suit}${card.rank}`).join()}`} className={`${styles.lastPlay} ${bomb ? styles.bomb : ''}`}>
       <CardFan cards={game.lastPlay.cards} />
       <span className={styles.playMeta}>
         {bomb && <span className={styles.boom} aria-hidden="true">💥</span>}
@@ -68,7 +68,6 @@ function Info({ game }: { game: BigTwoVisibleState }): ReactNode {
   const round = currentRoundEntries(game.log);
   return <aside className={styles.rail}>
     <section className={styles.box}>
-      <h2 className={styles.caption}>{t('table.turn')}</h2>
       <p className={styles.turn}>{game.phase !== 'playing' ? t('game.scoring')
         : game.currentTurnSeat === game.mySeat ? t('bigtwo.yourTurn')
           : t('bigtwo.turnOf', { name: seatName(game.currentTurnSeat) })}</p>

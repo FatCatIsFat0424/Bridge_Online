@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--spacing-xl);
+  padding: var(--spacing-md) var(--spacing-xl);
   background:
     radial-gradient(ellipse at bottom, color-mix(in srgb, var(--color-primary) 5%, transparent) 0%, transparent 60%),
     var(--bg-page);
@@ -44,7 +44,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  margin: calc(-1 * var(--spacing-md)) 0 var(--spacing-md);
+  margin: 0;
 }
 
 .gameTypeLabel {
@@ -99,7 +99,7 @@
   grid-template-rows: 1fr 1.5fr 1fr;
   gap: var(--spacing-md);
   /* 由可用高度反推寬度，座位與準備鈕不需捲動（約 310px = 上下內距 + 標題 + 遊戲選擇 + 準備鈕） */
-  width: min(100%, 800px, calc((100dvh - var(--topbar-height) - 310px) * 4 / 3));
+  width: min(100%, 800px, calc((100dvh - var(--topbar-height) - 380px) * 4 / 3));
   min-width: min(100%, 480px);
   aspect-ratio: 4 / 3;
   animation: slideUp 0.5s ease;
@@ -235,4 +235,11 @@
   padding: var(--spacing-md) var(--spacing-2xl);
   font-size: var(--text-lg);
   font-weight: 700;
+}
+
+.roomHeader { flex-wrap: wrap; row-gap: var(--spacing-sm); }
+.roomHeader button, .gameTypeLabel { white-space: nowrap; }
+
+@media (max-width: 767px) {
+  .gameTypeRow { order: 3; width: 100%; justify-content: center; }
 }

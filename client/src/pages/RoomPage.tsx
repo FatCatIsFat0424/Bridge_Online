@@ -93,23 +93,23 @@ export function RoomPage(): ReactNode {
       <div className={styles.roomHeader}>
         <div><div className={styles.roomCodeLabel}>{t('room.code')}</div>
           <div className={styles.roomCode}>{roomInfo.code}</div></div>
+        <div className={styles.gameTypeRow}>
+          <span className={styles.gameTypeLabel}>{t('gameType.label')}</span>
+          <div className={styles.segmented} role="radiogroup" aria-label={t('gameType.label')}
+            title={isHost ? undefined : t('room.hostOnly')}>
+            {GAME_TYPES.map((gameType) => (
+              <button key={gameType} type="button" role="radio" aria-checked={roomInfo.gameType === gameType}
+                className={roomInfo.gameType === gameType ? styles.segmentActive : styles.segment}
+                disabled={!isHost || busy || roomInfo.gameType === gameType}
+                onClick={() => setGameType(gameType)}>
+                {t(`gameType.${gameType}`)}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className={styles.headerActions}>
           <InviteFriends />
           <button className="btn btn-outline" onClick={leave} disabled={busy}>{t('room.leave')}</button>
-        </div>
-      </div>
-      <div className={styles.gameTypeRow}>
-        <span className={styles.gameTypeLabel}>{t('gameType.label')}</span>
-        <div className={styles.segmented} role="radiogroup" aria-label={t('gameType.label')}
-          title={isHost ? undefined : t('room.hostOnly')}>
-          {GAME_TYPES.map((gameType) => (
-            <button key={gameType} type="button" role="radio" aria-checked={roomInfo.gameType === gameType}
-              className={roomInfo.gameType === gameType ? styles.segmentActive : styles.segment}
-              disabled={!isHost || busy || roomInfo.gameType === gameType}
-              onClick={() => setGameType(gameType)}>
-              {t(`gameType.${gameType}`)}
-            </button>
-          ))}
         </div>
       </div>
       {error && <p className={styles.error} role="alert">{error}</p>}

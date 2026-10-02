@@ -154,3 +154,10 @@ loopback proxy trust; the application uses that policy for per-client rate limit
 | `client/src/cards.ts` + `client/src/assets/cards/` | cardsJS 牌面 SVG（Vectorized Playing Cards 1.3，LGPL-3.0，授權檔同目錄）；以 Vite asset URL 載入，支援子路徑部署 |
 
 元件不判斷主題；新視覺差異一律新增 CSS 變數。遊戲頁在 ≥1024px 為三欄、768–1023px 資訊欄浮層、<768px 資訊與聊天改為底部抽屜，桌機與手機皆不捲動頁面。
+
+## 多遊戲與投票終止
+
+- `GameType = 'bridge' | 'bigtwo'`；房主（建立者，離開時順位遞補）可在等待中的房間切換遊戲，切換會清除所有人的準備狀態。
+- 伺服器 `managers/game-manager.ts` 依 `gameType` 分派到 `managers/games/{bridge,bigtwo}-game.ts`；遊戲狀態、可見狀態與對局結果都以 `gameType` 區分。資料庫 schema v3（`migrations.ts` 依序升級並保留 `.vN.bak`）。
+- 大老二規則見 [big-two-rules.md](big-two-rules.md)，純函式在 `shared/src/rules/bigtwo.ts`（伺服器與前端共用：牌型判定、`legalPlays` 提示）。前端 `client/src/games/bigtwo/BigTwoTable.tsx`。
+- 投票終止：遊戲中任一座位玩家可發起（`game:abortVote:start`），60 秒內 ≥3 人同意（`ABORT_VOTE_THRESHOLD`）即終止、不記錄對局、全員回房間；2 人反對或逾時即失敗。冷卻 3 分鐘，從發起時起算。
