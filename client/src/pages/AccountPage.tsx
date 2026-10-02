@@ -9,6 +9,7 @@ import { clearAccount, useAccountStore } from '../stores/account-store';
 import { useI18nStore } from '../stores/i18n-store';
 import { Avatar, AVATARS } from '../components/Avatar';
 import { MatchHistoryList } from '../components/MatchHistoryList';
+import { EmojiLibrary } from '../components/EmojiLibrary';
 import styles from './AccountPages.module.css';
 
 type MediaField = 'avatarImage' | 'tableBackground';
@@ -236,6 +237,10 @@ export function AccountPage(): ReactNode {
               {t('profile.removeBackground')}</button>}
           </div>
           {mediaFeedback('tableBackground')}
+        </section>
+        <section className={`${styles.card} ${styles.wide}`}>
+          <h2>{t('emoji.title')}</h2>
+          <EmojiLibrary />
         </section>
         <section className={`${styles.card} ${styles.wide}`}>
           <h2>{t('history.title')}</h2>

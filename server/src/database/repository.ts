@@ -1,4 +1,6 @@
-import type { AccountProfile, GameResult } from '@shared/types';
+import type { AccountProfile, EmojiRecord, GameResult, MediaId } from '@shared/types';
+
+export type { EmojiRecord };
 import type { RuntimeSnapshot } from '../runtime/types';
 
 export type JsonValue =
@@ -70,6 +72,16 @@ export interface Repository {
   saveRuntime(snapshot: RuntimeSnapshot, matches?: readonly MatchRecord[]): Promise<void>;
   saveMatch(match: MatchRecord): Promise<void>;
   listMatches(accountId: string, limit?: number): Promise<MatchRecord[]>;
+  listEmojis(accountId: string): Promise<EmojiRecord[]>;
+  /** All-or-nothing: EMOJI_EXISTS on a duplicate name, EMOJI_LIMIT past the per-account cap. */
+  createEmojis(
+    accountId: string,
+    items: readonly { name: string; mediaId: MediaId }[],
+    now: number,
+  ): Promise<EmojiRecord[]>;
+  deleteEmoji(accountId: string, id: string): Promise<boolean>;
+  /** Null when the emoji is not this account's; EMOJI_EXISTS when the name is taken. */
+  renameEmoji(accountId: string, id: string, name: string): Promise<EmojiRecord | null>;
   close(): Promise<void>;
 }
 

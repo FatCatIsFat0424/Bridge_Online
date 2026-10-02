@@ -1,5 +1,5 @@
 import type { Server, Socket } from 'socket.io';
-import type { ClientToServerEvents, ServerToClientEvents } from '@shared/types';
+import type { ClientToServerEvents, EmojiRecord, ServerToClientEvents } from '@shared/types';
 import type { PlayerSnapshot } from '@shared/types/socket-events';
 import type { AuthService } from '../auth/auth-service';
 import type { RuntimeCoordinator, RuntimeMutationOptions } from '../runtime/coordinator';
@@ -29,6 +29,8 @@ export interface SocketContext {
   runtime: RuntimeCoordinator;
   auth: AuthService;
   voice: VoiceManager;
+  /** Sender's custom emoji library, read before a chat message is stored. */
+  listEmojis: (accountId: string) => Promise<EmojiRecord[]>;
 }
 
 export function actionError(message: string): Error & { publicMessage: string } {

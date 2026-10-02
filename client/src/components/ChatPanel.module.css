@@ -8,6 +8,7 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   height: 300px;
+  position: relative;
 }
 
 .error { color: var(--color-danger); padding: var(--spacing-sm); }
@@ -115,4 +116,77 @@
 .chatSendBtn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.emoji {
+  display: inline-block;
+  height: 1.6em;
+  width: auto;
+  max-width: 4em;
+  vertical-align: middle;
+  object-fit: contain;
+}
+
+.pickerBtn {
+  padding: 0 var(--spacing-sm);
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-color);
+}
+
+.pickerBtn:hover,
+.pickerBtn[aria-expanded='true'] {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+/* Sits over the message list, just above the input row. */
+.picker {
+  position: absolute;
+  left: var(--spacing-sm);
+  right: var(--spacing-sm);
+  bottom: 44px;
+  max-height: 60%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 1;
+}
+
+.pickerSearch {
+  font-size: var(--text-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.pickerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  gap: var(--spacing-xs);
+  overflow-y: auto;
+}
+
+.pickerItem {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+}
+
+.pickerItem:hover { background: var(--bg-card-hover); }
+
+.pickerItem img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.pickerEmpty {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
 }

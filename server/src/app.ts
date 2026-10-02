@@ -9,6 +9,7 @@ import { createAuthRouter } from './http/auth-routes';
 import { createFriendRouter } from './http/friend-routes';
 import { createPlayerRouter } from './http/player-routes';
 import { createMediaRouter } from './http/media-routes';
+import { createEmojiRouter } from './http/emoji-routes';
 import { createMediaStore } from './media/media-store';
 import { createRuntimeCoordinator } from './runtime/coordinator';
 import { createVoiceManager } from './managers/voice-manager';
@@ -51,11 +52,12 @@ export async function createApplication(repository: Repository, options: Applica
     },
   });
   const media = options.mediaDirectory ? createMediaStore(options.mediaDirectory) : null;
-  const auth = createAuthService(repository, {
-    mediaExists: (id) => Boolean(media?.path(id)),
-  });
+  const mediaExists = (id: string): boolean => Boolean(media?.path(id));
+  const auth = createAuthService(repository, { mediaExists });
   const runtime = await createRuntimeCoordinator(repository);
-  const context = { io, auth, runtime, voice: createVoiceManager() };
+  const context = {
+    io, auth, runtime, voice: createVoiceManager(), listEmojis: (accountId: string) => repository.listEmojis(accountId),
+  };
   const stopConnections = setupConnectionHandler(context);
   app.use('/api/auth', createAuthRouter(auth, {
     ...options,
@@ -71,6 +73,7 @@ export async function createApplication(repository: Repository, options: Applica
   app.use('/api/friends', createFriendRouter(repository, auth));
   app.use('/api/players', createPlayerRouter(repository, auth));
   app.use('/api/media', createMediaRouter(media, auth));
+  app.use('/api/emojis', createEmojiRouter(repository, auth, mediaExists));
   app.get('/api/account/history', requireSession(auth), (_request, response, next) => {
     void repository.listMatches(getRequestSession(response).account.id, 50)
       .then((matches) => response.json({ success: true, matches })).catch(next);

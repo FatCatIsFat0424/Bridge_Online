@@ -26,7 +26,8 @@ export function createMediaRouter(store: MediaStore | null, authService: AuthSer
   router.post(
     '/',
     requireSession(authService),
-    createRateLimiter(60, 15 * 60 * 1000, 'media'),
+    // Room for one full emoji library import (300) per window.
+    createRateLimiter(400, 15 * 60 * 1000, 'media'),
     (request, response, next) => {
       const body: unknown = request.body;
       const data = typeof body === 'object' && body !== null && 'data' in body ? body.data : null;

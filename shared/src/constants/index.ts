@@ -22,3 +22,11 @@ export {
 } from './game-rules';
 
 export { isMediaId } from './media';
+export {
+  MAX_EMOJIS_PER_ACCOUNT,
+  MAX_MESSAGE_EMOJIS,
+  isEmojiName,
+  extractEmojiNames,
+  splitEmojiText,
+} from './emoji';
+export type { EmojiSegment } from './emoji';

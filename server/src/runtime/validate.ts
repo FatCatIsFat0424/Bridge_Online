@@ -1,4 +1,4 @@
-import { isMediaId } from '@shared/constants';
+import { MAX_MESSAGE_EMOJIS, isEmojiName, isMediaId } from '@shared/constants';
 import type { GameState, Seat } from '@shared/types';
 import type { RuntimeSnapshot } from './types';
 
@@ -33,6 +33,13 @@ function player(value: unknown): boolean {
     oneOf(value.avatar, ['cat', 'fox', 'owl', 'bear', 'rabbit', 'panda']) &&
     (value.avatarImage === null || isMediaId(value.avatarImage))
   );
+}
+
+function messageEmojis(value: unknown): boolean {
+  if (!object(value)) return false;
+  const entries = Object.entries(value);
+  return entries.length <= MAX_MESSAGE_EMOJIS &&
+    entries.every(([name, mediaId]) => isEmojiName(name) && isMediaId(mediaId));
 }
 
 function card(value: unknown): boolean {
@@ -300,7 +307,8 @@ export function isRuntimeSnapshot(value: unknown): value is RuntimeSnapshot {
             text(message.id) &&
             player(message.sender) &&
             typeof message.content === 'string' &&
-            number(message.timestamp),
+            number(message.timestamp) &&
+            (message.emojis === undefined || messageEmojis(message.emojis)),
         ),
     )
   )

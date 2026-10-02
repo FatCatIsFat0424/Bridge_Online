@@ -37,6 +37,7 @@ export type {
 } from './game';
 
 export type { ChatMessage } from './chat';
+export type { EmojiRecord } from './emoji';
 export type { AccountProfile, AvatarPreset, AvatarId, MediaId } from './account';
 
 export type {
