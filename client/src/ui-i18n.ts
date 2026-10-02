@@ -27,6 +27,8 @@ const english = {
   'table.yourCard': 'Your card',
   'table.chatCollapse': 'Collapse chat',
   'table.chatExpand': 'Expand chat',
+  'table.info': 'Game info',
+  'table.close': 'Close',
 } as const;
 
 export type UiTranslationKey = keyof typeof english;
@@ -62,5 +64,7 @@ export const uiTranslations: Record<'en' | 'zh-TW', Record<UiTranslationKey, str
     'table.yourCard': '你出牌',
     'table.chatCollapse': '收合聊天',
     'table.chatExpand': '展開聊天',
+    'table.info': '牌局資訊',
+    'table.close': '關閉',
   },
 };

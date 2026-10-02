@@ -2,6 +2,8 @@
 
 .handContainer {
   --card-w: clamp(48px, 8.5dvh, 72px);
+  --overlap: 0.42;
+  --fan-step: 2.2deg;
   display: flex;
   justify-content: center;
   align-items: flex-end;
@@ -12,7 +14,7 @@
   flex: none;
   width: var(--card-w);
   aspect-ratio: 224 / 313;
-  margin-left: calc(var(--card-w) * -0.42);
+  margin-left: calc(var(--card-w) * var(--overlap) * -1);
   padding: 0;
   border-radius: calc(var(--card-w) * 0.08);
   background: var(--card-face);
@@ -21,7 +23,7 @@
   position: relative;
   user-select: none;
   transform-origin: 50% 260%;
-  transform: rotate(calc(var(--fan) * 2.2deg)) translateY(var(--lift, 0px));
+  transform: rotate(calc(var(--fan) * var(--fan-step))) translateY(var(--lift, 0px));
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
@@ -48,4 +50,18 @@
 .cardPlayable:focus-visible {
   --lift: -20px;
   z-index: 10;
+}
+
+/* 手機：13 張需塞進 390px —— 寬 ≈ W·(1 + 12·(1 − overlap)) + 兩端旋轉外擴 */
+@media (max-width: 767px) {
+  .handContainer {
+    --card-w: clamp(40px, 13vw, 56px);
+    --overlap: 0.6;
+    --fan-step: 1.2deg;
+    padding: 14px 0 0;
+  }
+
+  .cardPlayable { --lift: -8px; }
+  .cardPlayable:hover,
+  .cardPlayable:focus-visible { --lift: -14px; }
 }

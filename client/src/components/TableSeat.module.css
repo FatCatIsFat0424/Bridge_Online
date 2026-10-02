@@ -98,6 +98,51 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* 平板／手機：左右座位改直式，讓出中央空間 */
+@media (max-width: 1023px) {
+  .left { left: 6px; }
+  .right { right: 6px; }
+
+  .left .plate,
+  .right .plate {
+    flex-direction: column;
+    gap: 4px;
+    max-width: 84px;
+    padding: 6px;
+    border-radius: var(--radius-lg);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
+  .left .plate > a,
+  .right .plate > a {
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--text-xs);
+  }
+
+  .left .tags,
+  .right .tags {
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 64px;
+  }
+
+  .left .backs,
+  .right .backs { flex-direction: column; gap: 4px; }
+}
+
+@media (max-width: 767px) {
+  .top { top: 8px; }
+  .bottom { bottom: 32px; }
+  .plate { gap: 4px; padding: 2px 8px 2px 2px; }
+  /* 縮小頭像（Avatar 為 PlayerLink 第一個子元素） */
+  .plate > a > :first-child { width: 2.25rem; height: 2.25rem; font-size: 1.3rem; }
+  .back { width: 18px; margin-left: -11px; }
+  .fan { padding-left: 11px; }
+}
+
 .count {
   padding: 0 7px;
   border-radius: var(--radius-pill);

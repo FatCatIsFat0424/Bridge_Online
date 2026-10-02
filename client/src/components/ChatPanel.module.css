@@ -47,6 +47,11 @@
   color: var(--text-primary);
 }
 
+/* 手機抽屜：收合鈕改為向下箭頭 */
+@media (max-width: 767px) {
+  .fill .collapseBtn { transform: rotate(90deg); }
+}
+
 .chatMessages {
   flex: 1;
   overflow-y: auto;

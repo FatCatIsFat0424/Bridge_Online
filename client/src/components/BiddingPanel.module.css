@@ -98,3 +98,10 @@
 @media (prefers-reduced-motion: reduce) {
   .waitingPill { animation: none; }
 }
+
+/* 手機：叫牌框佔滿牌桌寬度，按鈕維持可點大小 */
+@media (max-width: 767px) {
+  .biddingContainer { width: 100%; max-width: 360px; padding: 8px 10px 10px; }
+  .bidBtn { height: 30px; }
+  .waitingPill { white-space: normal; text-align: center; }
+}

@@ -48,10 +48,28 @@
   grid-template-columns: 1fr 2fr 1fr;
   grid-template-rows: 1fr 1.5fr 1fr;
   gap: var(--spacing-md);
-  width: 100%;
-  max-width: 800px;
+  /* 由可用高度反推寬度，座位與準備鈕不需捲動（約 260px = 上下內距 + 標題 + 準備鈕） */
+  width: min(100%, 800px, calc((100dvh - var(--topbar-height) - 260px) * 4 / 3));
+  min-width: min(100%, 480px);
   aspect-ratio: 4 / 3;
   animation: slideUp 0.5s ease;
+}
+
+@media (max-width: 767px) {
+  .roomContainer { padding: var(--spacing-md); }
+  .roomHeader { margin-bottom: var(--spacing-md); }
+  .roomFooter { margin-top: var(--spacing-md); }
+
+  .seatLayout {
+    width: 100%;
+    min-width: 0;
+    aspect-ratio: auto;
+    grid-template-rows: auto minmax(72px, auto) auto;
+    gap: var(--spacing-sm);
+  }
+
+  .seatSlot { padding: var(--spacing-sm); }
+  .seatSlot > a { flex-direction: column; gap: 2px; text-align: center; }
 }
 
 .seatNorth { grid-area: north; }
