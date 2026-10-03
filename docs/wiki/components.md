@@ -102,6 +102,7 @@ The trick's lead badge sits below the card beside its seat label.
 | `components/MusicControl.tsx` | 路由外的雙語背景音樂控制、音量偏好與錯誤狀態 |
 | `audio/music-loop.ts`、`audio/background-music.ts` | 原創循環合成、延後配置及重用 Web Audio 資源 |
 | `audio/japanese-instruments.ts` | Seven reusable Japanese-inspired synthesis presets with evolving timbre, breath, vibrato and bell resonance |
+| `audio/card-sound.ts` | Gesture-unlocked card/pass and elimination sounds with resource cleanup; turn reminders use the separate turn controller |
 | `components/CardHand.tsx`、`components/BiddingPanel.tsx` | 手牌、合法出牌提示、叫牌面板 |
 | `components/TrickArea.tsx`、`components/ChatPanel.tsx` | 當前墩、得墩數、玩家聊天與頭像 |
 | `components/LanguageSwitch.tsx` | 繁體中文 / 英文切換 |
@@ -175,6 +176,7 @@ The trick's lead badge sits below the card beside its seat label.
 | `client/src/components/TopBar.tsx` | 唯一頂部列：導覽、遊戲中合約／墩數、語音、音樂、主題、語言、登出；`VoicePanel` 常駐掛載只切換顯示 |
 | `client/src/stores/music-store.ts` | 背景音樂單例，跨頁持續播放 |
 | `client/src/components/{TableSeat,AuctionTable,GameInfoRail}.tsx` | 座位（牌背、張數、輪到、莊／發）、西北東南叫牌表、合約與墩數欄 |
+| `client/src/games/GameShell.tsx`、`client/src/audio/card-sound.ts` | 依各遊戲 log 的最後一手（`lastMove`）：出牌者名牌閃光、中央牌從其座位方向飛入（`flyIn` + `--fly-x/y`）、合成出牌音效（pass 為低沉敲聲；進桌時既有紀錄不響）；輪到自己時提示音、手牌區發光與「輪到你了」膠囊；99 爆掉時（`lastElimination`）出局橫幅、下降音效，座位變灰 |
 | `client/src/game-view.ts` | `auctionRows`、`remainingCards`、`tablePosition` 純函式（測試：`server/tests/client/game-view.test.ts`） |
 | `client/src/cards.ts` + `client/src/assets/cards/` | cardsJS 牌面 SVG（Vectorized Playing Cards 1.3，LGPL-3.0，授權檔同目錄）；以 Vite asset URL 載入，支援子路徑部署 |
 

@@ -16,10 +16,10 @@
   transform: translate(-50%, -50%);
 }
 
-.top { left: 50%; top: 22%; }
-.bottom { left: 50%; top: 78%; }
-.left { left: 18%; top: 50%; }
-.right { left: 82%; top: 50%; }
+.top { left: 50%; top: 22%; --fly-x: 0px; --fly-y: -28vh; }
+.bottom { left: 50%; top: 78%; --fly-x: 0px; --fly-y: 28vh; }
+.left { left: 18%; top: 50%; --fly-x: -30vw; --fly-y: 0px; }
+.right { left: 82%; top: 50%; --fly-x: 30vw; --fly-y: 0px; }
 
 .trickCard {
   position: relative;
@@ -28,7 +28,7 @@
   border-radius: calc(var(--trick-w) * 0.08);
   background: var(--card-face);
   box-shadow: var(--shadow-md);
-  animation: slideUp 0.3s ease;
+  animation: flyIn 0.4s ease-out;
 }
 
 .trickCard img {
@@ -74,7 +74,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .placeholder { animation: none; }
+  .placeholder, .trickCard { animation: none; }
 }
 
 /* 手機：中央需讓出左右直式座位 */

@@ -81,6 +81,66 @@
   z-index: 5;
   flex: none;
   margin-top: 0;
+  border-radius: 18px;
+  transition: box-shadow 0.3s ease;
+}
+
+/* ─── 輪到自己：手牌區發光 + 提示膠囊 ─── */
+.handMyTurn {
+  box-shadow: 0 0 0 2px var(--turn-glow), 0 0 24px color-mix(in srgb, var(--turn-glow) 45%, transparent);
+}
+
+.yourTurn {
+  position: absolute;
+  right: 16px;
+  bottom: 48px;
+  z-index: 6;
+  padding: 4px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--turn-glow);
+  color: var(--text-inverse);
+  font-weight: 800;
+  box-shadow: var(--shadow-md);
+  animation: turnPop 0.4s ease-out, glow 1.6s ease-in-out 0.4s infinite;
+}
+
+@keyframes turnPop {
+  0% { transform: scale(0.4); opacity: 0; }
+  70% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ─── 出局橫幅（99 爆掉） ─── */
+.outBanner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 9;
+  transform: translate(-50%, -50%);
+  max-width: 90%;
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
+  background: var(--color-danger);
+  color: var(--text-inverse);
+  font-size: var(--text-lg);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: var(--shadow-lg);
+  animation: outBanner 3.5s ease forwards;
+}
+
+@keyframes outBanner {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  15%, 85% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yourTurn { animation: none; }
+  .outBanner { animation: none; }
 }
 
 /* ─── 右側：聊天欄 ─── */

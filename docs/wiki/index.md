@@ -45,6 +45,8 @@ JSON 資料庫保存帳號、七天 session、好友、房間、遊戲、聊天�
 
 ## 最近更新
 
+- Integrated `ui-themes` play animations, hand highlights and elimination feedback while retaining fitted table layouts and a single turn-sound controller.
+
 - Expanded procedural instrument synthesis and rearranged all five Japanese tracks; see [music arrangements](./player-profiles-and-music.md).
 
 A separately configurable turn-reminder chime alerts players when action is due.

@@ -3,20 +3,31 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { Seat } from '@shared/types';
+import { playCardSound, playOutSound, unlockCardSounds, disposeCardSounds } from '../audio/card-sound';
 import { mediaUrl } from '../media';
 import { useAccountStore } from '../stores/account-store';
+import { useGameStore } from '../stores/game-store';
 import { useChatStore } from '../stores/chat-store';
 import { useRoomStore } from '../stores/room-store';
 import { useI18nStore } from '../stores/i18n-store';
 import { ChatPanel } from '../components/ChatPanel';
 import { TableSeat } from '../components/TableSeat';
-import { tablePosition } from '../game-view';
+import { lastElimination, lastMove, tablePosition } from '../game-view';
+import type { TablePosition } from '../game-view';
 import { AbortVoteBanner, AbortVoteButton } from './AbortVote';
 import styles from './GameShell.module.css';
 
 const SEATS: readonly Seat[] = ['N', 'E', 'S', 'W'];
 const DESKTOP_QUERY = '(min-width: 1024px)';
 const PHONE_QUERY = '(max-width: 767px)';
+const OUT_BANNER_MS = 3500;
+/** 出牌從該座位方向飛入中央 */
+const FLY_FROM: Record<TablePosition, CSSProperties> = {
+  bottom: { '--fly-x': '0px', '--fly-y': '28vh' } as CSSProperties,
+  top: { '--fly-x': '0px', '--fly-y': '-28vh' } as CSSProperties,
+  left: { '--fly-x': '-30vw', '--fly-y': '0px' } as CSSProperties,
+  right: { '--fly-x': '30vw', '--fly-y': '0px' } as CSSProperties,
+};
 
 function matches(query: string): boolean {
   return typeof window !== 'undefined' && window.matchMedia(query).matches;
@@ -36,9 +47,10 @@ interface GameShellProps {
   /** 可點選的座位（99：指定下一位） */
   pickableSeats?: readonly Seat[];
   onPickSeat?: (seat: Seat) => void;
+  turnReady?: boolean;
 }
 
-function FittedCentre({ children }: { children: ReactNode }): ReactNode {
+function FittedCentre({ children, style }: { children: ReactNode; style?: CSSProperties }): ReactNode {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -61,17 +73,25 @@ function FittedCentre({ children }: { children: ReactNode }): ReactNode {
     return () => observer.disconnect();
   }, []);
 
-  return <div className={styles.tableCentre} ref={viewportRef}>
+  return <div className={styles.tableCentre} ref={viewportRef} style={style}>
     <div className={styles.centreContent} ref={contentRef}>{children}</div>
   </div>;
 }
 
 export function GameShell({
-  info, centre, hand, overlay, error, pickableSeats, onPickSeat,
+  info, centre, hand, overlay, error, pickableSeats, onPickSeat, turnReady,
 }: GameShellProps): ReactNode {
   const mySeat = useRoomStore((state) => state.mySeat);
   const tableBackground = useAccountStore((state) => state.account?.tableBackground);
   const messageCount = useChatStore((state) => state.messages.length);
+  const seats = useRoomStore((state) => state.roomInfo?.seats);
+  const log = useGameStore((state) => state.bigTwo?.log ?? state.redPoints?.log ?? state.ninetyNine?.log ?? state.log);
+  const ownedTurn = useGameStore((state) => mySeat !== null && state.currentTurnSeat === mySeat
+    && (state.phase === 'bidding' || state.phase === 'playing'));
+  const myTurn = turnReady ?? ownedTurn;
+  const move = lastMove(log);
+  const out = lastElimination(log);
+  const [outBanner, setOutBanner] = useState<{ seat: Seat; index: number } | null>(null);
   const { t } = useI18nStore();
   // 平板預設收合聊天；手機為底部抽屜，預設關閉
   const [chatOpen, setChatOpen] = useState(() => matches(DESKTOP_QUERY));
@@ -79,6 +99,38 @@ export function GameShell({
   const [seenMessages, setSeenMessages] = useState(0);
   const bottomSeat: Seat = mySeat ?? 'S';
   const unread = chatOpen ? 0 : Math.max(0, messageCount - seenMessages);
+
+  // 只對進桌後的新動作出聲；進桌／重連時的既有紀錄不響
+  const heardMove = useRef(move?.index);
+  useEffect(() => {
+    if (!move || move.index === heardMove.current) return;
+    heardMove.current = move.index;
+    playCardSound(move.pass);
+  }, [move]);
+
+  useEffect(() => {
+    const unlock = (event: Event): void => { if (event.isTrusted) unlockCardSounds(); };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      disposeCardSounds();
+    };
+  }, []);
+
+  // 依 index 觸發；out 每次 render 都是新物件，不能當依賴（否則計時器會被清掉）
+  const heardOut = useRef(out?.index);
+  const outIndex = out?.index;
+  const outSeat = out?.seat;
+  useEffect(() => {
+    if (outIndex === undefined || !outSeat || outIndex === heardOut.current) return;
+    heardOut.current = outIndex;
+    playOutSound();
+    setOutBanner({ seat: outSeat, index: outIndex });
+    const timer = setTimeout(() => setOutBanner(null), OUT_BANNER_MS);
+    return () => clearTimeout(timer);
+  }, [outIndex, outSeat]);
 
   const collapseChat = useCallback((): void => {
     setSeenMessages(messageCount);
@@ -150,14 +202,21 @@ export function GameShell({
           </div>
           {SEATS.map((seat) => (
             <TableSeat key={seat} seat={seat} position={tablePosition(seat, bottomSeat)}
+              moveKey={move?.seat === seat ? move.index : undefined}
               onPick={onPickSeat && pickableSeats?.includes(seat) ? () => onPickSeat(seat) : undefined} />
           ))}
-          <FittedCentre>{centre}</FittedCentre>
+          <FittedCentre style={move ? FLY_FROM[tablePosition(move.seat, bottomSeat)] : undefined}>
+            {centre}
+          </FittedCentre>
+          {myTurn && <p className={styles.yourTurn} role="status">{t('table.yourTurn')}</p>}
+          {outBanner && <p key={outBanner.index} className={styles.outBanner} role="status">
+            {t('table.eliminated', { name: seats?.[outBanner.seat].player?.nickname ?? t(`seat.${outBanner.seat}`) })}
+          </p>}
           <AbortVoteBanner />
           {error && <p className={styles.actionError} role="alert">{error}</p>}
         </div>
 
-        <div className={styles.handZone}>{hand}</div>
+        <div className={`${styles.handZone} ${myTurn ? styles.handMyTurn : ''}`}>{hand}</div>
       </main>
 
       <aside className={styles.chatRail}>

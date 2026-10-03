@@ -80,12 +80,7 @@
   box-shadow: 2px 2px 0 color-mix(in srgb, var(--card-back) 70%, transparent), var(--shadow-md);
 }
 
-.lastCard { animation: dealIn 0.35s ease; }
-
-@keyframes dealIn {
-  0% { transform: translateY(30%) scale(0.9); opacity: 0.3; }
-  100% { transform: none; opacity: 1; }
-}
+.lastCard { animation: flyIn 0.4s ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
   .total, .lastCard { animation: none; }

@@ -171,6 +171,7 @@ export function BridgeTable(): ReactNode {
 
   return (
     <GameShell
+      turnReady={isMyTurn}
       info={<GameInfoRail />}
       centre={centre}
       hand={

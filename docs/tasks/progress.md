@@ -2,6 +2,18 @@
 
 > **最後更新**: 2026-10-03
 
+## UI feedback integration
+
+- Integrated kbc's `ui-themes` feedback updates (2567a9e, 9fd15be).
+- Retained responsive table fitting, external lead labels, completed-trick holds,
+  and one persisted turn reminder; added directional plays, hand highlights and
+  elimination feedback. Seat highlighting does not enlarge the reserved layout.
+- Card and elimination audio requires user interaction and releases resources
+  on completion or unmount; rejected browser permissions are non-fatal.
+- Validation: 382 application tests, 24 deployment tests, TypeScript, zero-warning
+  ESLint and production build passed. Browser fixtures at 1280x800, 1024x768,
+  390x844 and 844x390 showed no page, table or hand overflow.
+
 ## Original music catalog
 
 - Expanded the synthesizer with evolving brightness, transient noise, delayed

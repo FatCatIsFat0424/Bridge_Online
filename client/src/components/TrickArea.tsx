@@ -32,7 +32,8 @@ export function TrickArea({ currentTrick, leadSeat, bottomSeat, myTurn }: TrickA
         }
         return (
           <div key={seat} className={slotClass}>
-            <div className={styles.trickCard} role="img"
+            {/* key 依牌面，連續兩墩同座位也會重播飛入 */}
+            <div key={`${card.suit}${card.rank}`} className={styles.trickCard} role="img"
               aria-label={`${t(`seat.${seat}`)} ${RANK_DISPLAY[card.rank]}${SUIT_SYMBOLS[card.suit]}`}>
               <img src={cardImageUrl(card)} alt="" draggable={false} />
             </div>
