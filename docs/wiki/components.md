@@ -150,6 +150,7 @@ loopback proxy trust; the application uses that policy for per-client rate limit
 | `client/src/components/TopBar.tsx` | 唯一頂部列：導覽、遊戲中合約／墩數、語音、音樂、主題、語言、登出；`VoicePanel` 常駐掛載只切換顯示 |
 | `client/src/stores/music-store.ts` | 背景音樂單例，跨頁持續播放 |
 | `client/src/components/{TableSeat,AuctionTable,GameInfoRail}.tsx` | 座位（牌背、張數、輪到、莊／發）、西北東南叫牌表、合約與墩數欄 |
+| `client/src/games/GameShell.tsx`、`client/src/audio/card-sound.ts` | 依各遊戲 log 的最後一手（`lastMove`）：出牌者名牌閃光、中央牌從其座位方向飛入（`flyIn` + `--fly-x/y`）、合成出牌音效（pass 為低沉敲聲；進桌時既有紀錄不響）；輪到自己時提示音、手牌區發光與「輪到你了」膠囊；99 爆掉時（`lastElimination`）出局橫幅、下降音效，座位變灰 |
 | `client/src/game-view.ts` | `auctionRows`、`remainingCards`、`tablePosition` 純函式（測試：`server/tests/client/game-view.test.ts`） |
 | `client/src/cards.ts` + `client/src/assets/cards/` | cardsJS 牌面 SVG（Vectorized Playing Cards 1.3，LGPL-3.0，授權檔同目錄）；以 Vite asset URL 載入，支援子路徑部署 |
 

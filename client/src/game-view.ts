@@ -39,3 +39,27 @@ export function remainingCards(seat: Seat, playing: PlayingState | null): number
   if (!playing) return 13;
   return 13 - playing.completedTricks.length - (playing.currentTrick[seat] ? 1 : 0);
 }
+
+export interface TableMove { readonly seat: Seat; readonly index: number; readonly pass: boolean }
+
+type LogLike = readonly { readonly type: string; readonly seat?: Seat }[];
+
+function lastOf(log: LogLike, types: readonly string[]): { seat: Seat; index: number; type: string } | null {
+  for (let index = log.length - 1; index >= 0; index--) {
+    const { type, seat } = log[index];
+    if (seat && types.includes(type)) return { seat, index, type };
+  }
+  return null;
+}
+
+/** Latest card play (or Big Two pass / 撿紅點 flip) in any game's log; `index` changes on every new move. */
+export function lastMove(log: LogLike): TableMove | null {
+  const entry = lastOf(log, ['play', 'flip', 'pass']);
+  return entry && { seat: entry.seat, index: entry.index, pass: entry.type === 'pass' };
+}
+
+/** Latest elimination (99 bust) in the log. */
+export function lastElimination(log: LogLike): { seat: Seat; index: number } | null {
+  const entry = lastOf(log, ['eliminated']);
+  return entry && { seat: entry.seat, index: entry.index };
+}

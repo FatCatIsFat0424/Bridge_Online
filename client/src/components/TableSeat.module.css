@@ -64,9 +64,38 @@
   line-height: 1.5;
 }
 
+.plate { transition: transform 0.25s ease, background 0.25s ease; }
+
 .turn .plate {
   border-color: var(--turn-glow);
+  border-width: 2px;
+  background: color-mix(in srgb, var(--turn-glow) 22%, var(--bg-surface));
+  transform: scale(1.1);
   animation: turnRing 1.6s ease-out infinite;
+}
+
+.turn .turnFlag { animation: flagBob 1s ease-in-out infinite; }
+
+@keyframes flagBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* 99 爆掉出局：整個座位變灰 */
+.out { filter: grayscale(1); opacity: 0.5; }
+
+/* 剛出牌的座位：名牌外擴一圈光暈 */
+.moved {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: movedFlash 0.9s ease-out forwards;
+}
+
+@keyframes movedFlash {
+  0% { box-shadow: 0 0 0 0 var(--turn-glow); background: color-mix(in srgb, var(--turn-glow) 35%, transparent); }
+  100% { box-shadow: 0 0 0 18px transparent; background: transparent; }
 }
 
 @keyframes turnRing {
@@ -75,6 +104,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .turn .turnFlag { animation: none; }
   .turn .plate {
     animation: none;
     box-shadow: 0 0 0 2px var(--turn-glow);
