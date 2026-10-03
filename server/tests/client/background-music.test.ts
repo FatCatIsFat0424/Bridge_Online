@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBackgroundMusic } from '../../../client/src/audio/background-music';
 import { createMusicSamples, trackBeats } from '../../../client/src/audio/music-loop';
 import { MUSIC_TRACKS, nextTrackIndex } from '../../../client/src/audio/music-tracks';
+import { MUSIC_ENERGIES, MUSIC_GENRES } from '../../../client/src/audio/music-categories';
 
 const TRACK = MUSIC_TRACKS[0];
 
@@ -68,6 +69,30 @@ function makeContext(): {
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('background music', () => {
+  it('keeps five or more distinct Japanese-inspired compositions in the catalog', () => {
+    const tracks = MUSIC_TRACKS.filter((track) => track.genre === 'japanese');
+    expect(tracks.length).toBeGreaterThanOrEqual(5);
+    expect(new Set(tracks.map((track) => track.id)).size).toBe(tracks.length);
+    expect(tracks.some((track) => track.id === 'moonlit-courtyard')).toBe(true);
+    expect(new Set(tracks.map((track) => track.energy)).size).toBe(3);
+  });
+
+  it('includes original additions for all seven requested styles with bilingual attributes', () => {
+    const originalIds = new Set(['table-breeze', 'teahouse-swing', 'rainy-night', 'night-market',
+      'arcade', 'tense-table', 'lofi-afternoon']);
+    const additions = MUSIC_TRACKS.filter((track) => !originalIds.has(track.id));
+    expect(new Set(additions.map((track) => track.genre))).toEqual(new Set([
+      'punk', 'kawaii-edm', 'ambient', 'chiptune', 'celtic', 'japanese', 'house',
+    ]));
+    for (const track of MUSIC_TRACKS) {
+      for (const locale of ['zh-TW', 'en'] as const) {
+        expect(track.title[locale]).not.toHaveLength(0);
+        expect(MUSIC_GENRES[track.genre][locale]).not.toHaveLength(0);
+        expect(MUSIC_ENERGIES[track.energy][locale]).not.toHaveLength(0);
+      }
+    }
+  });
+
   it('allocates no audio until play and reuses one loop across pause/resume', async () => {
     const { context, construct } = mockAudio();
     const changed = vi.fn();

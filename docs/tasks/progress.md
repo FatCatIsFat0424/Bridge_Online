@@ -2,6 +2,60 @@
 
 > **最後更新**: 2026-10-03
 
+## Original music catalog
+
+- Expanded the synthesizer with evolving brightness, transient noise, delayed
+  vibrato, and inharmonic bell resonance. Seven reusable Japanese instrument
+  presets support new arrangements of all five Japanese tracks, preserving IDs.
+
+- Added seven original instrumental loops spanning punk, kawaii EDM, ambient,
+  chiptune, Celtic, Japanese-inspired, and house, followed by four more Japanese
+  arrangements; the catalog now has 18 tracks, including five Japanese tracks.
+- The additional arrangements contrast festival taiko, rainy-night plucked strings,
+  a three-beat spring dance, and a quiet garden without percussion.
+- Grouped the menu by genre with bilingual energy and BPM labels. Existing
+  playback modes, volume persistence, and gesture-only playback remain available.
+- Browser verification covered selection, playback, pause, next-track switching,
+  and English genre labels. Audio tests cover all tracks for finite samples,
+  audible levels, clipping, distinct output, and rendering performance.
+
+## Turn notification sound
+
+- Added an independent, persisted sound toggle in the music menu, enabled by default.
+- Increased cue amplitude by approximately 6 dB without changing background music volume.
+- Actionable local turns trigger a short two-note cue after browser gesture unlock;
+  duplicate snapshots and stale locked turns do not replay the cue.
+- Bridge cues wait for the completed-trick presentation. Muting, leaving the room,
+  losing the turn, or unmounting cancels pending playback.
+- Validation: 376 tests across 40 files, TypeScript, ESLint with zero warnings,
+  and the production client build passed.
+
+## Voice recovery, backgrounds, auction alignment, and card sizing
+
+- Peer-specific voice errors and connection states replace stale global warnings;
+  explicit rejoin and bounded stale-socket retries support refresh recovery.
+- Browser checks with synthetic streams verified three-party RTP exchange and
+  participant replacement. Cross-network relay configuration remains a separate
+  deployment prerequisite when direct connectivity fails.
+- Background uploads fit the Nginx body limit and the waiting table displays the
+  saved personal background. Auction columns use actual caller seats and only
+  the current auction state.
+
+- Card sizes now adapt to table space and hand count. The table, four seats, and
+  all hand cards remain inside the centre column without table or hand scrolling;
+  short landscape layouts compact decorative seat elements.
+
+- Completed bridge tricks remain visible for 1.5 seconds, including the final
+  trick before scoring. History shows all four cards in play order and each winner.
+- Waiting-room chat fills the remaining desktop height beside the table; mobile
+  keeps a stacked layout. Table-only backgrounds sit beneath floating player labels
+  and hands; chat and the option header retain their original theme surfaces.
+
+- Validation: full TypeScript and ESLint checks, 357 application tests, 24
+  deployment tests, and the `/bridge_online/` production build passed. Browser
+  checks covered desktop/mobile layout, lead badge placement, completed-trick
+  hold, and final-score history. Changes are built but not yet deployed.
+
 ## systemd deployment
 
 - Moved HTTP redirects into `bridge-online-http.conf`; deployment migrates the

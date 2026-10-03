@@ -56,7 +56,31 @@ loopback proxy trust; the application uses that policy for per-client rate limit
 `GET /api/account/history` 與健康檢查由 `app.ts` 提供。
 `server/.env.example` 列出設定；預設 JSON 位於不納入 Git 的 `server/data/database.json`。
 
+## Site icon
+
+`client/public/fatcat_icon.svg` is the transparent cat favicon. The full-canvas
+background path is omitted while white details within the cat remain intact.
+Vite rewrites the icon path in `client/index.html` for subpath deployment.
+
 ## Client（`client/src/`）
+
+Voice session state tracks connection status and errors per peer, with bounded
+refresh rejoin handling. `VoicePanel` renders them and provides a rejoin action.
+`RoomPage` applies personal table backgrounds while waiting; `GameShell` applies
+them during play. Backgrounds are scoped to the waiting table area and the game centre column,
+including floating player labels and hands. Headers, chat, and information panels
+retain their original theme surfaces outside the image. The waiting room
+fills the available desktop viewport with chat on the right; mobile stacks chat
+below the ready button. `AuctionTable` maps calls by their actual seat, and bidding
+controls read the current auction state rather than previous log entries.
+
+Card dimensions fit the available table column instead of enforcing a fixed
+magnification. `CardHand` uses the current card count and container dimensions to
+keep the full hand visible. `GameShell` reserves space for all four seats and fits
+centre content within the remaining area using `ResizeObserver`; the table and
+hand do not scroll. Short landscape layouts compact seat labels and hide decorative
+card backs while retaining remaining-card counts. Chat and history scroll independently.
+The trick's lead badge sits below the card beside its seat label.
 
 | 檔案 / 群組 | 職責 |
 | --- | --- |
@@ -77,6 +101,7 @@ loopback proxy trust; the application uses that policy for per-client rate limit
 | `components/PlayerLink.tsx` | 導覽、好友、房間與遊戲的玩家個人頁連結 |
 | `components/MusicControl.tsx` | 路由外的雙語背景音樂控制、音量偏好與錯誤狀態 |
 | `audio/music-loop.ts`、`audio/background-music.ts` | 原創循環合成、延後配置及重用 Web Audio 資源 |
+| `audio/japanese-instruments.ts` | Seven reusable Japanese-inspired synthesis presets with evolving timbre, breath, vibrato and bell resonance |
 | `components/CardHand.tsx`、`components/BiddingPanel.tsx` | 手牌、合法出牌提示、叫牌面板 |
 | `components/TrickArea.tsx`、`components/ChatPanel.tsx` | 當前墩、得墩數、玩家聊天與頭像 |
 | `components/LanguageSwitch.tsx` | 繁體中文 / 英文切換 |
@@ -162,3 +187,24 @@ loopback proxy trust; the application uses that policy for per-client rate limit
 - 大老二規則見 [big-two-rules.md](big-two-rules.md)，純函式在 `shared/src/rules/bigtwo.ts`（伺服器與前端共用：牌型判定、`legalPlays` 提示）。前端 `client/src/games/bigtwo/BigTwoTable.tsx`。
 - 投票終止：遊戲中任一座位玩家可發起（`game:abortVote:start`），60 秒內 ≥3 人同意（`ABORT_VOTE_THRESHOLD`）即終止、不記錄對局、全員回房間；2 人反對或逾時即失敗。冷卻 3 分鐘，從發起時起算。
 - 撿紅點、99 規則見 [red-points-rules.md](red-points-rules.md)、[ninety-nine-rules.md](ninety-nine-rules.md)；純函式在 `shared/src/rules/{redpoints,ninetynine}.ts`，前端 `client/src/games/{redpoints,ninetynine}/`。
+
+### Bridge trick presentation
+
+- `client/src/games/bridge/trick-presentation.ts` queues newly completed tricks for 1.5 seconds each while preserving current authoritative game snapshots. Restored history establishes a baseline instead of replaying old tricks; room changes, new games, and unmount cancel pending presentation.
+- `client/src/games/bridge/use-trick-presentation.ts` observes game and room stores directly so batched React renders cannot skip completed tricks. `BridgeTable` disables local play during the hold and postpones the final score overlay until the last trick has been shown.
+- `client/src/games/bridge/TrickHistory.tsx` and its CSS Module display every completed trick in lead-first clockwise order, with all four cards, seats, lead, and winner. History is available in the information rail and inside the score overlay.
+
+### Music catalog
+
+`audio/music-tracks.ts` combines the existing catalog with seven original loops in
+`audio/new-music-tracks.ts` and four additional Japanese-inspired tracks in
+`audio/japanese-music-tracks.ts`. `audio/music-categories.ts` defines genre and energy
+metadata; `MusicControl` groups the catalog and displays BPM and energy. See
+[player profiles and music](./player-profiles-and-music.md) for playback behavior.
+
+### Turn reminder
+
+`hooks/use-turn-sound.ts` connects the global toolbar to turn notifications and
+user-gesture audio activation. `stores/turn-sound-store.ts` persists the separate
+on/off preference exposed by `MusicControl`. Audio and notification lifecycle
+logic live in `audio/turn-*.ts`; see [music settings](./player-profiles-and-music.md).

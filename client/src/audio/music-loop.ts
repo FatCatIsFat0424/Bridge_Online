@@ -1,3 +1,5 @@
+import type { MusicEnergy, MusicGenre } from './music-categories';
+
 export interface Instrument {
   /** Amplitude of each partial (index 0 = fundamental). */
   harmonics: readonly number[];
@@ -12,6 +14,14 @@ export interface Instrument {
   noise?: number;
   /** Start frequency multiplier that falls back to 1 (drum pitch drop). */
   sweep?: number;
+  /** Exponential noise decay time constant in seconds. */
+  noiseDecay?: number;
+  /** Seconds for upper harmonics to fade toward the fundamental. */
+  brightnessDecay?: number;
+  /** Rate in Hz, depth in cents, onset delay in seconds. Applies to harmonic tones. */
+  vibrato?: { rate: number; depth: number; delay: number };
+  /** Additional resonant modes; ratios need not be integer harmonics. */
+  partials?: readonly { ratio: number; amplitude: number; decay?: number }[];
 }
 
 /** A step is a palette index, several indices (chord), or a rest. */
@@ -29,6 +39,8 @@ export interface Part {
 
 export interface TrackDefinition {
   id: string;
+  genre: MusicGenre;
+  energy: MusicEnergy;
   title: { 'zh-TW': string; en: string };
   bpm: number;
   /** Ascending MIDI note palettes; indices past the end wrap up an octave. */
@@ -66,12 +78,45 @@ export function createMusicSamples(sampleRate: number, track: TrackDefinition): 
     const noise = instrument.noise ?? 0;
     const sweep = instrument.sweep ?? 0;
     const wave = new Float32Array(WAVETABLE_SIZE);
+    const dark = instrument.brightnessDecay ? new Float32Array(WAVETABLE_SIZE) : undefined;
+    const evolving = instrument.noiseDecay || instrument.brightnessDecay || instrument.vibrato
+      || instrument.partials;
+    const maximumFrequency = evolving
+      ? frequency * (1 + Math.max(0, sweep)) * 2 ** (Math.abs(instrument.vibrato?.depth ?? 0) / 1200)
+      : frequency;
     instrument.harmonics.forEach((amplitude, index) => {
-      if (amplitude === 0 || frequency * (index + 1) >= sampleRate / 2) return;
+      if (amplitude === 0 || maximumFrequency * (index + 1) >= sampleRate / 2) return;
       for (let slot = 0; slot < WAVETABLE_SIZE; slot += 1) {
         wave[slot] += amplitude * Math.sin(2 * Math.PI * (index + 1) * slot / WAVETABLE_SIZE);
       }
     });
+    if (dark && maximumFrequency < sampleRate / 2) {
+      for (let slot = 0; slot < WAVETABLE_SIZE; slot += 1) {
+        dark[slot] = (instrument.harmonics[0] ?? 0)
+          * Math.sin(2 * Math.PI * slot / WAVETABLE_SIZE);
+      }
+    }
+    const modes = (instrument.partials ?? [])
+      .filter((partial) => partial.ratio > 0 && frequency * partial.ratio < sampleRate / 2)
+      .map((partial) => {
+        const angle = 2 * Math.PI * frequency * partial.ratio / sampleRate;
+        return {
+          sine: 0, cosine: 1, rotationSine: Math.sin(angle), rotationCosine: Math.cos(angle),
+          amplitude: partial.amplitude,
+          fall: partial.decay ? Math.exp(-1 / (sampleRate * partial.decay)) : 1,
+        };
+      });
+    const noiseFall = instrument.noiseDecay ? Math.exp(-1 / (sampleRate * instrument.noiseDecay)) : 1;
+    const brightnessFall = instrument.brightnessDecay
+      ? Math.exp(-1 / (sampleRate * instrument.brightnessDecay)) : 1;
+    let noiseLevel = noise;
+    let brightness = 1;
+    const vibrato = instrument.vibrato;
+    const vibratoAngle = 2 * Math.PI * (vibrato?.rate ?? 0) / sampleRate;
+    const vibratoSine = Math.sin(vibratoAngle);
+    const vibratoCosine = Math.cos(vibratoAngle);
+    let modulationSine = 0;
+    let modulationCosine = 1;
     const step = frequency * WAVETABLE_SIZE / sampleRate;
     const fall = Math.exp(-1 / (sampleRate * instrument.decay));
     const sweepFall = Math.exp(-1 / (sampleRate * 0.04));
@@ -81,9 +126,28 @@ export function createMusicSamples(sampleRate: number, track: TrackDefinition): 
     for (let frame = 0; frame < note.length; frame += 1) {
       const time = frame / sampleRate;
       const envelope = Math.min(1, time / instrument.attack, (duration - time) / instrument.release) * decay;
-      const tone = wave[Math.floor(phase) & (WAVETABLE_SIZE - 1)];
-      note[frame] = (noise === 0 ? tone : tone * (1 - noise) + random() * noise) * envelope;
-      phase += step * (1 + bend);
+      const slot = Math.floor(phase) & (WAVETABLE_SIZE - 1);
+      let tone = dark ? dark[slot] + (wave[slot] - dark[slot]) * brightness : wave[slot];
+      for (const mode of modes) {
+        tone += mode.sine * mode.amplitude;
+        const sine = mode.sine * mode.rotationCosine + mode.cosine * mode.rotationSine;
+        mode.cosine = mode.cosine * mode.rotationCosine - mode.sine * mode.rotationSine;
+        mode.sine = sine;
+        mode.amplitude *= mode.fall;
+      }
+      note[frame] = (noise === 0 ? tone : tone * (1 - noise) + random() * noiseLevel) * envelope;
+      let pitchRatio = 1;
+      if (vibrato && time >= vibrato.delay) {
+        // A short onset ramp avoids an abrupt pitch change as vibrato enters.
+        const depth = vibrato.depth * Math.min(1, (time - vibrato.delay) / 0.15);
+        pitchRatio = 2 ** (modulationSine * depth / 1200);
+        const sine = modulationSine * vibratoCosine + modulationCosine * vibratoSine;
+        modulationCosine = modulationCosine * vibratoCosine - modulationSine * vibratoSine;
+        modulationSine = sine;
+      }
+      phase += step * (1 + bend) * pitchRatio;
+      noiseLevel *= noiseFall;
+      brightness *= brightnessFall;
       if (phase >= WAVETABLE_SIZE) phase -= WAVETABLE_SIZE;
       decay *= fall;
       bend *= sweepFall;

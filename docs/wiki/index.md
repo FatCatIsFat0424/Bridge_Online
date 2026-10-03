@@ -45,6 +45,21 @@ JSON 資料庫保存帳號、七天 session、好友、房間、遊戲、聊天�
 
 ## 最近更新
 
+- Expanded procedural instrument synthesis and rearranged all five Japanese tracks; see [music arrangements](./player-profiles-and-music.md).
+
+A separately configurable turn-reminder chime alerts players when action is due.
+
+The music catalog adds seven genre-specific loops and four additional Japanese-inspired
+compositions with grouped browsing,
+energy labels, and BPM; see [background music](./player-profiles-and-music.md).
+
+Voice recovery and per-player connection status, background upload/display fixes,
+auction-column alignment, responsive card sizing, and an unobstructed lead badge are covered by the updated voice, deployment,
+component, and game-rule pages. Bridge now holds each completed trick for 1.5
+seconds and exposes per-trick history during play and scoring. Waiting-room chat
+uses a right sidebar on desktop. Waiting and game tables share a background beneath floating player labels and
+cards; headers and chat retain their original theme colors.
+
 | 日期 | 異動 |
 | --- | --- |
 | 2026-10-03 | 新增公開玩家個人頁、跨頁玩家入口與好友操作，以及預設停止的全域背景音樂 |

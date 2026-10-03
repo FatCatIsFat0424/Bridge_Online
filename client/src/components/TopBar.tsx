@@ -14,6 +14,7 @@ import { useI18nStore } from '../stores/i18n-store';
 import { useMusicStore } from '../stores/music-store';
 import { useRoomStore } from '../stores/room-store';
 import { useVoiceStore } from '../stores/voice-store';
+import { useTurnSound } from '../hooks/use-turn-sound';
 import { LanguageSwitch } from './LanguageSwitch';
 import { MusicControl } from './MusicControl';
 import { ThemeSwitch } from './ThemeSwitch';
@@ -80,6 +81,7 @@ function GameChips(): ReactNode {
 }
 
 export function TopBar(): ReactNode {
+  useTurnSound();
   const { t } = useI18nStore();
   const { pathname } = useLocation();
   const accountId = useAccountStore((state) => state.account?.id);

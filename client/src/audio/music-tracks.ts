@@ -1,3 +1,5 @@
+import { NEW_MUSIC_TRACKS } from './new-music-tracks';
+import { JAPANESE_MUSIC_TRACKS } from './japanese-music-tracks';
 import type { Instrument, TrackDefinition } from './music-loop';
 
 export type MusicMode = 'loop-one' | 'sequential' | 'shuffle';
@@ -35,6 +37,7 @@ const PLUCK_BASS: Instrument = {
 export const MUSIC_TRACKS: readonly TrackDefinition[] = [
   {
     id: 'table-breeze',
+    genre: 'chill', energy: 'calm',
     title: { 'zh-TW': '牌桌晚風', en: 'Table Breeze' },
     bpm: 84,
     chords: [[48, 60, 64, 67, 71], [45, 60, 64, 67, 69], [41, 57, 60, 64, 67], [43, 59, 62, 64, 67]],
@@ -53,6 +56,7 @@ export const MUSIC_TRACKS: readonly TrackDefinition[] = [
   },
   {
     id: 'teahouse-swing',
+    genre: 'jazz', energy: 'steady',
     title: { 'zh-TW': '茶館爵士', en: 'Teahouse Swing' },
     bpm: 126,
     swing: 0.16,
@@ -90,6 +94,7 @@ export const MUSIC_TRACKS: readonly TrackDefinition[] = [
   },
   {
     id: 'rainy-night',
+    genre: 'piano', energy: 'calm',
     title: { 'zh-TW': '雨夜鋼琴', en: 'Rainy Night Piano' },
     bpm: 66,
     chords: [
@@ -115,6 +120,7 @@ export const MUSIC_TRACKS: readonly TrackDefinition[] = [
   },
   {
     id: 'night-market',
+    genre: 'electronic', energy: 'energetic',
     title: { 'zh-TW': '夜市', en: 'Night Market' },
     bpm: 138,
     chords: [
@@ -146,6 +152,7 @@ export const MUSIC_TRACKS: readonly TrackDefinition[] = [
   },
   {
     id: 'arcade',
+    genre: 'chiptune', energy: 'energetic',
     title: { 'zh-TW': '8-bit 街機', en: '8-bit Arcade' },
     bpm: 150,
     chords: [
@@ -180,6 +187,7 @@ export const MUSIC_TRACKS: readonly TrackDefinition[] = [
   },
   {
     id: 'tense-table',
+    genre: 'cinematic', energy: 'steady',
     title: { 'zh-TW': '牌局緊張', en: 'Tense Table' },
     bpm: 104,
     chords: [
@@ -208,6 +216,7 @@ export const MUSIC_TRACKS: readonly TrackDefinition[] = [
   },
   {
     id: 'lofi-afternoon',
+    genre: 'lofi', energy: 'calm',
     title: { 'zh-TW': 'lo-fi 午後', en: 'Lo-fi Afternoon' },
     bpm: 76,
     swing: 0.12,
@@ -243,6 +252,8 @@ export const MUSIC_TRACKS: readonly TrackDefinition[] = [
     ],
     echo: { beats: 1, taps: [0.2, 0.08] },
   },
+  ...NEW_MUSIC_TRACKS,
+  ...JAPANESE_MUSIC_TRACKS,
 ];
 
 /** Index of the track to play next; `loop-one` stays put, shuffle never repeats the current track. */
