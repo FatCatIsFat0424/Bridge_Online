@@ -1,0 +1,46 @@
+const english = {
+  'emoji.title': 'Chat emoji',
+  'emoji.help': 'Type :name: in chat to send one. Up to 300 emoji; names use a–z, 0–9 and _.',
+  'emoji.import': 'Import emoji library',
+  'emoji.importFolder': 'Import a folder',
+  'emoji.progress': 'Uploading {done}/{total}…',
+  'emoji.imported': 'Imported {count} emoji.',
+  'emoji.skipped': 'Skipped: {names}',
+  'emoji.tooLarge': 'GIF over 256 KiB',
+  'emoji.full': 'Your emoji library is full (300).',
+  'emoji.empty': 'No emoji yet. Import images to get started.',
+  'emoji.rename': 'Rename',
+  'emoji.delete': 'Delete',
+  'emoji.confirmDelete': 'Delete :{name}:?',
+  'emoji.renamePrompt': 'New name (2–32 of a–z, 0–9, _)',
+  'emoji.picker': 'Insert emoji',
+  'emoji.search': 'Search emoji',
+  'emoji.noMatch': 'No matching emoji.',
+  'emoji.manage': 'Manage emoji',
+} as const;
+
+export type EmojiTranslationKey = keyof typeof english;
+
+export const emojiTranslations: Record<'en' | 'zh-TW', Record<EmojiTranslationKey, string>> = {
+  en: english,
+  'zh-TW': {
+    'emoji.title': '聊天表情',
+    'emoji.help': '在聊天輸入 :名稱: 即可送出表情。最多 300 個；名稱限 a–z、0–9 與 _。',
+    'emoji.import': '匯入表情庫',
+    'emoji.importFolder': '匯入整個資料夾',
+    'emoji.progress': '上傳中 {done}/{total}…',
+    'emoji.imported': '已匯入 {count} 個表情。',
+    'emoji.skipped': '已略過：{names}',
+    'emoji.tooLarge': 'GIF 超過 256 KiB',
+    'emoji.full': '表情庫已滿（300 個）。',
+    'emoji.empty': '還沒有表情，匯入圖片開始吧。',
+    'emoji.rename': '重新命名',
+    'emoji.delete': '刪除',
+    'emoji.confirmDelete': '確定刪除 :{name}:？',
+    'emoji.renamePrompt': '新名稱（2–32 個 a–z、0–9、_）',
+    'emoji.picker': '插入表情',
+    'emoji.search': '搜尋表情',
+    'emoji.noMatch': '沒有符合的表情。',
+    'emoji.manage': '管理表情',
+  },
+};

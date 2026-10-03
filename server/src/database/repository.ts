@@ -1,4 +1,6 @@
-import type { AccountProfile, GameResult } from '@shared/types';
+import type { AccountProfile, EmojiRecord, MatchResult, MediaId } from '@shared/types';
+
+export type { EmojiRecord };
 import type { RuntimeSnapshot } from '../runtime/types';
 
 export type JsonValue =
@@ -28,8 +30,9 @@ export interface FriendshipRecord {
 export interface MatchRecord {
   readonly id: string;
   readonly roomCode: string;
+  /** Ordered by seat N, E, S, W. */
   readonly accountIds: readonly string[];
-  readonly result: GameResult;
+  readonly result: MatchResult;
   readonly finishedAt: number;
 }
 
@@ -41,7 +44,10 @@ export interface Repository {
   createAccount(account: AccountRecord): Promise<AccountRecord>;
   updateProfile(
     id: string,
-    profile: Pick<AccountProfile, 'nickname' | 'color' | 'avatar'>,
+    profile: Pick<
+      AccountProfile,
+      'nickname' | 'color' | 'avatar' | 'avatarImage' | 'tableBackground' | 'matchesPublic'
+    >,
     now: number,
   ): Promise<AccountRecord | null>;
   changePassword(
@@ -67,6 +73,16 @@ export interface Repository {
   saveRuntime(snapshot: RuntimeSnapshot, matches?: readonly MatchRecord[]): Promise<void>;
   saveMatch(match: MatchRecord): Promise<void>;
   listMatches(accountId: string, limit?: number): Promise<MatchRecord[]>;
+  listEmojis(accountId: string): Promise<EmojiRecord[]>;
+  /** All-or-nothing: EMOJI_EXISTS on a duplicate name, EMOJI_LIMIT past the per-account cap. */
+  createEmojis(
+    accountId: string,
+    items: readonly { name: string; mediaId: MediaId }[],
+    now: number,
+  ): Promise<EmojiRecord[]>;
+  deleteEmoji(accountId: string, id: string): Promise<boolean>;
+  /** Null when the emoji is not this account's; EMOJI_EXISTS when the name is taken. */
+  renameEmoji(accountId: string, id: string, name: string): Promise<EmojiRecord | null>;
   close(): Promise<void>;
 }
 
@@ -77,6 +93,9 @@ export function publicAccount(account: AccountRecord): AccountProfile {
     nickname: account.nickname,
     color: account.color,
     avatar: account.avatar,
+    avatarImage: account.avatarImage,
+    tableBackground: account.tableBackground,
+    matchesPublic: account.matchesPublic,
     createdAt: account.createdAt,
     updatedAt: account.updatedAt,
   };

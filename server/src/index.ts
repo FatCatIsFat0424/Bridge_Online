@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { isIP } from 'node:net';
 import { createJsonRepository } from './database/json-repository';
 import { createApplication } from './app';
@@ -28,6 +28,7 @@ async function main(): Promise<void> {
   const application = await createApplication(repository, {
     allowedOrigins, secureCookies: process.env.NODE_ENV === 'production',
     trustProxyLoopback: trustProxyLoopback === 'true',
+    mediaDirectory: join(dirname(databasePath), 'media'),
   });
   application.httpServer.listen(port, host, () => {
     console.warn(`[server] Bridge Online listening on port ${port}`);

@@ -22,6 +22,9 @@ function account(username: string): AccountRecord {
     nickname: username,
     color: '#123456',
     avatar: 'cat',
+    avatarImage: null,
+    tableBackground: null,
+    matchesPublic: false,
     passwordHash: PASSWORD_HASH,
     createdAt: 100,
     updatedAt: 100,
@@ -35,6 +38,7 @@ function match(id: string, accounts: readonly AccountRecord[], finishedAt: numbe
     finishedAt,
     roomCode: 'ABC123',
     result: {
+      gameType: 'bridge',
       contract: { level: 1, suit: 'nt', declarer: 'N' },
       declarerTeamTricks: 7,
       defenderTeamTricks: 6,
@@ -65,7 +69,7 @@ describe('JSON repository', () => {
     await repository.close();
     repository = await createJsonRepository(path);
     for (const entry of accounts) expect(await repository.getAccountById(entry.id)).toEqual(entry);
-    expect(JSON.parse(await readFile(path, 'utf8')).schemaVersion).toBe(1);
+    expect(JSON.parse(await readFile(path, 'utf8')).schemaVersion).toBe(3);
   });
 
   it('should enforce case-normalized uniqueness atomically during concurrent registration', async () => {
@@ -150,6 +154,7 @@ describe('JSON repository', () => {
       accountIds: players.map((player) => player.id),
       finishedAt: 500,
       result: {
+        gameType: 'bridge' as const,
         contract: { level: 1 as const, suit: 'nt' as const, declarer: 'N' as const },
         declarerTeamTricks: 7,
         defenderTeamTricks: 6,
@@ -178,6 +183,7 @@ describe('JSON repository', () => {
               nickname: 'Unknown',
               color: '#123456',
               avatar: 'cat',
+              avatarImage: null,
             },
             currentRoomCode: null,
             disconnectedAt: 100,
@@ -363,6 +369,7 @@ describe('JSON repository', () => {
                 nickname: 'Unknown',
                 color: '#123456',
                 avatar: 'cat',
+                avatarImage: null,
               },
               currentRoomCode: null,
               disconnectedAt: 100,

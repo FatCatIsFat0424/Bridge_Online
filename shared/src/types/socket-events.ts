@@ -2,6 +2,7 @@ import type { PlayerInfo, Seat } from './player';
 import type { RoomCode, RoomInfo, GameType } from './room';
 import type { Card, BidAction, PlayerVisibleGameState } from './game';
 import type { ChatMessage } from './chat';
+import type { PublicAccount } from './social';
 import type { VoiceIncomingSignal, VoiceJoinResult, VoiceRoomState, VoiceSettings, VoiceSignal } from './voice';
 
 export interface PlayerSnapshot {
@@ -32,9 +33,15 @@ export interface ClientToServerEvents {
     payload: { roomCode: RoomCode },
     callback: (response: ActionResult & { room?: RoomInfo }) => void,
   ) => void;
+  'room:invite': (
+    payload: { accountId: string }, callback: (response: ActionResult) => void,
+  ) => void;
   'room:leave': (callback: (response: ActionResult) => void) => void;
   'room:changeSeat': (
     payload: { seat: Seat }, callback: (response: ActionResult) => void,
+  ) => void;
+  'room:setGameType': (
+    payload: { gameType: GameType }, callback: (response: ActionResult) => void,
   ) => void;
   'room:ready': (callback: (response: ActionResult) => void) => void;
   'room:unready': (callback: (response: ActionResult) => void) => void;
@@ -47,7 +54,24 @@ export interface ClientToServerEvents {
   'game:playCard': (
     payload: { card: Card }, callback: (response: ActionResult) => void,
   ) => void;
-  'game:continue': (callback: (response: ActionResult) => void) => void;
+  'game:bigtwo:play': (
+    payload: { cards: Card[] }, callback: (response: ActionResult) => void,
+  ) => void;
+  'game:bigtwo:pass': (callback: (response: ActionResult) => void) => void;
+  'game:redpoints:play': (
+    payload: { card: Card; capture?: Card }, callback: (response: ActionResult) => void,
+  ) => void;
+  'game:redpoints:chooseFlip': (
+    payload: { capture: Card }, callback: (response: ActionResult) => void,
+  ) => void;
+  'game:ninetynine:play': (
+    payload: { card: Card; choice?: 'plus' | 'minus'; target?: Seat }, callback: (response: ActionResult) => void,
+  ) => void;
+  'game:continue':(callback: (response: ActionResult) => void) => void;
+  'game:abortVote:start': (callback: (response: ActionResult) => void) => void;
+  'game:abortVote:cast': (
+    payload: { agree: boolean }, callback: (response: ActionResult) => void,
+  ) => void;
   'chat:send': (
     payload: { message: string }, callback: (response: ActionResult) => void,
   ) => void;
@@ -58,4 +82,13 @@ export interface ServerToClientEvents {
   'voice:signal': (payload: VoiceIncomingSignal) => void;
   'voice:left': (payload: { reason: string }) => void;
   'player:state': (payload: PlayerSnapshot) => void;
+  'room:invited': (payload: RoomInvite) => void;
+}
+
+/** Ephemeral friend invite; never persisted. */
+export interface RoomInvite {
+  roomCode: RoomCode;
+  gameType: GameType;
+  from: PublicAccount;
+  seatsFree: number;
 }

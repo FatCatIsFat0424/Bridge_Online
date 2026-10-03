@@ -15,6 +15,7 @@ export type {
   SeatInfo,
   SeatMap,
   RoomInfo,
+  AbortVoteInfo,
 } from './room';
 
 export type {
@@ -32,22 +33,46 @@ export type {
   Team,
   PlayingState,
   BiddingState,
-  GameState,
+  BridgeGameState,
+  BridgeVisibleState,
+  BigTwoPlay,
+  BigTwoLogEntry,
+  BigTwoMatchResult,
+  BigTwoPhase,
+  BigTwoGameState,
+  BigTwoVisibleState,
+  RedPointsLogEntry,
+  RedPointsMatchResult,
+  RedPointsPhase,
+  RedPointsStep,
+  RedPointsGameState,
+  RedPointsVisibleState,
+  NinetyNineDirection,
+  NinetyNineLogEntry,
+  NinetyNineMatchResult,
+  NinetyNinePhase,
+  NinetyNineGameState,
+  NinetyNineVisibleState,
+  AnyGameState,
   PlayerVisibleGameState,
+  MatchResult,
 } from './game';
 
 export type { ChatMessage } from './chat';
-export type { AccountProfile, AvatarPreset, AvatarId } from './account';
+export type { EmojiRecord } from './emoji';
+export type { AccountProfile, AvatarPreset, AvatarId, MediaId } from './account';
 
 export type {
   ClientToServerEvents,
   ServerToClientEvents,
   PlayerSnapshot,
+  RoomInvite,
 } from './socket-events';
 
 export type { MatchSummary } from './game';
 export type {
-  PublicAccount, FriendRequest, FriendsData, FriendsResponse, CreateFriendRequestResponse,
+  PublicAccount, FriendEntry, FriendRequest, FriendsData, FriendsResponse, CreateFriendRequestResponse,
+  MatchHistory,
 } from './social';
 
 export type {

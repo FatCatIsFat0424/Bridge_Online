@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
+import { copyFile, mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { MAX_EMOJIS_PER_ACCOUNT } from '@shared/constants';
 import type { Repository, AccountRecord, MatchRecord } from './repository';
 import { publicAccount, repositoryError } from './repository';
-import { emptyDocument, validateDocument } from './schema';
+import { emptyDocument, isObject, validateDocument } from './schema';
+import { migrateDocument } from './migrations';
 import type { DatabaseDocument } from './schema';
 import { createDatabaseIndexes, friendshipPair } from './indexes';
 
@@ -52,14 +54,24 @@ export async function createJsonRepository(filePath: string): Promise<Repository
       }
     }
 
+    let parsed: unknown;
     try {
-      const parsed: unknown = JSON.parse(await readFile(path, 'utf8'));
-      validateDocument(parsed);
-      document = parsed;
+      parsed = JSON.parse(await readFile(path, 'utf8'));
     } catch (error) {
       if (!hasCode(error, 'ENOENT')) throw error;
+    }
+    if (parsed === undefined) {
       document = emptyDocument();
       await persist(document);
+    } else {
+      const migrated = migrateDocument(parsed);
+      validateDocument(migrated);
+      document = migrated;
+      if (migrated !== parsed) {
+        const version = isObject(parsed) ? String(parsed.schemaVersion) : 'old';
+        await copyFile(path, `${path}.v${version}.bak`);
+        await persist(document);
+      }
     }
 
     async function read<T>(select: (data: DatabaseDocument) => T): Promise<T> {
@@ -68,7 +80,7 @@ export async function createJsonRepository(filePath: string): Promise<Repository
     }
 
     function write<T>(
-      copiedTables: readonly ('accounts' | 'sessions' | 'friendships' | 'matches')[],
+      copiedTables: readonly ('accounts' | 'sessions' | 'friendships' | 'matches' | 'emojis')[],
       update: (data: DatabaseDocument) => T,
     ): Promise<T> {
       if (closed) return Promise.reject(new Error('Repository is closed.'));
@@ -244,6 +256,45 @@ export async function createJsonRepository(filePath: string): Promise<Repository
             boundedLimit(limit, 100),
           ),
         ),
+      listEmojis: (accountId) =>
+        read((data) => data.emojis.filter((emoji) => emoji.accountId === accountId)),
+      createEmojis: (accountId, items, now) =>
+        write(['emojis'], (data) => {
+          const names = new Set(
+            data.emojis.filter((emoji) => emoji.accountId === accountId).map((emoji) => emoji.name),
+          );
+          if (names.size + items.length > MAX_EMOJIS_PER_ACCOUNT)
+            throw repositoryError('EMOJI_LIMIT', 'Emoji library is full.');
+          const created = items.map(({ name, mediaId }) => {
+            if (names.has(name)) throw repositoryError('EMOJI_EXISTS', `Emoji :${name}: already exists.`);
+            names.add(name);
+            return { id: randomUUID(), accountId, name, mediaId, createdAt: now };
+          });
+          data.emojis.push(...created);
+          return created;
+        }),
+      deleteEmoji: (accountId, id) =>
+        write(['emojis'], (data) => {
+          const index = data.emojis.findIndex(
+            (emoji) => emoji.id === id && emoji.accountId === accountId,
+          );
+          if (index === -1) return false;
+          data.emojis.splice(index, 1);
+          return true;
+        }),
+      renameEmoji: (accountId, id, name) =>
+        write(['emojis'], (data) => {
+          const index = data.emojis.findIndex(
+            (emoji) => emoji.id === id && emoji.accountId === accountId,
+          );
+          if (index === -1) return null;
+          if (data.emojis.some((emoji) => emoji.accountId === accountId && emoji.name === name &&
+            emoji.id !== id))
+            throw repositoryError('EMOJI_EXISTS', `Emoji :${name}: already exists.`);
+          const emoji = { ...data.emojis[index], name };
+          data.emojis[index] = emoji;
+          return emoji;
+        }),
       close: async () => {
         if (closed) {
           await queue;

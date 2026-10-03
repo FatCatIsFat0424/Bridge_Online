@@ -8,17 +8,49 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   height: 300px;
+  position: relative;
 }
 
 .error { color: var(--color-danger); padding: var(--spacing-sm); }
 
+.fill {
+  height: 100%;
+  background: var(--rail-bg);
+  border-color: var(--rail-border);
+}
+
 .chatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-surface);
+}
+
+.chatTitle {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-surface);
+}
+
+.collapseBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
+.collapseBtn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+/* 手機抽屜：收合鈕改為向下箭頭 */
+@media (max-width: 767px) {
+  .fill .collapseBtn { transform: rotate(90deg); }
 }
 
 .chatMessages {
@@ -35,6 +67,14 @@
   font-size: var(--text-sm);
   line-height: 1.4;
   padding: 2px 0;
+}
+
+.systemMessage {
+  padding: 2px 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-style: italic;
+  text-align: center;
 }
 
 .chatSender {
@@ -84,4 +124,77 @@
 .chatSendBtn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.emoji {
+  display: inline-block;
+  height: 1.6em;
+  width: auto;
+  max-width: 4em;
+  vertical-align: middle;
+  object-fit: contain;
+}
+
+.pickerBtn {
+  padding: 0 var(--spacing-sm);
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-color);
+}
+
+.pickerBtn:hover,
+.pickerBtn[aria-expanded='true'] {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+/* Sits over the message list, just above the input row. */
+.picker {
+  position: absolute;
+  left: var(--spacing-sm);
+  right: var(--spacing-sm);
+  bottom: 44px;
+  max-height: 60%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 1;
+}
+
+.pickerSearch {
+  font-size: var(--text-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.pickerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  gap: var(--spacing-xs);
+  overflow-y: auto;
+}
+
+.pickerItem {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+}
+
+.pickerItem:hover { background: var(--bg-card-hover); }
+
+.pickerItem img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.pickerEmpty {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
 }

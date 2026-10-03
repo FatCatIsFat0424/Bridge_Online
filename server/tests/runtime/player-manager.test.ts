@@ -4,6 +4,7 @@ import * as players from '../../src/managers/player-manager';
 
 const profile: PlayerInfo = {
   id: 'account-one', username: 'north', nickname: 'North', color: '#123456', avatar: 'fox',
+  avatarImage: null,
 };
 
 describe('account connection lifecycle', () => {

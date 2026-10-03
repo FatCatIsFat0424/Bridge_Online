@@ -16,7 +16,7 @@ export function PlayerLink({ player, showUsername = false, size = 'small' }: Pla
   return (
     <Link className={styles.link} to={`/players/${encodeURIComponent(player.id)}`}
       aria-label={t('player.view', { nickname: player.nickname })}>
-      <Avatar avatar={player.avatar} color={player.color} size={size} />
+      <Avatar avatar={player.avatar} image={player.avatarImage} color={player.color} size={size} />
       <span className={styles.identity}>
         <span className={styles.nickname}>{player.nickname}</span>
         {showUsername && <span className={styles.username}>@{player.username}</span>}

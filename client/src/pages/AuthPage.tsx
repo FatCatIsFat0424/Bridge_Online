@@ -5,7 +5,6 @@ import type { AccountProfile } from '@shared/types';
 import { apiRequest } from '../api';
 import { useAccountStore } from '../stores/account-store';
 import { useI18nStore } from '../stores/i18n-store';
-import { LanguageSwitch } from '../components/LanguageSwitch';
 import styles from './AccountPages.module.css';
 
 interface AuthPageProps { mode: 'login' | 'register'; }
@@ -53,7 +52,6 @@ export function AuthPage({ mode }: AuthPageProps): ReactNode {
   return (
     <main className={styles.authPage}>
       <div className={styles.authCard}>
-        <div className={styles.language}><LanguageSwitch /></div>
         <Link to="/" className={styles.username}>♠ Bridge Online</Link>
         <h1 className={styles.title}>{t('auth.welcome')}</h1>
         <p className={styles.subtitle}>{t('auth.description')}</p>

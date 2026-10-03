@@ -1,14 +1,19 @@
 /* ─── Bridge Online — 全域樣式 ─── */
 
 /* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@400;700&display=swap');
 
 /* ─── CSS 變數 ─── */
+/* :root = dashboard 主題；[data-theme] 區塊只覆寫變數 */
 :root {
+  color-scheme: dark;
+
   /* 色彩 — 深色主題 */
   --color-primary: #4a9eff;
   --color-primary-hover: #3a8eef;
   --color-primary-active: #2a7edf;
+  --color-accent: #818cf8;
+  --text-on-primary: #ffffff;
   --color-success: #4ade80;
   --color-success-hover: #22c55e;
   --color-danger: #f87171;
@@ -28,6 +33,19 @@
   --bg-table: #0d4a2e;
   --bg-table-felt: #166534;
   --bg-table-border: #15803d;
+  --table-surface: radial-gradient(ellipse at 50% 45%, #145257 0%, #0d3438 55%, #082226 100%);
+  --table-rim: rgba(94, 234, 212, 0.14);
+  --table-rim-width: 1px;
+  --table-ink: #e2e8f0;
+  --turn-glow: #4a9eff;
+  --badge-declarer: #f5b942;
+
+  /* 側欄 */
+  --rail-bg: rgba(22, 31, 52, 0.72);
+  --rail-border: rgba(148, 163, 184, 0.14);
+
+  /* 頁面材質 */
+  --page-texture: none;
 
   /* 文字 */
   --text-primary: #f1f5f9;
@@ -38,6 +56,15 @@
   /* 撲克牌花色 */
   --suit-black: #e2e8f0;
   --suit-red: #ef4444;
+  --suit-red-ui: #f87171;
+
+  /* 牌面 / 牌背 */
+  --card-face: linear-gradient(180deg, #ffffff, #f1f4f9);
+  --card-border: #cfd6e2;
+  --card-ink-black: #1e293b;
+  --card-ink-red: #dc2626;
+  --card-back: repeating-linear-gradient(45deg, #2b5fb8 0 3px, #1d4690 3px 6px);
+  --card-back-image: url('../assets/cards/BLUE_BACK.svg');
 
   /* 邊框 */
   --border-color: #334155;
@@ -64,10 +91,15 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 20px rgba(74, 158, 255, 0.15);
+  --shadow-inset: inset 0 2px 20px rgba(0, 0, 0, 0.3);
 
   /* 字體 */
   --font-primary: 'Inter', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-display: var(--font-primary);
+
+  /* 版面 */
+  --topbar-height: 52px;
 
   /* 字級 */
   --text-xs: 0.75rem;
@@ -85,6 +117,145 @@
   --transition-spring: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* ─── 主題：經典牌桌（綠絨 + 木框 + 金） ─── */
+[data-theme='felt'] {
+  --color-primary: #e3b964;
+  --color-primary-hover: #f6dc9a;
+  --color-primary-active: #a8792c;
+  --color-accent: #f6dc9a;
+  --text-on-primary: #2a1a05;
+
+  --bg-page: #15100c;
+  --bg-surface: #1e1611;
+  --bg-card: #2a2019;
+  --bg-card-hover: #36291f;
+  --bg-input: #1a130e;
+  --bg-input-focus: #241a13;
+  --bg-overlay: rgba(8, 5, 3, 0.7);
+
+  --bg-table: #17502f;
+  --bg-table-felt: #22693f;
+  --bg-table-border: #a8792c;
+  --table-surface:
+    radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1.2px) 0 0 / 3px 3px,
+    radial-gradient(rgba(0, 0, 0, 0.07) 1px, transparent 1.3px) 1px 2px / 5px 5px,
+    radial-gradient(ellipse 70% 60% at 50% 42%, #33885a 0%, #22693f 40%, #17502f 70%, #0d3520 100%);
+  --table-rim:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 18%, rgba(0, 0, 0, 0) 80%, rgba(0, 0, 0, 0.35)),
+    repeating-linear-gradient(97deg, rgba(0, 0, 0, 0) 0 7px, rgba(0, 0, 0, 0.09) 7px 9px, rgba(255, 220, 170, 0.05) 9px 13px, rgba(0, 0, 0, 0) 13px 21px),
+    linear-gradient(135deg, #7a3f1d, #5a2a12 35%, #8a4a22 55%, #4a210d 80%, #6b3618);
+  --table-rim-width: 18px;
+  --table-ink: #f3ead8;
+  --turn-glow: #e3b964;
+  --badge-declarer: #e3b964;
+
+  --rail-bg: rgba(34, 24, 18, 0.88);
+  --rail-border: rgba(227, 185, 100, 0.28);
+
+  --page-texture: radial-gradient(ellipse at 50% 30%, #2a2019 0%, #15100c 60%, #0b0806 100%);
+
+  --text-primary: #f3ead8;
+  --text-secondary: #cbbfa8;
+  --text-muted: #9a8c72;
+  --text-inverse: #1d1b19;
+
+  --suit-black: #f3ead8;
+  --suit-red: #ff6b6b;
+  --suit-red-ui: #f87171;
+
+  --card-face: linear-gradient(160deg, #fffdf6, #fbf6ea 55%, #efe6d1);
+  --card-border: #c9b996;
+  --card-ink-black: #1d1b19;
+  --card-ink-red: #c0252b;
+  --card-back:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.13) 0 2px, transparent 2px 6px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.13) 0 2px, transparent 2px 6px),
+    radial-gradient(circle at 50% 50%, #7a1b2c 0 28%, transparent 29%),
+    linear-gradient(135deg, #1c2b5a, #14204a 50%, #1c2b5a);
+  --card-back-image: url('../assets/cards/RED_BACK.svg');
+
+  --border-color: rgba(227, 185, 100, 0.25);
+  --border-color-hover: rgba(227, 185, 100, 0.5);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 24px rgba(240, 190, 90, 0.35);
+  --shadow-inset: inset 0 10px 30px rgba(0, 0, 0, 0.55);
+
+  --font-display: 'Noto Serif TC', Georgia, serif;
+}
+
+/* ─── 主題：紙感（淺色） ─── */
+[data-theme='paper'] {
+  color-scheme: light;
+
+  --color-primary: #1f2a44;
+  --color-primary-hover: #2e3b5c;
+  --color-primary-active: #141c30;
+  --color-accent: #c0392b;
+  --text-on-primary: #fffdf8;
+  --color-success: #3f7d4e;
+  --color-success-hover: #346842;
+  --color-danger: #c0392b;
+  --color-danger-hover: #a93226;
+  --color-warning: #b7791f;
+
+  --bg-page: #f6f1e7;
+  --bg-surface: #fbf7ef;
+  --bg-card: #fffdf8;
+  --bg-card-hover: #efe8da;
+  --bg-input: #fffdf8;
+  --bg-input-focus: #ffffff;
+  --bg-overlay: rgba(60, 40, 20, 0.28);
+
+  --bg-table: #d9e2cf;
+  --bg-table-felt: #cbd6bf;
+  --bg-table-border: #a9b89b;
+  --table-surface:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 4px),
+    linear-gradient(#d9e2cf, #d9e2cf);
+  --table-rim: #a9b89b;
+  --table-rim-width: 1px;
+  --table-ink: #1f2a44;
+  --turn-glow: #c0392b;
+  --badge-declarer: #c0392b;
+
+  --rail-bg: #fffdf8;
+  --rail-border: #d9d0bd;
+
+  --page-texture: repeating-linear-gradient(0deg, rgba(60, 40, 20, 0.018) 0 1px, transparent 1px 3px);
+
+  --text-primary: #1f2a44;
+  --text-secondary: #4a5470;
+  --text-muted: #8a8f9e;
+  --text-inverse: #fffdf8;
+
+  --suit-black: #1f2a44;
+  --suit-red: #c0392b;
+  --suit-red-ui: #c0392b;
+
+  --card-face: #fffdf8;
+  --card-border: #d6ccb7;
+  --card-ink-black: #1f2a44;
+  --card-ink-red: #c0392b;
+  --card-back:
+    repeating-linear-gradient(45deg, rgba(31, 42, 68, 0.55) 0 0.6px, transparent 0.6px 3px),
+    repeating-linear-gradient(-45deg, rgba(31, 42, 68, 0.35) 0 0.6px, transparent 0.6px 3px),
+    #fffdf8;
+
+  --border-color: #d9d0bd;
+  --border-color-hover: #c9bfa9;
+
+  --shadow-sm: 0 1px 2px rgba(60, 40, 20, 0.08);
+  --shadow-md: 0 4px 12px rgba(60, 40, 20, 0.12);
+  --shadow-lg: 0 10px 30px rgba(60, 40, 20, 0.15);
+  --shadow-glow: 0 0 0 3px #f3dcd6;
+  --shadow-inset: inset 0 1px 6px rgba(60, 40, 20, 0.08);
+
+  --font-display: 'Noto Serif TC', Georgia, serif;
+}
+
 /* ─── Reset ─── */
 *,
 *::before,
@@ -95,6 +266,8 @@
 }
 
 html {
+  background: var(--page-texture), var(--bg-page);
+  min-height: 100%;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -102,7 +275,6 @@ html {
 
 body {
   font-family: var(--font-primary);
-  background-color: var(--bg-page);
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
@@ -197,7 +369,7 @@ textarea::placeholder {
 
 .btn-primary {
   background: var(--color-primary);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .btn-primary:hover {
@@ -278,8 +450,12 @@ textarea::placeholder {
 }
 
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 8px rgba(74, 158, 255, 0.2); }
-  50% { box-shadow: 0 0 20px rgba(74, 158, 255, 0.4); }
+  0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--turn-glow) 20%, transparent); }
+  50% { box-shadow: 0 0 20px color-mix(in srgb, var(--turn-glow) 40%, transparent); }
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 /* ─── Scrollbar ─── */

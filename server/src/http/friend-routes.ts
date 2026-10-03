@@ -4,6 +4,7 @@ import type { AuthService } from '../auth/auth-service';
 import { getRequestSession, requireSession } from '../auth/http-middleware';
 import type { Repository } from '../database/repository';
 import { createFriendService } from '../social/friend-service';
+import * as playerManager from '../managers/player-manager';
 
 function handleAsync(
   handler: (request: Request, response: Response) => Promise<void>,
@@ -26,7 +27,12 @@ export function createFriendRouter(repository: Repository, authService: AuthServ
 
   router.get('/', handleAsync(async (_request, response): Promise<void> => {
     const { account } = getRequestSession(response);
-    response.json({ success: true, ...await friends.list(account.id) });
+    const list = await friends.list(account.id);
+    response.json({ success: true, ...list, friends: list.friends.map((friend) => {
+      const state = playerManager.getPlayerState(friend.id);
+      return { ...friend, online: state?.connectionStatus === 'connected',
+        inRoom: Boolean(state?.currentRoomCode) };
+    }) });
   }));
 
   router.get('/search', handleAsync(async (request, response): Promise<void> => {

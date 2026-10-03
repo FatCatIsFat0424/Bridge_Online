@@ -1,4 +1,4 @@
-import type { PlayerId, PlayerInfo, RoomCode } from '@shared/types';
+import type { AccountProfile, PlayerId, PlayerInfo, RoomCode } from '@shared/types';
 import type { PersistedPlayer } from '../runtime/types';
 
 interface PlayerState extends PersistedPlayer {
@@ -8,6 +8,12 @@ interface PlayerState extends PersistedPlayer {
 
 const players = new Map<PlayerId, PlayerState>();
 const socketToPlayer = new Map<string, PlayerId>();
+
+/** Only table-visible fields; account settings stay out of room and chat broadcasts. */
+export function toPlayerInfo(account: AccountProfile): PlayerInfo {
+  const { id, username, nickname, color, avatar, avatarImage } = account;
+  return { id, username, nickname, color, avatar, avatarImage };
+}
 
 export function attachPlayer(socketId: string, info: PlayerInfo): void {
   const existing = players.get(info.id);

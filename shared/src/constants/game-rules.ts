@@ -1,6 +1,18 @@
 // ─── 遊戲規則常數 ───
 
-import type { Seat, BidSuit, Team } from '../types';
+import type { Seat, BidSuit, Team, GameType } from '../types';
+
+/** 所有遊戲類型 */
+export const GAME_TYPES: readonly GameType[] = ['bridge', 'bigtwo', 'redpoints', 'ninetynine'];
+
+/** 投票終止：同意票達此數即通過 */
+export const ABORT_VOTE_THRESHOLD = 3;
+
+/** 投票終止：投票時限（毫秒） */
+export const ABORT_VOTE_DURATION_MS = 60_000;
+
+/** 投票終止：自發起起算的冷卻時間（毫秒） */
+export const ABORT_VOTE_COOLDOWN_MS = 180_000;
 
 /** 每位玩家的手牌數量 */
 export const HAND_SIZE = 13;

@@ -1,23 +1,15 @@
-// ─── BiddingPanel 元件：叫牌面板 ───
+// ─── BiddingPanel 元件：叫牌面板（牌桌中央浮層） ───
 
 import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { BidAction, BidLevel, BidSuit } from '@shared/types';
-import { SUIT_SYMBOLS } from '@shared/constants';
 import { socket } from '../socket';
 import { useGameStore } from '../stores/game-store';
 import { useRoomStore } from '../stores/room-store';
 import { useI18nStore } from '../stores/i18n-store';
+import { BidLabel } from './AuctionTable';
 
 import styles from './BiddingPanel.module.css';
-
-const BID_SUIT_LABELS: Record<BidSuit, string> = {
-  clubs: SUIT_SYMBOLS.clubs,
-  diamonds: SUIT_SYMBOLS.diamonds,
-  hearts: SUIT_SYMBOLS.hearts,
-  spades: SUIT_SYMBOLS.spades,
-  nt: 'NT',
-};
 
 const LEVELS: BidLevel[] = [1, 2, 3, 4, 5, 6, 7];
 const SUITS: BidSuit[] = ['clubs', 'diamonds', 'hearts', 'spades', 'nt'];
@@ -61,62 +53,51 @@ export function BiddingPanel(): ReactNode {
     });
   }, [t]);
 
+  if (!isMyTurn) {
+    return (
+      <div className={styles.waitingPill} role="status">
+        {t('table.waitingBid', { seat: currentTurnSeat ? t(`seat.${currentTurnSeat}`) : '...' })}
+      </div>
+    );
+  }
+
   return (
     <div className={styles.biddingContainer}>
-      <div className={styles.biddingTitle}>{t('game.bidding')}</div>
+      <div className={styles.header}>
+        <span className={styles.biddingTitle}>{t('table.yourBid')}</span>
+        {highestBid && <span className={styles.highest}>
+          {t('table.highest')} <BidLabel level={highestBid.level} suit={highestBid.suit} />
+        </span>}
+      </div>
       {error && <p className={styles.error} role="alert">{error}</p>}
 
-      {/* 叫牌歷史 */}
-      <div className={styles.bidHistory}>
-        {bidEntries.map((entry, i) => {
-          if (entry.type !== 'bid') return null;
-          const action = entry.action;
-          return (
-            <span
-              key={i}
-              className={`${styles.bidHistoryItem} ${action.type === 'pass' ? styles.bidHistoryPass : ''}`}
-            >
-              {entry.seat}: {action.type === 'pass' ? 'Pass' : `${action.level}${BID_SUIT_LABELS[action.suit]}`}
-            </span>
-          );
-        })}
+      {/* 叫牌格子 */}
+      <div className={styles.bidGrid}>
+        {LEVELS.map((level) =>
+          SUITS.map((suit) => {
+            const enabled = isBidHigher(level, suit);
+            return (
+              <button
+                key={`${level}${suit}`}
+                className={styles.bidBtn}
+                disabled={pending || !enabled}
+                onClick={() => handleBid({ type: 'bid', level, suit })}
+              >
+                <BidLabel level={level} suit={suit} />
+              </button>
+            );
+          }),
+        )}
       </div>
 
-      {isMyTurn ? (
-        <>
-          {/* 叫牌格子 */}
-          <div className={styles.bidGrid}>
-            {LEVELS.map((level) =>
-              SUITS.map((suit) => {
-                const enabled = isBidHigher(level, suit);
-                return (
-                  <button
-                    key={`${level}${suit}`}
-                    className={styles.bidBtn}
-                    disabled={pending || !enabled}
-                    onClick={() => handleBid({ type: 'bid', level, suit })}
-                  >
-                    {level}{BID_SUIT_LABELS[suit]}
-                  </button>
-                );
-              }),
-            )}
-          </div>
-
-          {/* Pass 按鈕 */}
-          <button
-            className={styles.passBtn}
-            disabled={pending}
-            onClick={() => handleBid({ type: 'pass' })}
-          >
-            {t('game.pass')}
-          </button>
-        </>
-      ) : (
-        <div className={styles.waitingMsg}>
-          {t('game.waitingFor', { seat: currentTurnSeat ?? '...' })} ({t('game.bidding')})
-        </div>
-      )}
+      {/* Pass 按鈕 */}
+      <button
+        className={styles.passBtn}
+        disabled={pending}
+        onClick={() => handleBid({ type: 'pass' })}
+      >
+        {t('game.pass')}
+      </button>
     </div>
   );
 }

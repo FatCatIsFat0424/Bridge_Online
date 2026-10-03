@@ -1,0 +1,6 @@
+.list { list-style: none; }
+.match { display: flex; flex-direction: column; gap: var(--spacing-sm); padding: var(--spacing-md) 0; border-top: 1px solid var(--border-color); }
+.summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--spacing-sm); }
+.time { font-size: var(--text-xs); color: var(--text-secondary); }
+.players { display: flex; flex-wrap: wrap; gap: var(--spacing-md); }
+.empty { color: var(--text-secondary); font-size: var(--text-sm); }

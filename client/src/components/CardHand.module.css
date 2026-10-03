@@ -1,73 +1,96 @@
 /* ─── CardHand 元件樣式 ─── */
 
 .handContainer {
+  --card-w: clamp(48px, 8.5dvh, 72px);
+  --overlap: 0.42;
+  --fan-step: 2.2deg;
   display: flex;
   justify-content: center;
-  gap: 2px;
-  padding: var(--spacing-md);
-  perspective: 800px;
+  align-items: flex-end;
+  padding: 18px var(--spacing-md) 0;
 }
 
 .card {
-  width: 56px;
-  height: 80px;
-  border-radius: var(--radius-md);
-  background: white;
-  border: 1.5px solid #d1d5db;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-size: var(--text-base);
-  font-weight: 700;
-  user-select: none;
+  flex: none;
+  width: var(--card-w);
+  aspect-ratio: 224 / 313;
+  margin-left: calc(var(--card-w) * var(--overlap) * -1);
+  padding: 0;
+  border-radius: calc(var(--card-w) * 0.08);
+  background: var(--card-face);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
   position: relative;
-  box-shadow: var(--shadow-sm);
+  user-select: none;
+  transform-origin: 50% 260%;
+  transform: rotate(calc(var(--fan) * var(--fan-step))) translateY(var(--lift, 0px));
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.card:hover {
-  transform: translateY(-12px);
-  box-shadow: var(--shadow-md);
+.card:first-child { margin-left: 0; }
+
+.card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.card:disabled { cursor: default; }
+
+.cardPlayable {
+  --lift: -10px;
+  box-shadow:
+    0 0 0 2px var(--turn-glow),
+    0 0 16px color-mix(in srgb, var(--turn-glow) 55%, transparent),
+    var(--shadow-md);
+}
+
+.cardPlayable:hover,
+.cardPlayable:focus-visible {
+  --lift: -20px;
   z-index: 10;
 }
 
-.cardPlayable {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 8px rgba(74, 158, 255, 0.3);
+.cardSelected {
+  --lift: -24px;
+  box-shadow:
+    0 0 0 2px var(--turn-glow),
+    0 0 16px color-mix(in srgb, var(--turn-glow) 55%, transparent),
+    var(--shadow-md);
 }
 
-.cardPlayable:hover {
-  border-color: var(--color-primary-hover);
-  box-shadow: 0 0 16px rgba(74, 158, 255, 0.4);
-  transform: translateY(-16px) scale(1.05);
-}
+/* 標示但仍清楚可讀（99：會超過 99 的牌） */
+.cardMarked img { filter: saturate(0.6) brightness(0.9); }
 
-.cardDisabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cardDisabled:hover {
-  transform: none;
-  box-shadow: var(--shadow-sm);
-}
-
-.suitIcon {
-  font-size: var(--text-lg);
+.cardMarked::after {
+  content: '✕';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 50%;
+  background: var(--color-danger);
+  color: var(--text-inverse);
+  font-size: calc(var(--card-w) * 0.2);
+  font-weight: 800;
   line-height: 1;
 }
 
-.rankText {
-  font-size: var(--text-sm);
-  line-height: 1;
-}
+/* 手機：13 張需塞進 390px —— 寬 ≈ W·(1 + 12·(1 − overlap)) + 兩端旋轉外擴 */
+@media (max-width: 767px) {
+  .handContainer {
+    --card-w: clamp(40px, 13vw, 56px);
+    --overlap: 0.6;
+    --fan-step: 1.2deg;
+    padding: 14px 0 0;
+  }
 
-.suitBlack {
-  color: #1e293b;
-}
-
-.suitRed {
-  color: #dc2626;
+  .cardPlayable { --lift: -8px; }
+  .cardPlayable:hover,
+  .cardPlayable:focus-visible { --lift: -14px; }
+  .cardSelected { --lift: -16px; }
 }

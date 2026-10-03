@@ -26,7 +26,7 @@ function sessionHash(index: number): string {
 function createFixture(): DatabaseDocument {
   const runtime: RuntimeSnapshot = { players: [], rooms: [], games: [], chat: [] };
   const document: DatabaseDocument = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     runtime,
     accounts: Array.from({ length: RECORDS }, (_, index) => ({
       id: accountId(index),
@@ -35,6 +35,9 @@ function createFixture(): DatabaseDocument {
       nickname: `Player ${index}`,
       color: '#123456',
       avatar: 'cat',
+      avatarImage: null,
+      tableBackground: null,
+      matchesPublic: false,
       passwordHash: PASSWORD_HASH,
       createdAt: TIMESTAMP,
       updatedAt: TIMESTAMP,
@@ -59,6 +62,7 @@ function createFixture(): DatabaseDocument {
       accountIds: [0, 1, 2, 3].map((offset) => accountId((index * 4 + offset) % RECORDS)),
       finishedAt: TIMESTAMP + index,
       result: {
+        gameType: 'bridge',
         contract: { level: 1, suit: 'nt', declarer: 'N' },
         declarerTeamTricks: 7,
         defenderTeamTricks: 6,
@@ -66,6 +70,7 @@ function createFixture(): DatabaseDocument {
         declarerTeamWins: true,
       },
     })),
+    emojis: [],
   };
   const deck = createDeck();
   for (let table = 0; table < 25; table += 1) {
@@ -78,6 +83,7 @@ function createFixture(): DatabaseDocument {
         nickname: account.nickname,
         color: account.color,
         avatar: account.avatar,
+        avatarImage: account.avatarImage,
       };
     });
     const players = {
@@ -95,6 +101,9 @@ function createFixture(): DatabaseDocument {
         gameType: 'bridge',
         status: 'playing',
         createdAt: TIMESTAMP,
+        hostId: participants[0].id,
+        abortVote: null,
+        abortVoteCooldownUntil: null,
         seats: {
           N: { player: players.N, isReady: true },
           E: { player: players.E, isReady: true },
@@ -105,6 +114,7 @@ function createFixture(): DatabaseDocument {
       memberIds: participants.map((entry) => entry.id),
     });
     runtime.games.push({
+      gameType: 'bridge',
       id: `active-${table}`,
       roomCode,
       startedAt: TIMESTAMP,

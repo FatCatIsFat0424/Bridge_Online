@@ -6,6 +6,10 @@ import type { Socket } from 'socket.io-client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccountProfile, ClientToServerEvents, Seat, ServerToClientEvents } from '@shared/types';
 import type { PlayerSnapshot } from '@shared/types/socket-events';
+import { identifyCombo, isBomb, legalPlays } from '@shared/rules/bigtwo';
+import { rpPairOptions } from '@shared/rules/redpoints';
+import { NN_MAX, nnApply, nnIsPlayable, nnRequiresChoice } from '@shared/rules/ninetynine';
+import type { NnChoice } from '@shared/rules/ninetynine';
 import { createApplication } from '../../src/app';
 import { createJsonRepository } from '../../src/database/json-repository';
 import type { Repository } from '../../src/database/repository';
@@ -324,8 +328,10 @@ describe('persistent authenticated application', () => {
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body.matches).toHaveLength(1);
-      expect(body.matches[0]).toMatchObject({ roomCode, result: snapshot.gameState?.result });
-      expect(new Set(body.matches[0].accountIds)).toEqual(new Set(accounts.map(({ account }) => account.id)));
+      expect(body.matches[0]).toMatchObject({
+        roomCode, result: { ...snapshot.gameState?.result, gameType: 'bridge' },
+      });
+      expect(body.matches[0].accountIds).toEqual(accounts.map(({ account }) => account.id));
     }
 
     await stop();
@@ -334,4 +340,284 @@ describe('persistent authenticated application', () => {
     expect((await resume(finalPlayer)).gameState?.result).toEqual(snapshot.gameState?.result);
     expect(await repository.listMatches(accounts[0].account.id)).toHaveLength(1);
   }, 30_000);
+
+  it('should switch game type as host and abort a game by vote without a match record', async () => {
+    const accounts: RegisteredAccount[] = [];
+    for (const username of ['vote_north', 'vote_east', 'vote_south', 'vote_west']) {
+      accounts.push(await register(username));
+    }
+    const players = await connectPlayers(accounts);
+    const created = await players[0].timeout(5_000).emitWithAck('room:create', { gameType: 'bigtwo' });
+    const roomCode = created.roomCode;
+    if (!roomCode) throw new Error('Expected room code');
+    for (let index = 0; index < 4; index += 1) {
+      if (index > 0) await players[index].timeout(5_000).emitWithAck('room:join', { roomCode });
+      await players[index].timeout(5_000).emitWithAck('room:changeSeat', { seat: SEATS[index] });
+    }
+    const readyAll = async (): Promise<(typeof created)[]> => {
+      const results = [];
+      for (const client of players) results.push(await client.timeout(5_000).emitWithAck('room:ready'));
+      return results;
+    };
+    expect((await resume(players[1])).room).toMatchObject({
+      gameType: 'bigtwo', hostId: accounts[0].account.id, abortVote: null,
+    });
+    expect(await players[1].timeout(5_000).emitWithAck('room:setGameType', { gameType: 'bridge' }))
+      .toMatchObject({ success: false });
+    expect(await players[0].timeout(5_000).emitWithAck('room:setGameType', { gameType: 'bridge' }))
+      .toEqual({ success: true });
+    const switched = await resume(players[0]);
+    expect(switched.room?.gameType).toBe('bridge');
+    expect(Object.values(switched.room!.seats).every((seat) => !seat.isReady)).toBe(true);
+    expect((await readyAll()).every((result) => result.success)).toBe(true);
+    expect((await resume(players[0])).gameState?.gameType).toBe('bridge');
+
+    expect(await players[0].timeout(5_000).emitWithAck('game:abortVote:start')).toEqual({ success: true });
+    expect(await players[1].timeout(5_000).emitWithAck('game:abortVote:start')).toMatchObject({ success: false });
+    expect(await players[0].timeout(5_000).emitWithAck('game:abortVote:cast', { agree: true }))
+      .toEqual({ success: false, error: 'You have already voted.' });
+    expect(await players[1].timeout(5_000).emitWithAck('game:abortVote:cast', { agree: true }))
+      .toEqual({ success: true });
+    expect((await resume(players[3])).room?.abortVote).toMatchObject({
+      startedBy: accounts[0].account.id, yes: [accounts[0].account.id, accounts[1].account.id], no: [],
+    });
+    expect(await players[2].timeout(5_000).emitWithAck('game:abortVote:cast', { agree: true }))
+      .toEqual({ success: true });
+
+    const aborted = await resume(players[3]);
+    expect(aborted.gameState).toBeUndefined();
+    expect(aborted.room).toMatchObject({ status: 'waiting', abortVote: null });
+    expect(Object.values(aborted.room!.seats).every((seat) => !seat.isReady)).toBe(true);
+    expect(aborted.chatHistory?.map((message) => [message.system, message.content])).toEqual([
+      [true, 'abortVote.started'], [true, 'abortVote.passed'],
+    ]);
+    expect(await repository.listMatches(accounts[0].account.id)).toEqual([]);
+    expect((await repository.loadRuntime())?.games).toEqual([]);
+  }, 20_000);
+
+  it('should play a full Big Two game across a restart and record it', async () => {
+    const accounts: RegisteredAccount[] = [];
+    for (const username of ['big_north', 'big_east', 'big_south', 'big_west']) {
+      accounts.push(await register(username));
+    }
+    let players = await connectPlayers(accounts);
+    const created = await players[0].timeout(5_000).emitWithAck('room:create', { gameType: 'bigtwo' });
+    const roomCode = created.roomCode;
+    if (!roomCode) throw new Error('Expected room code');
+    for (let index = 0; index < 4; index += 1) {
+      if (index > 0) await players[index].timeout(5_000).emitWithAck('room:join', { roomCode });
+      await players[index].timeout(5_000).emitWithAck('room:changeSeat', { seat: SEATS[index] });
+      expect(await players[index].timeout(5_000).emitWithAck('room:ready')).toEqual({ success: true });
+    }
+
+    /** Leads the weakest play; follows with the weakest non-bomb, else passes. */
+    async function step(): Promise<PlayerSnapshot> {
+      const view = (await resume(players[0])).gameState;
+      if (view?.gameType !== 'bigtwo') throw new Error('Expected Big Two state');
+      const seat = view.currentTurnSeat;
+      const client = players[SEATS.indexOf(seat)];
+      const mine = (await resume(client)).gameState;
+      if (mine?.gameType !== 'bigtwo') throw new Error('Expected Big Two state');
+      const previous = mine.lastPlay ? identifyCombo(mine.lastPlay.cards) : null;
+      const choice = legalPlays(mine.myHand, previous, mine.firstPlay)
+        .find((combo) => previous === null || !isBomb(combo));
+      if (!previous) expect(await client.timeout(5_000).emitWithAck('game:bigtwo:pass')).toMatchObject({ success: false });
+      const response = choice
+        ? await client.timeout(5_000).emitWithAck('game:bigtwo:play', { cards: choice.cards })
+        : await client.timeout(5_000).emitWithAck('game:bigtwo:pass');
+      expect(response).toEqual({ success: true });
+      return resume(players[0]);
+    }
+
+    const opening = await Promise.all(players.map(resume));
+    const allCards = opening.flatMap((state) => state.gameState!.myHand.map((card) => `${card.suit}:${card.rank}`));
+    expect(new Set(allCards).size).toBe(52);
+    let snapshot = opening[0];
+    if (snapshot.gameState?.phase === 'playing') {
+      expect(await players[0].timeout(5_000).emitWithAck('game:bid', { bid: { type: 'pass' } }))
+        .toMatchObject({ success: false });
+      expect(await players[0].timeout(5_000).emitWithAck('game:bigtwo:play', { cards: [] }))
+        .toEqual({ success: false, error: 'Invalid cards.' });
+      for (let moves = 0; moves < 6 && snapshot.gameState?.phase === 'playing'; moves += 1) snapshot = await step();
+    }
+
+    const before = await Promise.all(players.map(resume));
+    await stop();
+    await start();
+    players = await connectPlayers(accounts);
+    const after = await Promise.all(players.map(resume));
+    for (let index = 0; index < 4; index += 1) expect(after[index].gameState).toEqual(before[index].gameState);
+
+    snapshot = after[0];
+    for (let moves = 0; snapshot.gameState?.phase === 'playing' && moves < 300; moves += 1) snapshot = await step();
+    const final = snapshot.gameState;
+    if (final?.gameType !== 'bigtwo' || !final.result) throw new Error('Expected a scored Big Two game');
+    expect(final.phase).toBe('scoring');
+    expect(final.revealedHands).not.toBeNull();
+    expect(final.result.scores[final.result.winnerSeat]).toBe(0);
+    expect(snapshot.room?.status).toBe('waiting');
+    const matches = await repository.listMatches(accounts[0].account.id);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({ roomCode, result: final.result });
+    expect(matches[0].result.gameType).toBe('bigtwo');
+    expect(matches[0].accountIds).toEqual(accounts.map(({ account }) => account.id));
+
+    await stop();
+    await start();
+    const finalPlayer = await connect(accounts[0].cookie);
+    expect((await resume(finalPlayer)).gameState).toEqual(final);
+    expect(await finalPlayer.timeout(5_000).emitWithAck('game:continue')).toEqual({ success: true });
+  }, 60_000);
+
+  it('should play a full Red Points game across a restart and record it', async () => {
+    const accounts: RegisteredAccount[] = [];
+    for (const username of ['red_north', 'red_east', 'red_south', 'red_west']) {
+      accounts.push(await register(username));
+    }
+    let players = await connectPlayers(accounts);
+    const created = await players[0].timeout(5_000).emitWithAck('room:create', { gameType: 'redpoints' });
+    const roomCode = created.roomCode;
+    if (!roomCode) throw new Error('Expected room code');
+    for (let index = 0; index < 4; index += 1) {
+      if (index > 0) await players[index].timeout(5_000).emitWithAck('room:join', { roomCode });
+      await players[index].timeout(5_000).emitWithAck('room:changeSeat', { seat: SEATS[index] });
+      expect(await players[index].timeout(5_000).emitWithAck('room:ready')).toEqual({ success: true });
+    }
+
+    /** Plays the first hand card, capturing the first match; resolves flips with the first match. */
+    async function step(): Promise<PlayerSnapshot> {
+      const view = (await resume(players[0])).gameState;
+      if (view?.gameType !== 'redpoints') throw new Error('Expected Red Points state');
+      const client = players[SEATS.indexOf(view.currentTurnSeat)];
+      const mine = (await resume(client)).gameState;
+      if (mine?.gameType !== 'redpoints') throw new Error('Expected Red Points state');
+      let response;
+      if (mine.step === 'flip-choose' && mine.pendingFlip) {
+        response = await client.timeout(5_000).emitWithAck('game:redpoints:chooseFlip',
+          { capture: rpPairOptions(mine.pendingFlip, mine.table)[0] });
+      } else {
+        const card = mine.myHand[0];
+        const capture = rpPairOptions(card, mine.table)[0];
+        response = await client.timeout(5_000).emitWithAck('game:redpoints:play', capture ? { card, capture } : { card });
+      }
+      expect(response).toEqual({ success: true });
+      return resume(players[0]);
+    }
+
+    const opening = await Promise.all(players.map(resume));
+    const first = opening[0].gameState;
+    if (first?.gameType !== 'redpoints') throw new Error('Expected Red Points state');
+    expect(first).toMatchObject({ phase: 'playing', stockCount: 24, step: 'play' });
+    expect(first.table).toHaveLength(4);
+    expect(first).not.toHaveProperty('stock');
+    expect(new Set(opening.flatMap((state) => state.gameState!.myHand.map((card) => `${card.suit}:${card.rank}`))).size)
+      .toBe(24);
+    expect(await players[0].timeout(5_000).emitWithAck('game:bigtwo:pass')).toMatchObject({ success: false });
+    expect(await players[0].timeout(5_000).emitWithAck('game:redpoints:play', { card: { suit: 'x', rank: 1 } } as never))
+      .toEqual({ success: false, error: 'Invalid card.' });
+    let snapshot = opening[0];
+    for (let moves = 0; moves < 6; moves += 1) snapshot = await step();
+
+    const before = await Promise.all(players.map(resume));
+    await stop();
+    await start();
+    players = await connectPlayers(accounts);
+    const after = await Promise.all(players.map(resume));
+    for (let index = 0; index < 4; index += 1) expect(after[index].gameState).toEqual(before[index].gameState);
+
+    snapshot = after[0];
+    for (let moves = 0; snapshot.gameState?.phase === 'playing' && moves < 100; moves += 1) snapshot = await step();
+    const final = snapshot.gameState;
+    if (final?.gameType !== 'redpoints' || !final.result) throw new Error('Expected a scored Red Points game');
+    expect(final).toMatchObject({ phase: 'scoring', table: [], stockCount: 0 });
+    expect(SEATS.reduce((sum, seat) => sum + final.result!.points[seat], 0)).toBe(208);
+    expect(snapshot.room?.status).toBe('waiting');
+    const matches = await repository.listMatches(accounts[0].account.id);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({ roomCode, result: final.result });
+    expect(matches[0].result.gameType).toBe('redpoints');
+
+    await stop();
+    await start();
+    const finalPlayer = await connect(accounts[0].cookie);
+    expect((await resume(finalPlayer)).gameState).toEqual(final);
+    expect(await finalPlayer.timeout(5_000).emitWithAck('game:continue')).toEqual({ success: true });
+  }, 60_000);
+
+  it('should play a full 99 game across a restart and record it', async () => {
+    const accounts: RegisteredAccount[] = [];
+    for (const username of ['nn_north', 'nn_east', 'nn_south', 'nn_west']) {
+      accounts.push(await register(username));
+    }
+    let players = await connectPlayers(accounts);
+    const created = await players[0].timeout(5_000).emitWithAck('room:create', { gameType: 'ninetynine' });
+    const roomCode = created.roomCode;
+    if (!roomCode) throw new Error('Expected room code');
+    for (let index = 0; index < 4; index += 1) {
+      if (index > 0) await players[index].timeout(5_000).emitWithAck('room:join', { roomCode });
+      await players[index].timeout(5_000).emitWithAck('room:changeSeat', { seat: SEATS[index] });
+      expect(await players[index].timeout(5_000).emitWithAck('room:ready')).toEqual({ success: true });
+    }
+
+    /** Plays the card reaching the highest legal total; a 5 names the first other seat still in. */
+    async function step(): Promise<PlayerSnapshot> {
+      const view = (await resume(players[0])).gameState;
+      if (view?.gameType !== 'ninetynine') throw new Error('Expected 99 state');
+      const client = players[SEATS.indexOf(view.currentTurnSeat)];
+      const mine = (await resume(client)).gameState;
+      if (mine?.gameType !== 'ninetynine') throw new Error('Expected 99 state');
+      const options = mine.myHand.filter((card) => nnIsPlayable(mine.total, card)).flatMap((card) =>
+        (nnRequiresChoice(card) ? ['plus', 'minus'] as NnChoice[] : [undefined])
+          .map((choice) => ({ card, choice, total: nnApply(mine.total, card, choice).total }))
+          .filter((option) => option.total <= NN_MAX));
+      const best = options.reduce((top, option) => (option.total > top.total ? option : top));
+      const target = best.card.rank === 5
+        ? SEATS.find((seat) => seat !== mine.mySeat && !mine.eliminated.includes(seat)) : undefined;
+      const response = await client.timeout(5_000).emitWithAck('game:ninetynine:play', {
+        card: best.card, ...(best.choice && { choice: best.choice }), ...(target && { target }),
+      });
+      expect(response).toEqual({ success: true });
+      return resume(players[0]);
+    }
+
+    const opening = await Promise.all(players.map(resume));
+    const first = opening[0].gameState;
+    if (first?.gameType !== 'ninetynine') throw new Error('Expected 99 state');
+    expect(first).toMatchObject({ phase: 'playing', stockCount: 32, total: 0, direction: 'ccw', lastPlayed: null });
+    expect(first).not.toHaveProperty('stock');
+    expect(first).not.toHaveProperty('discard');
+    expect(new Set(opening.flatMap((state) => state.gameState!.myHand.map((card) => `${card.suit}:${card.rank}`))).size)
+      .toBe(20);
+    expect(await players[0].timeout(5_000).emitWithAck('game:redpoints:play', { card: first.myHand[0] }))
+      .toMatchObject({ success: false });
+    expect(await players[0].timeout(5_000).emitWithAck('game:ninetynine:play',
+      { card: first.myHand[0], choice: 'double' } as never)).toEqual({ success: false, error: 'Invalid choice.' });
+    let snapshot = opening[0];
+    for (let moves = 0; snapshot.gameState?.phase === 'playing' && moves < 6; moves += 1) snapshot = await step();
+
+    const before = await Promise.all(players.map(resume));
+    await stop();
+    await start();
+    players = await connectPlayers(accounts);
+    const after = await Promise.all(players.map(resume));
+    for (let index = 0; index < 4; index += 1) expect(after[index].gameState).toEqual(before[index].gameState);
+
+    snapshot = after[0];
+    for (let moves = 0; snapshot.gameState?.phase === 'playing' && moves < 1000; moves += 1) snapshot = await step();
+    const final = snapshot.gameState;
+    if (final?.gameType !== 'ninetynine' || !final.result) throw new Error('Expected a finished 99 game');
+    expect(final.eliminated).toHaveLength(3);
+    expect(final.result.eliminationOrder).toEqual(final.eliminated);
+    expect(final.eliminated).not.toContain(final.result.winnerSeat);
+    expect(snapshot.room?.status).toBe('waiting');
+    const matches = await repository.listMatches(accounts[0].account.id);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({ roomCode, result: final.result });
+
+    await stop();
+    await start();
+    const finalPlayer = await connect(accounts[0].cookie);
+    expect((await resume(finalPlayer)).gameState).toEqual(final);
+    expect(await finalPlayer.timeout(5_000).emitWithAck('game:continue')).toEqual({ success: true });
+  }, 60_000);
 });
