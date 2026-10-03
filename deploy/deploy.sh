@@ -14,6 +14,8 @@ export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 for tool in python3 rsync nginx systemctl flock; do command -v "$tool" >/dev/null; done
 exec 9>/run/lock/bridge-online-deploy.lock
 flock -n 9 || { echo 'Another Bridge Online deployment is running.' >&2; exit 1; }
+exec 8>/run/lock/acserver-nginx-deploy.lock
+flock -n 8 || { echo 'Another shared Nginx deployment is running.' >&2; exit 1; }
 
 site_file=$(readlink -f /etc/nginx/sites-enabled/acserver.csie.org)
 test -f "$site_file"
@@ -61,7 +63,9 @@ install -d -m 0700 /var/backups/bridge-online
 backup_dir=$(mktemp -d "/var/backups/bridge-online/deploy-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")
 cp -p "$site_file" "$backup_dir/site.conf"
 snippet=/etc/nginx/snippets/bridge-online.conf
+http_snippet=/etc/nginx/snippets/bridge-online-http.conf
 if [[ -f $snippet ]]; then cp -p "$snippet" "$backup_dir/snippet.conf"; fi
+if [[ -f $http_snippet ]]; then cp -p "$http_snippet" "$backup_dir/http-snippet.conf"; fi
 if [[ -f /etc/bridge-online/server.env ]]; then
   cp -p /etc/bridge-online/server.env "$backup_dir/server.env"
 fi
@@ -76,6 +80,11 @@ on_error() {
       cp -p "$backup_dir/snippet.conf" "$snippet"
     else
       rm -f -- "$snippet"
+    fi
+    if [[ -f $backup_dir/http-snippet.conf ]]; then
+      cp -p "$backup_dir/http-snippet.conf" "$http_snippet"
+    else
+      rm -f -- "$http_snippet"
     fi
     if nginx -t; then systemctl reload nginx || true; fi
   fi
@@ -93,8 +102,13 @@ bash "$repo_dir/deploy/install.sh" "$node_binary"
 bash "$repo_dir/deploy/start-service.sh"
 python3 "$repo_dir/deploy/wait-for-health.py" http://127.0.0.1:3001/health
 install -d -m 0755 /etc/nginx/snippets
+cmp -s "$backup_dir/site.conf" "$site_file" || {
+  echo 'Nginx site changed during deployment; rerun after reviewing the concurrent change.' >&2
+  exit 1
+}
 nginx_changed=true
 install -m 0644 "$repo_dir/deploy/nginx/bridge-online.conf" "$snippet"
+install -m 0644 "$repo_dir/deploy/nginx/bridge-online-http.conf" "$http_snippet"
 cat "$backup_dir/site.new.conf" > "$site_file"
 nginx -t
 systemctl reload nginx

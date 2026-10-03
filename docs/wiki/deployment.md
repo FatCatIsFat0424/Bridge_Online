@@ -44,13 +44,16 @@ The wrapper targets this host's existing `/etc/nginx/sites-enabled/acserver.csie
 It validates the active configuration, rejects a conflicting port or unmanaged
 Bridge route, saves protected backups under `/var/backups/bridge-online`, stops
 the existing backend for a consistent database backup, and installs the prepared
-artifacts. It adds only managed Bridge routes to the existing HTTP/HTTPS blocks,
+artifacts. It adds managed includes to the existing HTTP/HTTPS blocks, migrating
+the previous inline HTTP redirect block to `bridge-online-http.conf`,
 validates/reloads Nginx, starts/enables systemd, and checks both local and public
 health endpoints. Other applications' routes remain unchanged. Repeated runs
-update the managed routes without duplicating them.
+update the managed routes without duplicating them. A shared Nginx deployment
+lock serializes cooperating service installers; a final comparison rejects site
+edits made while application artifacts were being installed.
 
 If Nginx validation/reload or the final health check fails, the previous Nginx
-site/snippet are restored. Application files are not automatically rolled back;
+site and both snippets are restored. Application files are not automatically rolled back;
 use the backup path and service logs reported by the script. Existing environment
 settings must match this host's supplied deployment configuration. The wrapper
 refuses first-time deployment if repository data still needs migration; follow
@@ -123,6 +126,7 @@ If the destination already exists, inspect it and follow the
 ```bash
 sudo install -d -m 0755 /etc/nginx/snippets
 sudo install -m 0644 deploy/nginx/bridge-online.conf /etc/nginx/snippets/bridge-online.conf
+sudo install -m 0644 deploy/nginx/bridge-online-http.conf /etc/nginx/snippets/bridge-online-http.conf
 sudo nginx -T
 ```
 
@@ -133,9 +137,15 @@ output, then edit its source file using `sudoedit`. Add this line once inside it
 include /etc/nginx/snippets/bridge-online.conf;
 ```
 
+In the existing HTTP `server` block, add the redirect include once:
+
+```nginx
+include /etc/nginx/snippets/bridge-online-http.conf;
+```
+
 Keep the site's existing TLS configuration and other locations. Do not include
-the snippet at `http` scope or create another virtual host. Ensure the existing
-HTTP host redirects to HTTPS. The snippet handles `/bridge_online` redirection,
+these snippets at `http` scope or create another virtual host. The HTTPS snippet
+handles `/bridge_online` redirection,
 SPA fallback, API/Socket prefix removal, and cookies scoped to `/bridge_online/`.
 WebSocket headers follow the [Nginx reference](https://nginx.org/en/docs/http/websocket.html).
 
