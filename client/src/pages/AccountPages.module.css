@@ -1,7 +1,6 @@
 .page { width: 100%; max-width: 66rem; margin: 0 auto; padding: var(--spacing-xl); }
-.authPage { min-height: 100vh; display: grid; place-items: center; padding: var(--spacing-lg); }
+.authPage { min-height: calc(100dvh - var(--topbar-height)); display: grid; place-items: center; padding: var(--spacing-lg); }
 .authCard { width: 100%; max-width: 30rem; padding: var(--spacing-xl); background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); }
-.language { display: flex; justify-content: flex-end; margin-bottom: var(--spacing-lg); }
 .title { font-size: var(--text-2xl); margin-bottom: var(--spacing-sm); }
 .subtitle { color: var(--text-secondary); margin-bottom: var(--spacing-xl); }
 .form { display: flex; flex-direction: column; gap: var(--spacing-md); }
@@ -30,11 +29,13 @@
 .list { list-style: none; }
 .person { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--spacing-md); padding: var(--spacing-md) 0; border-top: 1px solid var(--border-color); }
 .person .identity { margin-bottom: 0; }
+.presence { display: inline-flex; align-items: center; gap: var(--spacing-sm); }
+.onlineDot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-success); flex-shrink: 0; }
 .empty { color: var(--text-secondary); font-size: var(--text-sm); }
 .section { margin-top: var(--spacing-lg); }
 .status { display: grid; place-content: center; min-height: 50vh; padding: var(--spacing-xl); gap: var(--spacing-md); text-align: center; }
 .wide { grid-column: 1 / -1; }
-.history { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--spacing-sm); padding: var(--spacing-md) 0; border-top: 1px solid var(--border-color); }
+.backgroundPreview { display: block; width: 100%; max-width: 20rem; aspect-ratio: 16 / 9; object-fit: cover; margin-top: var(--spacing-md); border: 1px solid var(--border-color); border-radius: var(--radius-lg); }
 @media (max-width: 40rem) {
   .page { padding: var(--spacing-md); }
   .authCard { padding: var(--spacing-lg); }

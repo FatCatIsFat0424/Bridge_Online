@@ -1,0 +1,76 @@
+/* ─── 投票終止對局樣式 ─── */
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  flex: none;
+}
+
+.railBtn { width: 100%; }
+
+.error {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+/* 牌桌上方橫幅：所有人可見 */
+.banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  width: min(360px, calc(100% - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.25s ease;
+}
+
+.title { font-weight: 700; }
+
+.meta {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.tally {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  min-height: 28px;
+}
+
+.tallyLabel {
+  min-width: 5.5rem;
+  font-size: var(--text-sm);
+}
+
+.actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.actions > * { flex: 1; }
+
+.toast {
+  position: fixed;
+  top: calc(var(--topbar-height) + var(--spacing-sm));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 85;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: fadeIn 0.2s ease;
+}

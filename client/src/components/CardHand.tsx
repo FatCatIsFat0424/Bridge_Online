@@ -1,8 +1,9 @@
-// ─── CardHand 元件：手牌顯示 ───
+// ─── CardHand 元件：手牌顯示（扇形） ───
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { Card } from '@shared/types';
 import { SUIT_SYMBOLS, RANK_DISPLAY } from '@shared/constants';
+import { cardImageUrl } from '../cards';
 import styles from './CardHand.module.css';
 
 interface CardHandProps {
@@ -10,39 +11,48 @@ interface CardHandProps {
   playableCards?: readonly Card[];
   onCardClick?: (card: Card) => void;
   disabled?: boolean;
+  /** 多選模式：每張牌皆可點擊切換，已選的牌升起（取代 playableCards 標示） */
+  selectedCards?: readonly Card[];
+  /** 額外標示的牌（99：出了會超過 99） */
+  markedCards?: readonly Card[];
+  markedLabel?: string;
 }
 
-function isCardPlayable(card: Card, playableCards?: readonly Card[]): boolean {
-  if (!playableCards) return false;
-  return playableCards.some((c) => c.suit === card.suit && c.rank === card.rank);
+function containsCard(card: Card, list?: readonly Card[]): boolean {
+  if (!list) return false;
+  return list.some((c) => c.suit === card.suit && c.rank === card.rank);
 }
 
-function getSuitColorClass(suit: Card['suit']): string {
-  return suit === 'hearts' || suit === 'diamonds' ? styles.suitRed : styles.suitBlack;
-}
-
-export function CardHand({ cards, playableCards, onCardClick, disabled }: CardHandProps): ReactNode {
+export function CardHand({
+  cards, playableCards, onCardClick, disabled, selectedCards, markedCards, markedLabel,
+}: CardHandProps): ReactNode {
+  const middle = (cards.length - 1) / 2;
+  const selectMode = selectedCards !== undefined;
   return (
     <div className={styles.handContainer}>
-      {cards.map((card) => {
-        const playable = isCardPlayable(card, playableCards);
+      {cards.map((card, index) => {
+        const playable = selectMode || containsCard(card, playableCards);
+        const selected = containsCard(card, selectedCards);
+        const marked = containsCard(card, markedCards);
         const cardClasses = [
           styles.card,
-          getSuitColorClass(card.suit),
-          playable ? styles.cardPlayable : '',
-          disabled ? styles.cardDisabled : '',
+          playable && !disabled && !selectMode ? styles.cardPlayable : '',
+          selected ? styles.cardSelected : '',
+          marked ? styles.cardMarked : '',
         ].filter(Boolean).join(' ');
 
         return (
           <button
             key={`${card.suit}-${card.rank}`}
             className={cardClasses}
+            style={{ '--fan': index - middle } as CSSProperties}
             onClick={() => playable && onCardClick?.(card)}
             disabled={disabled || !playable}
-            aria-label={`${RANK_DISPLAY[card.rank]}${SUIT_SYMBOLS[card.suit]}`}
+            aria-pressed={selectMode ? selected : undefined}
+            aria-label={`${RANK_DISPLAY[card.rank]}${SUIT_SYMBOLS[card.suit]}${marked && markedLabel ? ` (${markedLabel})` : ''}`}
+            title={marked ? markedLabel : undefined}
           >
-            <span className={styles.suitIcon}>{SUIT_SYMBOLS[card.suit]}</span>
-            <span className={styles.rankText}>{RANK_DISPLAY[card.rank]}</span>
+            <img src={cardImageUrl(card)} alt="" draggable={false} />
           </button>
         );
       })}

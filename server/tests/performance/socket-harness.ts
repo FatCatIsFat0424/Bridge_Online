@@ -63,7 +63,8 @@ export async function createSocketHarness(roomCount = 3): Promise<SocketHarness>
       const token = randomBytes(32).toString('base64url');
       await repository.createAccount({
         id, username, usernameNormalized: username, passwordHash, nickname: username,
-        avatar: 'cat', color: '#2563eb', createdAt: now, updatedAt: now,
+        avatar: 'cat', avatarImage: null, tableBackground: null, matchesPublic: false,
+        color: '#2563eb', createdAt: now, updatedAt: now,
       });
       await repository.createSession({
         tokenHash: tokenHash(token), accountId: id, createdAt: now, expiresAt: now + 3_600_000,

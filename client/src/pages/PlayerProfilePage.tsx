@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import type { FriendsData, PublicAccount } from '@shared/types';
+import type { FriendsData, MatchHistory, PublicAccount } from '@shared/types';
 import { apiRequest } from '../api';
 import { Avatar } from '../components/Avatar';
+import { MatchHistoryList } from '../components/MatchHistoryList';
 import { useAccountStore } from '../stores/account-store';
 import { useRoomStore } from '../stores/room-store';
 import { useGameStore } from '../stores/game-store';
@@ -17,6 +18,7 @@ function PlayerProfile({ accountId }: { accountId: string }): ReactNode {
   const phase = useGameStore((state) => state.phase);
   const isSelf = viewerId === accountId;
   const [player, setPlayer] = useState<PublicAccount | null>(null);
+  const [history, setHistory] = useState<MatchHistory | 'private' | null>(null);
   const [friends, setFriends] = useState<FriendsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
@@ -33,12 +35,14 @@ function PlayerProfile({ accountId }: { accountId: string }): ReactNode {
     setLoading(true);
     setProfileError('');
     setFriendError('');
-    const [profileResult, friendResult] = await Promise.all([
+    const [profileResult, friendResult, historyResult] = await Promise.all([
       apiRequest<{ account: PublicAccount }>(`/api/players/${encodeURIComponent(accountId)}`),
       isSelf ? Promise.resolve(null) : apiRequest<FriendsData>('/api/friends'),
+      apiRequest<MatchHistory>(`/api/players/${encodeURIComponent(accountId)}/history`),
     ]);
     if (!active.current || version !== requestVersion.current) return;
     setLoading(false);
+    setHistory(historyResult.success ? historyResult : historyResult.status === 403 ? 'private' : null);
     if (profileResult.success) {
       setPlayer(profileResult.account);
       setNotFound(false);
@@ -104,7 +108,7 @@ function PlayerProfile({ accountId }: { accountId: string }): ReactNode {
     <p className={styles.eyebrow}>{t('player.title')}</p>
     <section className={styles.card}>
       <div className={styles.identity}>
-        <Avatar avatar={player.avatar} color={player.color} size="large" />
+        <Avatar avatar={player.avatar} image={player.avatarImage} color={player.color} size="large" />
         <div className={styles.name}>
           <h1>{player.nickname}</h1>
           <p className={styles.username}>@{player.username}</p>
@@ -151,6 +155,11 @@ function PlayerProfile({ accountId }: { accountId: string }): ReactNode {
         <Link className={styles.friendsLink} to="/friends">{t('player.manageFriends')}</Link>
       </>}
     </section>
+    {history && <section className={`${styles.card} ${styles.history}`}>
+      <h2>{t('history.title')}</h2>
+      {history === 'private' ? <p className={styles.description}>{t('history.private')}</p>
+        : <MatchHistoryList matches={history.matches} players={history.players} />}
+    </section>}
     <div className={styles.footer}>
       {roomCode && <Link className="btn btn-outline" to={`/${phase ? 'game' : 'room'}/${roomCode}`}>
         {t('lobby.resume')} · {roomCode}</Link>}

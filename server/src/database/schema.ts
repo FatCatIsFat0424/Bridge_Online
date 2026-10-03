@@ -1,14 +1,21 @@
-import { isRuntimeSnapshot } from '../runtime/validate';
-import { NICKNAME_MAX_LENGTH } from '@shared/constants';
+import { isBigTwoResult, isNinetyNineResult, isRedPointsResult, isRuntimeSnapshot } from '../runtime/validate';
+import {
+  GAME_TYPES, MAX_EMOJIS_PER_ACCOUNT, NICKNAME_MAX_LENGTH, isEmojiName, isMediaId,
+} from '@shared/constants';
+import type { GameType } from '@shared/types';
 import type { RuntimeSnapshot } from '../runtime/types';
-import type { AccountRecord, FriendshipRecord, MatchRecord, SessionRecord } from './repository';
+import type {
+  AccountRecord, EmojiRecord, FriendshipRecord, MatchRecord, SessionRecord,
+} from './repository';
+import { CURRENT_SCHEMA_VERSION } from './migrations';
 
 export interface DatabaseDocument {
-  schemaVersion: 1;
+  schemaVersion: typeof CURRENT_SCHEMA_VERSION;
   accounts: AccountRecord[];
   sessions: SessionRecord[];
   friendships: FriendshipRecord[];
   matches: MatchRecord[];
+  emojis: EmojiRecord[];
   runtime: RuntimeSnapshot | null;
 }
 
@@ -38,6 +45,9 @@ function validAccount(value: unknown): value is AccountRecord {
     /^#[\da-f]{6}$/i.test(value.color) &&
     typeof value.avatar === 'string' &&
     ['cat', 'fox', 'owl', 'bear', 'rabbit', 'panda'].includes(value.avatar) &&
+    (value.avatarImage === null || isMediaId(value.avatarImage)) &&
+    (value.tableBackground === null || isMediaId(value.tableBackground)) &&
+    typeof value.matchesPublic === 'boolean' &&
     typeof value.passwordHash === 'string' &&
     /^scrypt\$131072\$8\$1\$[\da-f]{32}\$[\da-f]{128}$/.test(value.passwordHash) &&
     timestamp(value.createdAt) &&
@@ -83,7 +93,18 @@ function validMatch(value: unknown): value is MatchRecord {
     !isObject(value.result)
   )
     return false;
-  const result = value.result;
+  const validators: Record<GameType, (result: Record<string, unknown>) => boolean> = {
+    bridge: validBridgeResult,
+    bigtwo: isBigTwoResult,
+    redpoints: isRedPointsResult,
+    ninetynine: isNinetyNineResult,
+  };
+  const gameType = value.result.gameType;
+  return typeof gameType === 'string' && GAME_TYPES.includes(gameType as GameType) &&
+    validators[gameType as GameType](value.result);
+}
+
+function validBridgeResult(result: Record<string, unknown>): boolean {
   const contract = result.contract;
   return (
     isObject(contract) &&
@@ -102,6 +123,17 @@ function validMatch(value: unknown): value is MatchRecord {
   );
 }
 
+function validEmoji(value: unknown): value is EmojiRecord {
+  return (
+    isObject(value) &&
+    nonEmpty(value.id) &&
+    nonEmpty(value.accountId) &&
+    isEmojiName(value.name) &&
+    isMediaId(value.mediaId) &&
+    timestamp(value.createdAt)
+  );
+}
+
 function unique(values: readonly string[]): boolean {
   return new Set(values).size === values.length;
 }
@@ -110,7 +142,7 @@ function unique(values: readonly string[]): boolean {
 export function validateDocument(value: unknown): asserts value is DatabaseDocument {
   if (
     !isObject(value) ||
-    value.schemaVersion !== 1 ||
+    value.schemaVersion !== CURRENT_SCHEMA_VERSION ||
     !Array.isArray(value.accounts) ||
     !value.accounts.every(validAccount) ||
     !Array.isArray(value.sessions) ||
@@ -119,6 +151,8 @@ export function validateDocument(value: unknown): asserts value is DatabaseDocum
     !value.friendships.every(validFriendship) ||
     !Array.isArray(value.matches) ||
     !value.matches.every(validMatch) ||
+    !Array.isArray(value.emojis) ||
+    !value.emojis.every(validEmoji) ||
     !(value.runtime === null || isRuntimeSnapshot(value.runtime))
   ) {
     throw new Error(
@@ -129,8 +163,13 @@ export function validateDocument(value: unknown): asserts value is DatabaseDocum
   const sessions = value.sessions as SessionRecord[];
   const friendships = value.friendships as FriendshipRecord[];
   const matches = value.matches as MatchRecord[];
+  const emojis = value.emojis as EmojiRecord[];
   const runtime = value.runtime as RuntimeSnapshot | null;
   const accountIds = new Set(accounts.map((account) => account.id));
+  const emojiCounts = new Map<string, number>();
+  for (const emoji of emojis) {
+    emojiCounts.set(emoji.accountId, (emojiCounts.get(emoji.accountId) ?? 0) + 1);
+  }
   const validReferences =
     sessions.every((session) => accountIds.has(session.accountId)) &&
     friendships.every(
@@ -138,6 +177,8 @@ export function validateDocument(value: unknown): asserts value is DatabaseDocum
         accountIds.has(friendship.requesterId) && accountIds.has(friendship.recipientId),
     ) &&
     matches.every((match) => match.accountIds.every((id) => accountIds.has(id))) &&
+    emojis.every((emoji) => accountIds.has(emoji.accountId)) &&
+    [...emojiCounts.values()].every((count) => count <= MAX_EMOJIS_PER_ACCOUNT) &&
     (runtime === null ||
       (runtime.players.every((player) => accountIds.has(player.info.id)) &&
         runtime.games.every((game) =>
@@ -153,7 +194,9 @@ export function validateDocument(value: unknown): asserts value is DatabaseDocum
     !unique(sessions.map((s) => s.tokenHash)) ||
     !unique(friendships.map((f) => f.id)) ||
     !unique(friendships.map((f) => [f.requesterId, f.recipientId].sort().join(':'))) ||
-    !unique(matches.map((m) => m.id))
+    !unique(matches.map((m) => m.id)) ||
+    !unique(emojis.map((e) => e.id)) ||
+    !unique(emojis.map((e) => JSON.stringify([e.accountId, e.name])))
   ) {
     throw new Error(
       'Database has invalid references or duplicate records. The original file was preserved.',
@@ -163,11 +206,12 @@ export function validateDocument(value: unknown): asserts value is DatabaseDocum
 
 export function emptyDocument(): DatabaseDocument {
   return {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     accounts: [],
     sessions: [],
     friendships: [],
     matches: [],
+    emojis: [],
     runtime: null,
   };
 }

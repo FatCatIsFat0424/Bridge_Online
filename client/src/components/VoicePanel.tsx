@@ -13,10 +13,16 @@ import {
   leaveVoice,
   resumeVoiceAudio,
   setVoiceDeafened,
+  setVoiceInputDevice,
   setVoiceMuted,
+  setVoiceOutputDevice,
+  setVoicePeerMuted,
+  setVoicePeerVolume,
   useVoiceStore,
+  watchAudioDevices,
 } from '../stores/voice-store';
 import type { VoiceErrorCode } from '../stores/voice-store';
+import { DEFAULT_PEER_PREFERENCE, outputSelectionSupported } from '../voice/voice-session';
 import { Avatar } from './Avatar';
 import styles from './VoicePanel.module.css';
 
@@ -34,6 +40,52 @@ const ERROR_TRANSLATIONS: Record<VoiceErrorCode, TranslationKey> = {
   disconnected: 'voice.disconnected',
 };
 
+function DeviceSettings(): ReactNode {
+  const { t } = useI18nStore();
+  const { status, inputs, outputs, inputDeviceId, outputDeviceId } = useVoiceStore(
+    useShallow((state) => ({
+      status: state.status,
+      inputs: state.inputs,
+      outputs: state.outputs,
+      inputDeviceId: state.inputDeviceId,
+      outputDeviceId: state.outputDeviceId,
+    })),
+  );
+  const outputSupported = outputSelectionSupported();
+
+  // Device labels only appear after microphone permission, so reload once joined.
+  useEffect(() => watchAudioDevices(), [status]);
+
+  const options = (devices: MediaDeviceInfo[], key: TranslationKey): ReactNode =>
+    devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>
+      {device.label || t(key, { n: String(index + 1) })}
+    </option>);
+
+  return (
+    <div className={styles.devices}>
+      <label className={styles.field}>
+        <span>{t('voice.input')}</span>
+        <select value={inputDeviceId ?? ''}
+          onChange={(event) => void setVoiceInputDevice(event.target.value || null)}>
+          <option value="">{t('voice.defaultDevice')}</option>
+          {options(inputs, 'voice.microphoneN')}
+        </select>
+      </label>
+      <label className={styles.field}>
+        <span>{t('voice.output')}</span>
+        <select value={outputSupported ? outputDeviceId ?? '' : ''} disabled={!outputSupported}
+          aria-describedby={outputSupported ? undefined : 'table-voice-output-hint'}
+          onChange={(event) => setVoiceOutputDevice(event.target.value || null)}>
+          <option value="">{t('voice.defaultDevice')}</option>
+          {options(outputs, 'voice.speakerN')}
+        </select>
+      </label>
+      {!outputSupported && <p id="table-voice-output-hint" className={styles.hint}>
+        {t('voice.outputUnsupported')}</p>}
+    </div>
+  );
+}
+
 function leaveActiveVoice(): void {
   const { status } = useVoiceStore.getState();
   if (status === 'joined' || status === 'joining') leaveVoice();
@@ -46,17 +98,18 @@ export function VoicePanel(): ReactNode {
   const roomCode = useRoomStore((state) => state.currentRoomCode);
   const roomInfo = useRoomStore((state) => state.roomInfo);
   const accountId = account?.id;
-  const { status, participants, muted, deafened, error, autoplayBlocked } = useVoiceStore(
-    useShallow((state) => ({
+  const { status, participants, muted, deafened, error, autoplayBlocked, peerPrefs } =
+    useVoiceStore(useShallow((state) => ({
       status: state.status,
       participants: state.participants,
       muted: state.muted,
       deafened: state.deafened,
       error: state.error,
       autoplayBlocked: state.autoplayBlocked,
-    })),
-  );
+      peerPrefs: state.peerPrefs,
+    })));
   const [profiles, setProfiles] = useState<Record<string, PublicAccount>>({});
+  const [showDevices, setShowDevices] = useState(false);
 
   // Membership controls the media lifetime; navigating between pages does not.
   useEffect(() => {
@@ -121,8 +174,14 @@ export function VoicePanel(): ReactNode {
             onClick={() => void joinVoice(roomCode, account.id)}>
             {t(error ? 'voice.retry' : 'voice.join')}
           </button>}
+          <button type="button" className={`btn btn-outline ${styles.toggle}`}
+            aria-pressed={showDevices} aria-expanded={showDevices}
+            onClick={() => setShowDevices(!showDevices)}>
+            {t('voice.devices')}
+          </button>
         </div>
       </div>
+      {showDevices && <DeviceSettings />}
       {joining && <p className={styles.hint} role="status">{t('voice.joining')}</p>}
       {error && <p className={styles.error} role="alert">{t(ERROR_TRANSLATIONS[error])}</p>}
       {joined && <>
@@ -134,12 +193,26 @@ export function VoicePanel(): ReactNode {
                 .find((seat) => seat.player?.id === participant.accountId)?.player
                 ?? profiles[participant.accountId];
             return <li key={participant.peerId} className={styles.participant}>
-              {person && <Avatar avatar={person.avatar} color={person.color} size="small" />}
+              {person && <Avatar avatar={person.avatar} image={person.avatarImage} color={person.color} size="small" />}
               <span className={styles.name}>{person?.nickname ?? t('voice.player')}
                 {participant.accountId === account.id && ` ${t('common.me')}`}</span>
               <span className={participant.muted ? styles.muted : styles.status}>
                 {t(participant.muted ? 'voice.muted' : 'voice.microphoneOn')}</span>
               {participant.deafened && <span className={styles.muted}>{t('voice.deafened')}</span>}
+              {participant.accountId !== account.id && (() => {
+                const preference = peerPrefs[participant.accountId] ?? DEFAULT_PEER_PREFERENCE;
+                return <div className={styles.peerControls}>
+                  <button type="button" className={`btn btn-outline ${styles.toggle}`}
+                    aria-pressed={preference.muted}
+                    onClick={() => setVoicePeerMuted(participant.accountId, !preference.muted)}>
+                    {t('voice.peerMute')}
+                  </button>
+                  <input type="range" min={0} max={100} value={Math.round(preference.volume * 100)}
+                    aria-label={`${t('voice.peerVolume')} ${person?.nickname ?? t('voice.player')}`}
+                    onChange={(event) =>
+                      setVoicePeerVolume(participant.accountId, Number(event.target.value) / 100)} />
+                </div>;
+              })()}
             </li>;
           })}
         </ul>

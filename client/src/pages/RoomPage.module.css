@@ -5,12 +5,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--spacing-xl);
+  padding: var(--spacing-md) var(--spacing-xl);
   background:
-    radial-gradient(ellipse at bottom, rgba(74, 158, 255, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse at bottom, color-mix(in srgb, var(--color-primary) 5%, transparent) 0%, transparent 60%),
     var(--bg-page);
 }
 
+.headerActions { display: flex; gap: var(--spacing-sm); }
 .chat { width: 100%; max-width: 50rem; margin-top: var(--spacing-md); }
 .error { color: var(--color-danger); }
 
@@ -39,6 +40,55 @@
   letter-spacing: 1px;
 }
 
+.gameTypeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin: 0;
+}
+
+.gameTypeLabel {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+}
+
+.segment,
+.segmentActive {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.segment { color: var(--text-secondary); }
+.segment:hover:not(:disabled) { background: var(--bg-card-hover); color: var(--text-primary); }
+.segment:disabled { cursor: not-allowed; opacity: 0.6; }
+
+/* 目前遊戲：非房主看到的也是這個徽章 */
+.segmentActive,
+.segmentActive:disabled {
+  background: var(--color-primary);
+  color: var(--text-on-primary);
+  cursor: default;
+  opacity: 1;
+}
+
+.hostBadge {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
 .seatLayout {
   display: grid;
   grid-template-areas:
@@ -48,10 +98,28 @@
   grid-template-columns: 1fr 2fr 1fr;
   grid-template-rows: 1fr 1.5fr 1fr;
   gap: var(--spacing-md);
-  width: 100%;
-  max-width: 800px;
+  /* 由可用高度反推寬度，座位與準備鈕不需捲動（約 310px = 上下內距 + 標題 + 遊戲選擇 + 準備鈕） */
+  width: min(100%, 800px, calc((100dvh - var(--topbar-height) - 380px) * 4 / 3));
+  min-width: min(100%, 480px);
   aspect-ratio: 4 / 3;
   animation: slideUp 0.5s ease;
+}
+
+@media (max-width: 767px) {
+  .roomContainer { padding: var(--spacing-md); }
+  .roomHeader { margin-bottom: var(--spacing-md); }
+  .roomFooter { margin-top: var(--spacing-md); }
+
+  .seatLayout {
+    width: 100%;
+    min-width: 0;
+    aspect-ratio: auto;
+    grid-template-rows: auto minmax(72px, auto) auto;
+    gap: var(--spacing-sm);
+  }
+
+  .seatSlot { padding: var(--spacing-sm); }
+  .seatSlot > a { flex-direction: column; gap: 2px; text-align: center; }
 }
 
 .seatNorth { grid-area: north; }
@@ -67,7 +135,7 @@
   background: var(--bg-table);
   border: 2px solid var(--bg-table-border);
   border-radius: var(--radius-xl);
-  box-shadow: inset 0 2px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-inset);
 }
 
 .tableCenterText {
@@ -167,4 +235,11 @@
   padding: var(--spacing-md) var(--spacing-2xl);
   font-size: var(--text-lg);
   font-weight: 700;
+}
+
+.roomHeader { flex-wrap: wrap; row-gap: var(--spacing-sm); }
+.roomHeader button, .gameTypeLabel { white-space: nowrap; }
+
+@media (max-width: 767px) {
+  .gameTypeRow { order: 3; width: 100%; justify-content: center; }
 }

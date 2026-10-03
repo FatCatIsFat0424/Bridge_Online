@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import type { AccountProfile, AvatarPreset } from '@shared/types';
-import { NICKNAME_MAX_LENGTH } from '@shared/constants';
+import type { AccountProfile, AvatarPreset, MediaId } from '@shared/types';
+import { NICKNAME_MAX_LENGTH, isMediaId } from '@shared/constants';
 import type { Repository, SessionRecord, AccountRecord } from '../database/repository';
 import { publicAccount } from '../database/repository';
 import { isObject } from '../database/schema';
@@ -60,10 +60,29 @@ function passwordValue(input: unknown): string {
   return input;
 }
 
+type EditableProfile = Pick<
+  AccountProfile,
+  'nickname' | 'color' | 'avatar' | 'avatarImage' | 'tableBackground' | 'matchesPublic'
+>;
+
+function mediaValue(
+  input: unknown,
+  fallback: MediaId | null,
+  mediaExists: (id: MediaId) => boolean,
+): MediaId | null {
+  if (input === undefined) return fallback;
+  if (input === null) return null;
+  if (!isMediaId(input) || !mediaExists(input)) {
+    throw authError(400, 'INVALID_MEDIA', 'Upload the image before using it.');
+  }
+  return input;
+}
+
 function profileValues(
   input: Record<string, unknown>,
-  fallback: Pick<AccountProfile, 'nickname' | 'color' | 'avatar'>,
-): Pick<AccountProfile, 'nickname' | 'color' | 'avatar'> {
+  fallback: EditableProfile,
+  mediaExists: (id: MediaId) => boolean,
+): EditableProfile {
   const nickname = input.nickname === undefined ? fallback.nickname : input.nickname;
   const color = input.color === undefined ? fallback.color : input.color;
   const avatar = input.avatar === undefined ? fallback.avatar : input.avatar;
@@ -90,7 +109,19 @@ function profileValues(
   ) {
     throw authError(400, 'INVALID_AVATAR', 'Choose an available avatar.');
   }
-  return { nickname: nickname.trim(), color: color.toLowerCase(), avatar: avatar as AvatarPreset };
+  const matchesPublic =
+    input.matchesPublic === undefined ? fallback.matchesPublic : input.matchesPublic;
+  if (typeof matchesPublic !== 'boolean') {
+    throw authError(400, 'INVALID_INPUT', 'Match visibility must be true or false.');
+  }
+  return {
+    nickname: nickname.trim(),
+    color: color.toLowerCase(),
+    avatar: avatar as AvatarPreset,
+    avatarImage: mediaValue(input.avatarImage, fallback.avatarImage, mediaExists),
+    tableBackground: mediaValue(input.tableBackground, fallback.tableBackground, mediaExists),
+    matchesPublic,
+  };
 }
 
 export function tokenHash(token: string): string {
@@ -109,9 +140,14 @@ export function readSessionCookie(cookieHeader: string | undefined): string | un
 
 export function createAuthService(
   repository: Repository,
-  options: { now?: () => number; sessionTtlMs?: number } = {},
+  options: {
+    now?: () => number;
+    sessionTtlMs?: number;
+    mediaExists?: (id: MediaId) => boolean;
+  } = {},
 ): AuthService {
   const now = options.now ?? Date.now;
+  const mediaExists = options.mediaExists ?? ((): boolean => false);
   const ttl = options.sessionTtlMs ?? SESSION_TTL_MS;
 
   async function createSession(account: AccountRecord): Promise<AuthResult> {
@@ -147,7 +183,10 @@ export function createAuthService(
         nickname: username.slice(0, NICKNAME_MAX_LENGTH),
         color: '#4f8cff',
         avatar: 'cat',
-      });
+        avatarImage: null,
+        tableBackground: null,
+        matchesPublic: false,
+      }, mediaExists);
       const passwordHash = await hashPassword(password);
       const createdAt = now();
       try {
@@ -185,7 +224,7 @@ export function createAuthService(
       const body = requiredObject(input);
       const account = await repository.getAccountById(accountId);
       if (!account) throw authError(401, 'UNAUTHENTICATED', 'Sign in to continue.');
-      const profile = profileValues(body, account);
+      const profile = profileValues(body, account, mediaExists);
       const updated = await repository.updateProfile(accountId, profile, now());
       if (!updated) throw authError(401, 'UNAUTHENTICATED', 'Sign in to continue.');
       return publicAccount(updated);

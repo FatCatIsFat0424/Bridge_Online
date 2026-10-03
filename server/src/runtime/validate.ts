@@ -1,4 +1,13 @@
-import type { GameState, Seat } from '@shared/types';
+import {
+  ABORT_VOTE_THRESHOLD, GAME_TYPES, MAX_MESSAGE_EMOJIS, isEmojiName, isMediaId,
+} from '@shared/constants';
+import { isDeepStrictEqual } from 'node:util';
+import { bigTwoPenalty, identifyCombo, isDragon } from '@shared/rules/bigtwo';
+import { RP_HAND_SIZE, RP_TABLE_SIZE, rpPairOptions, rpScore } from '@shared/rules/redpoints';
+import { NN_HAND_SIZE, NN_MAX, nnHasPlayable } from '@shared/rules/ninetynine';
+import type {
+  AnyGameState, BigTwoGameState, BridgeGameState, Card, GameType, NinetyNineGameState, RedPointsGameState, Seat,
+} from '@shared/types';
 import type { RuntimeSnapshot } from './types';
 
 type ObjectValue = Record<string, unknown>;
@@ -29,8 +38,16 @@ function player(value: unknown): boolean {
     text(value.nickname) &&
     typeof value.color === 'string' &&
     /^#[a-fA-F0-9]{6}$/.test(value.color) &&
-    oneOf(value.avatar, ['cat', 'fox', 'owl', 'bear', 'rabbit', 'panda'])
+    oneOf(value.avatar, ['cat', 'fox', 'owl', 'bear', 'rabbit', 'panda']) &&
+    (value.avatarImage === null || isMediaId(value.avatarImage))
   );
+}
+
+function messageEmojis(value: unknown): boolean {
+  if (!object(value)) return false;
+  const entries = Object.entries(value);
+  return entries.length <= MAX_MESSAGE_EMOJIS &&
+    entries.every(([name, mediaId]) => isEmojiName(name) && isMediaId(mediaId));
 }
 
 function card(value: unknown): boolean {
@@ -132,9 +149,169 @@ function log(value: unknown): boolean {
   return value.type === 'trick_end' && oneOf(value.winnerSeat, seats) && number(value.trickIndex);
 }
 
-function game(value: unknown): boolean {
+const comboTypes = ['single', 'pair', 'straight', 'fullHouse', 'fourOfAKind', 'straightFlush'];
+
+function cards(value: unknown, max: number): boolean {
+  return Array.isArray(value) && value.length <= max && value.every(card);
+}
+
+function seatCounts(value: unknown, max: number): value is Record<Seat, number> {
+  return object(value) && Object.keys(value).length === 4 &&
+    seats.every((seat) => number(value[seat]) && value[seat] <= max);
+}
+
+/** Big Two result: winner scores 0, losers cardsLeft × 2^twosLeft. */
+export function isBigTwoResult(value: unknown): boolean {
+  if (
+    !object(value) || value.gameType !== 'bigtwo' || !oneOf(value.winnerSeat, seats) ||
+    typeof value.dragon !== 'boolean' || !seatCounts(value.cardsLeft, 13) ||
+    !seatCounts(value.twosLeft, 4) || !seatCounts(value.scores, 13 * 16)
+  )
+    return false;
+  const { cardsLeft, twosLeft, scores } = value;
+  const winner = value.winnerSeat as Seat;
   return (
-    object(value) &&
+    cardsLeft[winner] === (value.dragon ? 13 : 0) &&
+    seats.every((seat) =>
+      twosLeft[seat] <= cardsLeft[seat] &&
+      scores[seat] === (seat === winner ? 0 : cardsLeft[seat] * 2 ** twosLeft[seat]))
+  );
+}
+
+function bigTwoLog(value: unknown): boolean {
+  if (!object(value) || !number(value.timestamp)) return false;
+  if (value.type === 'play') {
+    return oneOf(value.seat, seats) && cards(value.cards, 5) && oneOf(value.comboType, comboTypes);
+  }
+  if (value.type === 'pass' || value.type === 'dragon') return oneOf(value.seat, seats);
+  return value.type === 'round_end' && oneOf(value.leaderSeat, seats);
+}
+
+function bigTwoGame(value: ObjectValue): boolean {
+  const lastPlay = value.lastPlay;
+  return (
+    text(value.id) &&
+    text(value.roomCode) &&
+    number(value.startedAt) &&
+    object(value.players) &&
+    Object.keys(value.players).length === 4 &&
+    seats.every((seat) => player((value.players as ObjectValue)[seat])) &&
+    oneOf(value.phase, ['playing', 'scoring']) &&
+    object(value.hands) &&
+    Object.keys(value.hands).length === 4 &&
+    seats.every((seat) => cards((value.hands as ObjectValue)[seat], 13)) &&
+    oneOf(value.currentTurnSeat, seats) &&
+    (lastPlay === null ||
+      (object(lastPlay) && oneOf(lastPlay.seat, seats) && cards(lastPlay.cards, 5) &&
+        oneOf(lastPlay.comboType, comboTypes))) &&
+    Array.isArray(value.lockedSeats) &&
+    value.lockedSeats.every((seat: unknown) => oneOf(seat, seats)) &&
+    new Set(value.lockedSeats).size === value.lockedSeats.length &&
+    typeof value.firstPlay === 'boolean' &&
+    Array.isArray(value.log) &&
+    value.log.every(bigTwoLog) &&
+    (value.result === null || isBigTwoResult(value.result))
+  );
+}
+
+function seatCards(value: unknown, max: number): boolean {
+  return object(value) && Object.keys(value).length === 4 && seats.every((seat) => cards(value[seat], max));
+}
+
+/** Red Points result: winners are exactly the top-scoring seats; all red points are 208. */
+export function isRedPointsResult(value: unknown): boolean {
+  if (!object(value) || value.gameType !== 'redpoints' || !seatCounts(value.points, 208) ||
+    !Array.isArray(value.winners)) return false;
+  const points = value.points;
+  const best = Math.max(...seats.map((seat) => points[seat]));
+  return seats.reduce((sum, seat) => sum + points[seat], 0) === 208 &&
+    isDeepStrictEqual(value.winners, seats.filter((seat) => points[seat] === best));
+}
+
+function redPointsLog(value: unknown): boolean {
+  return object(value) && number(value.timestamp) && oneOf(value.type, ['play', 'flip']) &&
+    oneOf(value.seat, seats) && card(value.card) && (value.captured === null || card(value.captured));
+}
+
+function redPointsGame(value: ObjectValue): boolean {
+  return (
+    text(value.id) &&
+    text(value.roomCode) &&
+    number(value.startedAt) &&
+    object(value.players) &&
+    Object.keys(value.players).length === 4 &&
+    seats.every((seat) => player((value.players as ObjectValue)[seat])) &&
+    oneOf(value.phase, ['playing', 'scoring']) &&
+    seatCards(value.hands, RP_HAND_SIZE) &&
+    cards(value.table, 52) &&
+    cards(value.stock, 52 - RP_HAND_SIZE * 4 - RP_TABLE_SIZE) &&
+    seatCards(value.captured, 52) &&
+    oneOf(value.currentTurnSeat, seats) &&
+    oneOf(value.step, ['play', 'flip-choose']) &&
+    (value.pendingFlip === null || card(value.pendingFlip)) &&
+    Array.isArray(value.log) &&
+    value.log.every(redPointsLog) &&
+    (value.result === null || isRedPointsResult(value.result))
+  );
+}
+
+/** 99 result: three distinct eliminated seats, the winner is the fourth. */
+export function isNinetyNineResult(value: unknown): boolean {
+  if (!object(value) || value.gameType !== 'ninetynine' || !oneOf(value.winnerSeat, seats) ||
+    !number(value.finalTotal) || value.finalTotal > NN_MAX || !Array.isArray(value.eliminationOrder)) return false;
+  const order: unknown[] = value.eliminationOrder;
+  return order.length === 3 && order.every((seat) => oneOf(seat, seats)) &&
+    new Set([...order, value.winnerSeat]).size === 4;
+}
+
+function ninetyNineLog(value: unknown): boolean {
+  if (!object(value) || !number(value.timestamp) || !oneOf(value.seat, seats)) return false;
+  if (value.type === 'eliminated') return true;
+  return value.type === 'play' && card(value.card) &&
+    (value.choice === null || oneOf(value.choice, ['plus', 'minus'])) &&
+    (value.target === null || oneOf(value.target, seats)) &&
+    number(value.total) && value.total <= NN_MAX;
+}
+
+function ninetyNineGame(value: ObjectValue): boolean {
+  return (
+    text(value.id) &&
+    text(value.roomCode) &&
+    number(value.startedAt) &&
+    object(value.players) &&
+    Object.keys(value.players).length === 4 &&
+    seats.every((seat) => player((value.players as ObjectValue)[seat])) &&
+    oneOf(value.phase, ['playing', 'scoring']) &&
+    seatCards(value.hands, NN_HAND_SIZE) &&
+    cards(value.stock, 52) &&
+    cards(value.discard, 52) &&
+    number(value.total) &&
+    value.total <= NN_MAX &&
+    oneOf(value.direction, ['ccw', 'cw']) &&
+    oneOf(value.currentTurnSeat, seats) &&
+    Array.isArray(value.eliminated) &&
+    value.eliminated.every((seat: unknown) => oneOf(seat, seats)) &&
+    new Set(value.eliminated).size === value.eliminated.length &&
+    Array.isArray(value.log) &&
+    value.log.every(ninetyNineLog) &&
+    (value.result === null || isNinetyNineResult(value.result))
+  );
+}
+
+const gameValidators: Record<GameType, (value: ObjectValue) => boolean> = {
+  bridge: bridgeGame,
+  bigtwo: bigTwoGame,
+  redpoints: redPointsGame,
+  ninetynine: ninetyNineGame,
+};
+
+function game(value: unknown): boolean {
+  return object(value) && oneOf(value.gameType, [...GAME_TYPES]) &&
+    gameValidators[value.gameType as GameType](value);
+}
+
+function bridgeGame(value: ObjectValue): boolean {
+  return (
     text(value.id) &&
     text(value.roomCode) &&
     number(value.startedAt) &&
@@ -162,6 +339,27 @@ function game(value: unknown): boolean {
   );
 }
 
+function abortVote(value: unknown, members: string[]): boolean {
+  if (
+    !object(value) ||
+    !oneOf(value.startedBy, members) ||
+    !number(value.startedAt) ||
+    !number(value.expiresAt) ||
+    value.expiresAt <= value.startedAt ||
+    !Array.isArray(value.yes) ||
+    !Array.isArray(value.no)
+  )
+    return false;
+  const voters = [...value.yes, ...value.no] as unknown[];
+  return (
+    value.yes.includes(value.startedBy) &&
+    voters.every((id) => oneOf(id, members)) &&
+    new Set(voters).size === voters.length &&
+    value.yes.length < ABORT_VOTE_THRESHOLD &&
+    value.no.length <= seats.length - ABORT_VOTE_THRESHOLD
+  );
+}
+
 function room(value: unknown): boolean {
   if (
     !object(value) ||
@@ -174,11 +372,15 @@ function room(value: unknown): boolean {
   )
     return false;
   const info = value.info;
+  const members = value.memberIds as string[];
   return (
     text(info.code) &&
-    info.gameType === 'bridge' &&
+    oneOf(info.gameType, [...GAME_TYPES]) &&
     oneOf(info.status, ['waiting', 'playing']) &&
     number(info.createdAt) &&
+    oneOf(info.hostId, members) &&
+    (info.abortVoteCooldownUntil === null || number(info.abortVoteCooldownUntil)) &&
+    (info.abortVote === null || (info.status === 'playing' && abortVote(info.abortVote, members))) &&
     object(info.seats) &&
     Object.keys(info.seats).length === 4 &&
     seats.every((seat) => {
@@ -194,8 +396,111 @@ function room(value: unknown): boolean {
   );
 }
 
+function coherentGame(state: AnyGameState): boolean {
+  switch (state.gameType) {
+    case 'bridge': return coherentBridgeGame(state);
+    case 'bigtwo': return coherentBigTwoGame(state);
+    case 'redpoints': return coherentRedPointsGame(state);
+    case 'ninetynine': return coherentNinetyNineGame(state);
+  }
+}
+
+const cardId = (entry: Card): string => `${entry.suit}-${entry.rank}`;
+
+/** All 52 cards are accounted for, eliminations match the log, and the current seat can play. */
+function coherentNinetyNineGame(state: NinetyNineGameState): boolean {
+  if (new Set(seats.map((seat) => state.players[seat].id)).size !== 4) return false;
+  const { eliminated, result } = state;
+  const all = [...seats.flatMap((seat) => state.hands[seat]), ...state.stock, ...state.discard];
+  if (all.length !== 52 || new Set(all.map(cardId)).size !== 52) return false;
+  const logged = state.log.flatMap((entry) => (entry.type === 'eliminated' ? [entry.seat] : []));
+  if (!isDeepStrictEqual(logged, eliminated) || eliminated.some((seat) => state.hands[seat].length > 0)) return false;
+  const lastPlay = state.log.filter((entry) => entry.type === 'play').at(-1);
+  if (lastPlay?.type === 'play'
+    ? lastPlay.total !== state.total || !isDeepStrictEqual(state.discard.at(-1), lastPlay.card)
+    : state.total !== 0 || state.discard.length > 0) return false;
+  if (state.phase === 'playing') {
+    return result === null && eliminated.length < 3 && !eliminated.includes(state.currentTurnSeat) &&
+      nnHasPlayable(state.total, state.hands[state.currentTurnSeat]);
+  }
+  return (
+    result !== null && eliminated.length === 3 && isDeepStrictEqual(result.eliminationOrder, eliminated) &&
+    result.winnerSeat === state.currentTurnSeat && result.finalTotal === state.total
+  );
+}
+
+/** All 52 cards are accounted for, piles match the log, and the pending step can resume. */
+function coherentRedPointsGame(state: RedPointsGameState): boolean {
+  if (new Set(seats.map((seat) => state.players[seat].id)).size !== 4) return false;
+  const { pendingFlip, result } = state;
+  const all = [
+    ...seats.flatMap((seat) => [...state.hands[seat], ...state.captured[seat]]),
+    ...state.table, ...state.stock, ...(pendingFlip ? [pendingFlip] : []),
+  ];
+  if (all.length !== 52 || new Set(all.map(cardId)).size !== 52) return false;
+  const plays = state.log.filter((entry) => entry.type === 'play');
+  const flips = state.log.length - plays.length;
+  if (
+    !seats.every((seat) =>
+      state.hands[seat].length === RP_HAND_SIZE - plays.filter((entry) => entry.seat === seat).length &&
+      state.captured[seat].length === 2 * state.log.filter((entry) => entry.seat === seat && entry.captured).length) ||
+    state.stock.length !== 52 - RP_HAND_SIZE * 4 - RP_TABLE_SIZE - flips - (pendingFlip ? 1 : 0) ||
+    (state.step === 'flip-choose') !== (pendingFlip !== null) ||
+    (pendingFlip !== null && rpPairOptions(pendingFlip, state.table).length < 2)
+  )
+    return false;
+  if (state.phase === 'playing') {
+    return result === null && (pendingFlip !== null || state.stock.length > 0 ||
+      seats.some((seat) => state.hands[seat].length > 0));
+  }
+  return (
+    result !== null && state.step === 'play' && state.stock.length === 0 && state.table.length === 0 &&
+    seats.every((seat) => state.hands[seat].length === 0 && result.points[seat] === rpScore(state.captured[seat]))
+  );
+}
+
+/** All 52 cards are accounted for, and the turn state can resume legally. */
+function coherentBigTwoGame(state: BigTwoGameState): boolean {
+  if (new Set(seats.map((seat) => state.players[seat].id)).size !== 4) return false;
+  const plays = state.log.flatMap((entry) => (entry.type === 'play' ? [entry] : []));
+  const all = [...seats.flatMap((seat) => state.hands[seat]), ...plays.flatMap((entry) => entry.cards)];
+  if (all.length !== 52 || new Set(all.map(cardId)).size !== 52) return false;
+  if (!seats.every((seat) => state.hands[seat].length ===
+    13 - plays.filter((entry) => entry.seat === seat).reduce((total, entry) => total + entry.cards.length, 0)))
+    return false;
+  if (plays.some((entry) => identifyCombo(entry.cards)?.type !== entry.comboType)) return false;
+  const { lastPlay, lockedSeats, result } = state;
+  if (lastPlay) {
+    const last = plays[plays.length - 1];
+    if (!last || last.seat !== lastPlay.seat || !isDeepStrictEqual(last.cards, lastPlay.cards) ||
+      last.comboType !== lastPlay.comboType || lockedSeats.includes(lastPlay.seat)) return false;
+  } else if (lockedSeats.length > 0) return false;
+  if (state.firstPlay !== (plays.length === 0)) return false;
+  const dragon = state.log.some((entry) => entry.type === 'dragon');
+  if (state.phase === 'playing') {
+    return (
+      result === null && !dragon &&
+      !lockedSeats.includes(state.currentTurnSeat) &&
+      seats.every((seat) => state.hands[seat].length > 0) &&
+      (!state.firstPlay ||
+        (lastPlay === null &&
+          state.hands[state.currentTurnSeat].some((entry) => entry.suit === 'clubs' && entry.rank === 3)))
+    );
+  }
+  const hands = state.hands;
+  return (
+    result !== null &&
+    result.dragon === dragon &&
+    (dragon ? state.firstPlay && isDragon(hands[result.winnerSeat]) : hands[result.winnerSeat].length === 0) &&
+    seats.every((seat) =>
+      result.cardsLeft[seat] === hands[seat].length &&
+      result.twosLeft[seat] === hands[seat].filter((entry) => entry.rank === 2).length &&
+      result.scores[seat] === (seat === result.winnerSeat ? 0 : bigTwoPenalty(hands[seat])))
+  );
+}
+
 /** A persisted phase must contain the state needed to resume its next legal action. */
-function coherentGame(state: GameState): boolean {
+function coherentBridgeGame(state: BridgeGameState): boolean {
   if (new Set(seats.map((seat) => state.players[seat].id)).size !== 4) return false;
   if (state.phase === 'dealing' || state.phase === 'redeal_pending' || state.phase === 'bidding') {
     if (
@@ -298,7 +603,9 @@ export function isRuntimeSnapshot(value: unknown): value is RuntimeSnapshot {
             text(message.id) &&
             player(message.sender) &&
             typeof message.content === 'string' &&
-            number(message.timestamp),
+            number(message.timestamp) &&
+            (message.emojis === undefined || messageEmojis(message.emojis)) &&
+            (message.system === undefined || message.system === true),
         ),
     )
   )
@@ -319,6 +626,8 @@ export function isRuntimeSnapshot(value: unknown): value is RuntimeSnapshot {
   for (const entry of snapshot.rooms) {
     const occupants = seats.flatMap((seat) => entry.info.seats[seat].player?.id ?? []);
     if (new Set(occupants).size !== occupants.length) return false;
+    const vote = entry.info.abortVote;
+    if (vote && ![...vote.yes, ...vote.no].every((id) => occupants.includes(id))) return false;
     for (const id of entry.memberIds) {
       if (
         !players.has(id) ||
@@ -348,6 +657,7 @@ export function isRuntimeSnapshot(value: unknown): value is RuntimeSnapshot {
       if (currentRoom.info.status !== 'waiting') return false;
     } else if (
       currentRoom.info.status !== 'playing' ||
+      currentRoom.info.gameType !== entry.gameType ||
       !seats.every((seat) => currentRoom.info.seats[seat].player?.id === entry.players[seat].id)
     )
       return false;

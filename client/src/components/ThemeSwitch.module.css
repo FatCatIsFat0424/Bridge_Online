@@ -1,0 +1,29 @@
+/* ─── ThemeSwitch 元件樣式 ─── */
+
+.themeSwitch {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+}
+
+.themeBtn {
+  padding: 4px 10px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  transition: all var(--transition-fast);
+}
+
+.themeBtn:hover {
+  color: var(--text-primary);
+}
+
+.themeBtnActive {
+  background: var(--color-primary);
+  color: var(--text-on-primary);
+}

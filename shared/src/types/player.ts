@@ -1,6 +1,6 @@
 // ─── 玩家型別定義 ───
 
-import type { AvatarId } from './account';
+import type { AvatarId, MediaId } from './account';
 
 /** 玩家唯一識別碼（由伺服器生成） */
 export type PlayerId = string;
@@ -18,6 +18,7 @@ export interface PlayerInfo {
   readonly nickname: string;
   readonly color: PlayerColor;
   readonly avatar: AvatarId;
+  readonly avatarImage: MediaId | null;
 }
 
 /** 玩家連線狀態 */

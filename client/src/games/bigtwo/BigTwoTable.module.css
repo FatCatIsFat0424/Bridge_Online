@@ -1,0 +1,279 @@
+/* ─── BigTwoTable 樣式：上家出牌、手牌控制列、資訊欄、結算 ─── */
+
+/* ─── 牌桌中央 ─── */
+.centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--table-ink);
+  text-align: center;
+}
+
+.freeLead {
+  padding: 4px 14px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--turn-glow) 22%, transparent);
+  border: 1px solid var(--turn-glow);
+  font-weight: 800;
+}
+
+.hintText {
+  font-size: var(--text-sm);
+  opacity: 0.85;
+}
+
+.lastPlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  animation: slideUp 0.3s ease;
+}
+
+.playMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 2px 12px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--bg-surface) 70%, transparent);
+  border: 1px solid var(--rail-border);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.bomb .playMeta { border-color: var(--color-danger); }
+.bomb .fan { animation: shake 0.5s ease; }
+
+.boom {
+  display: inline-block;
+  animation: boom 0.6s ease;
+}
+
+@keyframes boom {
+  0% { transform: scale(0.3); }
+  50% { transform: scale(1.8); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lastPlay, .boom, .bomb .fan { animation: none; }
+}
+
+/* ─── 扇形牌面（中央與小尺寸列表共用） ─── */
+.fan {
+  --fan-w: clamp(44px, 8dvh, 72px);
+  display: flex;
+  justify-content: center;
+  padding-left: calc(var(--fan-w) * 0.45);
+}
+
+.fanSmall {
+  --fan-w: 26px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.fanCard {
+  width: var(--fan-w);
+  aspect-ratio: 224 / 313;
+  margin-left: calc(var(--fan-w) * -0.45);
+  border-radius: calc(var(--fan-w) * 0.08);
+  background: var(--card-face);
+  box-shadow: var(--shadow-md);
+  transform: rotate(calc(var(--fan) * 3deg));
+}
+
+.fanSmall .fanCard {
+  box-shadow: var(--shadow-sm);
+  transform: none;
+}
+
+/* ─── 手牌控制列 ─── */
+.handArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px var(--spacing-sm) 0;
+}
+
+.ctrl {
+  min-height: 36px;
+  padding: 4px 14px;
+  font-size: var(--text-sm);
+}
+
+.comboName {
+  margin-left: 6px;
+  font-size: var(--text-xs);
+  opacity: 0.85;
+}
+
+@media (max-width: 767px) {
+  .controls { gap: 4px; padding-top: 4px; }
+  .ctrl { min-height: 40px; padding: 4px 10px; }
+}
+
+/* ─── 資訊欄 ─── */
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.box {
+  flex: none;
+  padding: 10px 14px;
+  background: var(--rail-bg);
+  border: 1px solid var(--rail-border);
+  border-radius: var(--radius-lg);
+}
+
+.caption {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+summary.caption { cursor: pointer; }
+
+.turn {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.note {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.roundBox { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+.roundList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  list-style: none;
+}
+
+.roundRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.roundName {
+  min-width: 4.5em;
+  max-width: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.passTag {
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+/* ─── 結算浮層 ─── */
+.scoreOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+  background: var(--bg-overlay);
+  animation: fadeIn 0.3s ease;
+}
+
+.overlayCard {
+  width: 100%;
+  max-width: 560px;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--spacing-xl);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  text-align: center;
+  animation: slideUp 0.5s ease;
+}
+
+.dragon {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--color-warning);
+}
+
+.scoreTitle {
+  margin-bottom: var(--spacing-md);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-success);
+}
+
+.scoreTable {
+  width: 100%;
+  margin-bottom: var(--spacing-lg);
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.scoreTable th,
+.scoreTable td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: top;
+}
+
+.scoreTable th { color: var(--text-muted); font-weight: 600; }
+.scoreTable td:first-child { text-align: left; }
+.scoreTable td:last-child { white-space: nowrap; }
+
+.winnerRow { color: var(--color-success); font-weight: 700; }
+
+.error {
+  margin-bottom: var(--spacing-md);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 767px) {
+  .overlayCard { padding: var(--spacing-md); }
+  .fanSmall { --fan-w: 20px; }
+}

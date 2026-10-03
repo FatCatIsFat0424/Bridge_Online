@@ -11,11 +11,20 @@ import type {
   GamePhase,
   GameResult,
   GameLogEntry,
+  GameType,
+  BigTwoVisibleState,
   PlayerVisibleGameState,
+  RedPointsVisibleState,
+  NinetyNineVisibleState,
 } from '@shared/types';
 import { equalSnapshotValue, retainSnapshotValue } from './snapshot-equality';
 
+/** Bridge state lives in the individual fields; other games keep their whole visible state in one field. */
 interface GameStoreState {
+  bigTwo: BigTwoVisibleState | null;
+  redPoints: RedPointsVisibleState | null;
+  ninetyNine: NinetyNineVisibleState | null;
+  gameType: GameType | null;
   phase: GamePhase | null;
   myHand: Card[];
   dealerSeat: Seat | null;
@@ -48,6 +57,10 @@ interface GameStoreActions {
 }
 
 const initialState: GameStoreState = {
+  bigTwo: null,
+  redPoints: null,
+  ninetyNine: null,
+  gameType: null,
   phase: null,
   myHand: [],
   dealerSeat: null,
@@ -64,7 +77,29 @@ const initialState: GameStoreState = {
 export const useGameStore = create<GameStoreState & GameStoreActions>((set) => ({
   ...initialState,
   restore: (game) => set((state) => {
-    const nextState: GameStoreState = {
+    const nextState: GameStoreState = game.gameType === 'bigtwo' ? {
+      ...initialState,
+      gameType: 'bigtwo',
+      phase: game.phase,
+      currentTurnSeat: game.phase === 'playing' ? game.currentTurnSeat : null,
+      bigTwo: retainSnapshotValue(state.bigTwo, game),
+    } : game.gameType === 'redpoints' ? {
+      ...initialState,
+      gameType: 'redpoints',
+      phase: game.phase,
+      currentTurnSeat: game.phase === 'playing' ? game.currentTurnSeat : null,
+      redPoints: retainSnapshotValue(state.redPoints, game),
+    } : game.gameType === 'ninetynine' ? {
+      ...initialState,
+      gameType: 'ninetynine',
+      phase: game.phase,
+      currentTurnSeat: game.phase === 'playing' ? game.currentTurnSeat : null,
+      ninetyNine: retainSnapshotValue(state.ninetyNine, game),
+    } : {
+      bigTwo: null,
+      redPoints: null,
+      ninetyNine: null,
+      gameType: 'bridge',
       phase: game.phase,
       dealerSeat: game.dealerSeat,
       myHand: equalSnapshotValue(state.myHand, game.myHand) ? state.myHand : [...game.myHand],

@@ -1,0 +1,251 @@
+/* ─── GameShell 樣式：滿版牌桌，無頁面捲動 ─── */
+
+.gameContainer {
+  height: calc(100dvh - var(--topbar-height));
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(280px, 320px);
+  gap: 12px;
+  padding: 12px;
+}
+
+.gameContainer > * { min-height: 0; min-width: 0; }
+
+.chatCollapsed { grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) 48px; }
+
+.actionError {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: 90%;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+/* ─── 中央：牌桌 + 手牌 ─── */
+.centreColumn {
+  display: flex;
+  flex-direction: column;
+}
+
+.table {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border: var(--table-rim-width) solid transparent;
+  border-radius: 28px;
+  background:
+    var(--table-surface) padding-box,
+    var(--table-rim) border-box;
+  box-shadow: var(--shadow-inset), var(--shadow-lg);
+  color: var(--table-ink);
+}
+
+/* 自訂牌桌背景：圖片墊底，上蓋主題色調以保持牌面可讀 */
+.customTable {
+  background:
+    linear-gradient(color-mix(in srgb, var(--bg-surface) 55%, transparent),
+      color-mix(in srgb, var(--bg-surface) 55%, transparent)) padding-box,
+    var(--table-image) center / cover no-repeat padding-box,
+    var(--table-rim) border-box;
+}
+
+.tableCentre {
+  position: absolute;
+  /* 左右留給 W/E 座位名牌 */
+  inset: 20% max(16%, 190px) 22%;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.tableCentre > * { pointer-events: auto; }
+
+.handZone {
+  position: relative;
+  z-index: 5;
+  flex: none;
+  margin-top: -34px;
+}
+
+/* ─── 右側：聊天欄 ─── */
+.chatRail {
+  display: flex;
+  flex-direction: column;
+}
+
+.chatBody { flex: 1; min-height: 0; }
+
+.hidden { display: none; }
+
+.chatStrip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-md);
+  height: 100%;
+  border-radius: var(--radius-lg);
+  background: var(--rail-bg);
+  border: 1px solid var(--rail-border);
+  font-size: var(--text-lg);
+}
+
+.unread {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--color-danger);
+  color: var(--text-on-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ─── 資訊欄外框：桌機為欄位，平板為浮層，手機為底部抽屜 ─── */
+.infoPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.infoPanel > :last-child { flex: 1; min-height: 0; }
+
+.sheetHeader,
+.tableTools,
+.backdrop { display: none; }
+
+.sheetHeader {
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px var(--spacing-sm);
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sheetClose,
+.toolBtn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheetClose { color: var(--text-muted); }
+.sheetClose:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+.toolBtn {
+  background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+  border: 1px solid var(--rail-border);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--text-lg);
+}
+
+.fabBadge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  background: var(--bg-overlay);
+  animation: fadeIn 0.2s ease;
+}
+
+/* ─── 平板（768–1023px）：資訊欄改為牌桌左上 📋 開啟的浮層 ─── */
+@media (max-width: 1023px) {
+  .gameContainer { grid-template-columns: minmax(0, 1fr) minmax(260px, 300px); }
+  .chatCollapsed { grid-template-columns: minmax(0, 1fr) 48px; }
+
+  .infoPanel {
+    display: none;
+    position: fixed;
+    z-index: 20;
+    top: calc(var(--topbar-height) + 12px);
+    bottom: 12px;
+    left: 12px;
+    width: min(300px, calc(100vw - 24px));
+    padding: var(--spacing-sm);
+    background: var(--bg-surface);
+    border: 1px solid var(--rail-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    animation: fadeIn 0.2s ease;
+  }
+
+  .infoOpen > .infoPanel { display: flex; }
+  .infoOpen > .backdrop,
+  .sheetHeader,
+  .tableTools { display: flex; }
+
+  .tableTools {
+    position: absolute;
+    z-index: 7;
+    top: 10px;
+    left: 10px;
+    gap: var(--spacing-sm);
+  }
+
+  .chatFab { display: none; }
+
+  /* 中央浮層可蓋過左右座位，叫牌框才放得下 */
+  .tableCentre { inset: 20% 12px 22%; }
+}
+
+/* ─── 手機（< 768px）：單欄，資訊與聊天皆為底部抽屜 ─── */
+@media (max-width: 767px) {
+  .gameContainer,
+  .chatCollapsed {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 6px;
+  }
+
+  .table { border-radius: 18px; }
+  .tableCentre { inset: 16% 6px 20%; }
+  .handZone { margin-top: -24px; }
+  .actionError { bottom: 72px; }
+
+  .infoPanel,
+  .chatRail {
+    position: fixed;
+    z-index: 20;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: 72dvh;
+    padding: var(--spacing-sm) var(--spacing-sm) max(var(--spacing-sm), env(safe-area-inset-bottom));
+    background: var(--bg-surface);
+    border: 1px solid var(--rail-border);
+    border-bottom: none;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    box-shadow: var(--shadow-lg);
+    animation: slideUp 0.25s ease;
+  }
+
+  .chatCollapsed > .chatRail,
+  .chatStrip { display: none; }
+
+  .gameContainer:not(.chatCollapsed) > .backdrop { display: block; }
+
+  .chatFab { display: inline-flex; }
+}

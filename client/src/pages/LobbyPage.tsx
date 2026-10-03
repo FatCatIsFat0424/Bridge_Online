@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GAME_TYPES } from '@shared/constants';
+import type { GameType } from '@shared/types';
 import { socket } from '../socket';
 import { useAccountStore } from '../stores/account-store';
 import { useRoomStore } from '../stores/room-store';
@@ -8,6 +10,8 @@ import { useGameStore } from '../stores/game-store';
 import { useI18nStore } from '../stores/i18n-store';
 import { Avatar } from '../components/Avatar';
 import styles from './LobbyPage.module.css';
+
+const GAME_ICONS: Record<GameType, string> = { bridge: '♠', bigtwo: '🃏', redpoints: '🔴', ninetynine: '💯' };
 
 export function LobbyPage(): ReactNode {
   const navigate = useNavigate();
@@ -19,10 +23,10 @@ export function LobbyPage(): ReactNode {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const createRoom = (): void => {
+  const createRoom = (gameType: GameType): void => {
     setLoading(true);
     setError('');
-    socket.timeout(10000).emit('room:create', { gameType: 'bridge' }, (timeout, result) => {
+    socket.timeout(10000).emit('room:create', { gameType }, (timeout, result) => {
       setLoading(false);
       if (timeout) setError(t('auth.connectionError'));
       else if (result.success && result.roomCode) navigate(`/room/${result.roomCode}`);
@@ -49,7 +53,7 @@ export function LobbyPage(): ReactNode {
     <main className={styles.lobbyContainer}>
       <div className={styles.lobbyCard}>
         <div className={styles.lobbyTitle}>
-          <Avatar avatar={account.avatar} color={account.color} size="large" />
+          <Avatar avatar={account.avatar} image={account.avatarImage} color={account.color} size="large" />
           <h1>{t('lobby.welcome', { nickname: account.nickname })}</h1>
           <p>@{account.username} · {t('lobby.subtitle')}</p>
           <Link to="/account">{t('nav.account')}</Link>
@@ -58,8 +62,17 @@ export function LobbyPage(): ReactNode {
           to={`/${phase ? 'game' : 'room'}/${currentRoomCode}`}>
           {t('lobby.resume')} · {currentRoomCode}
         </Link> : <div className={styles.roomActions}>
-          <button className={`btn btn-primary ${styles.fullWidthBtn}`} onClick={createRoom}
-            disabled={loading}>{loading ? t('common.loading') : t('lobby.createRoom')}</button>
+          <div className={styles.divider}>{t('lobby.createRoom')}</div>
+          <div className={styles.gameChoices} role="group" aria-label={t('gameType.choose')}>
+            {GAME_TYPES.map((gameType) => (
+              <button key={gameType} type="button" className={styles.gameChoice}
+                onClick={() => createRoom(gameType)} disabled={loading}>
+                <span className={styles.gameIcon} aria-hidden="true">{GAME_ICONS[gameType]}</span>
+                <span className={styles.gameName}>{t(`gameType.${gameType}`)}</span>
+                <span className={styles.gameDesc}>{t(`gameType.${gameType}Desc`)}</span>
+              </button>
+            ))}
+          </div>
           <div className={styles.divider}>{t('lobby.joinRoom')}</div>
           <form className={styles.joinRow} onSubmit={joinRoom}>
             <input id="room-code-input" type="text" aria-label={t('room.code')}

@@ -1,9 +1,10 @@
 import type { Server, Socket } from 'socket.io';
-import type { ClientToServerEvents, ServerToClientEvents } from '@shared/types';
+import type { ClientToServerEvents, EmojiRecord, ServerToClientEvents } from '@shared/types';
 import type { PlayerSnapshot } from '@shared/types/socket-events';
 import type { AuthService } from '../auth/auth-service';
 import type { RuntimeCoordinator, RuntimeMutationOptions } from '../runtime/coordinator';
 import type { VoiceManager } from '../managers/voice-manager';
+import type { FriendService } from '../social/friend-service';
 import { reconcileVoiceMembership } from './voice-handler';
 import * as playerManager from '../managers/player-manager';
 import * as roomManager from '../managers/room-manager';
@@ -29,6 +30,9 @@ export interface SocketContext {
   runtime: RuntimeCoordinator;
   auth: AuthService;
   voice: VoiceManager;
+  /** Sender's custom emoji library, read before a chat message is stored. */
+  listEmojis: (accountId: string) => Promise<EmojiRecord[]>;
+  friends: FriendService;
 }
 
 export function actionError(message: string): Error & { publicMessage: string } {
@@ -84,12 +88,13 @@ export function runAction(
     if (!session || session.account.id !== socket.data.accountId || !socket.connected) {
       throw actionError('Your session has expired. Please sign in again.');
     }
+    const info = playerManager.toPlayerInfo(session.account);
     if (!playerManager.getPlayerIdBySocketId(socket.id)) {
-      playerManager.attachPlayer(socket.id, session.account);
+      playerManager.attachPlayer(socket.id, info);
     }
     for (const id of affectedAccounts(session.account.id)) recipients.add(id);
-    playerManager.updatePlayerInfo(session.account);
-    roomManager.updateRoomPlayer(session.account,
+    playerManager.updatePlayerInfo(info);
+    roomManager.updateRoomPlayer(info,
       playerManager.getPlayerState(session.account.id)?.currentRoomCode ?? null);
     const response = action();
     for (const id of affectedAccounts(session.account.id)) recipients.add(id);
@@ -120,7 +125,7 @@ export function leaveCurrentRoom(accountId: string): void {
   const code = playerManager.getPlayerState(accountId)?.currentRoomCode;
   if (!code) return;
   if (roomManager.getRoomInfo(code)?.status === 'playing') {
-    gameManager.abortGame(code, 'A player left the game.');
+    gameManager.abortGame(code);
     roomManager.setRoomStatus(code, 'waiting');
     roomManager.resetAllReady(code);
   }

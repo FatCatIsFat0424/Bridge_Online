@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { GameState, PlayerInfo, Seat } from '@shared/types';
+import type { BridgeGameState, PlayerInfo, Seat } from '@shared/types';
 import { createJsonRepository } from '../../src/database/json-repository';
 import { createBiddingState, applyBid } from '../../src/engine/bidding';
 import { createDeck } from '../../src/engine/deck';
@@ -13,14 +13,19 @@ import type { RuntimeSnapshot } from '../../src/runtime/types';
 const SEATS: Seat[] = ['N', 'E', 'S', 'W'];
 
 function player(id: string): PlayerInfo {
-  return { id, username: id, nickname: id, color: '#123456', avatar: 'cat' };
+  return { id, username: id, nickname: id, color: '#123456', avatar: 'cat', avatarImage: null };
+}
+
+function board(snapshot: RuntimeSnapshot): BridgeGameState {
+  return snapshot.games[0] as BridgeGameState;
 }
 
 /** A full table waiting for its first bid, with all 52 distinct cards. */
 function biddingSnapshot(): RuntimeSnapshot {
   const players = { N: player('north'), E: player('east'), S: player('south'), W: player('west') };
   const deck = createDeck();
-  const game: GameState = {
+  const game: BridgeGameState = {
+    gameType: 'bridge',
     id: 'board-1',
     roomCode: 'ABC123',
     startedAt: 100,
@@ -54,6 +59,9 @@ function biddingSnapshot(): RuntimeSnapshot {
           gameType: 'bridge',
           status: 'playing',
           createdAt: 100,
+          hostId: 'north',
+          abortVote: null,
+          abortVoteCooldownUntil: null,
           seats: {
             N: { player: players.N, isReady: true },
             E: { player: players.E, isReady: true },
@@ -71,7 +79,7 @@ function biddingSnapshot(): RuntimeSnapshot {
 
 function playingSnapshot(): RuntimeSnapshot {
   const snapshot = biddingSnapshot();
-  const game = snapshot.games[0];
+  const game = board(snapshot);
   let bids = createBiddingState('N');
   for (const seat of SEATS)
     bids = applyBid(
@@ -88,7 +96,7 @@ function playingSnapshot(): RuntimeSnapshot {
 
 function scoringSnapshot(): RuntimeSnapshot {
   const snapshot = playingSnapshot();
-  const game = snapshot.games[0];
+  const game = board(snapshot);
   let playing = game.playing!;
   for (let index = 0; index < 13; index += 1) {
     playing = completeTrick(
@@ -196,40 +204,40 @@ describe('persisted runtime validation', () => {
 
   it('should reject phase state that cannot resume a legal game action', () => {
     for (const mutate of [
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.bidding = null;
       },
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.contract = null;
       },
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.playing = null;
       },
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.redealPendingSeat = 'N';
       },
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.phase = 'scoring';
       },
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.phase = 'bidding';
       },
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.contract = { level: 2, suit: 'hearts', declarer: 'S' };
       },
     ]) {
       const snapshot = playingSnapshot();
-      mutate(snapshot.games[0]);
+      mutate(board(snapshot));
       expect(isRuntimeSnapshot(snapshot)).toBe(false);
     }
     const noBids = biddingSnapshot();
-    noBids.games[0].bidding = null;
+    board(noBids).bidding = null;
     expect(isRuntimeSnapshot(noBids)).toBe(false);
   });
 
   it('should require a pending redeal seat that has not already declined', () => {
     const snapshot = biddingSnapshot();
-    const game = snapshot.games[0];
+    const game = board(snapshot);
     game.phase = 'redeal_pending';
     game.bidding = null;
     game.redealPendingSeat = 'N';
@@ -248,6 +256,7 @@ describe('persisted runtime validation', () => {
     const original = snapshot.rooms[0].info.seats;
     snapshot.rooms[0].info = {
       ...snapshot.rooms[0].info,
+      hostId: 'east',
       seats: {
         ...original,
         N: { player: original.E.player, isReady: false },
@@ -266,24 +275,24 @@ describe('persisted runtime validation', () => {
 
   it('should reject incomplete or contradictory finished results', () => {
     for (const mutate of [
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.result = null;
       },
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.playing = { ...game.playing!, trickCountNS: 12 };
       },
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.hands.N = [{ suit: 'clubs', rank: 2 }];
       },
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.result = { ...game.result!, declarerTeamWins: false };
       },
-      (game: GameState): void => {
+      (game: BridgeGameState): void => {
         game.result = { ...game.result!, contract: { level: 1, suit: 'nt', declarer: 'N' } };
       },
     ]) {
       const snapshot = scoringSnapshot();
-      mutate(snapshot.games[0]);
+      mutate(board(snapshot));
       expect(isRuntimeSnapshot(snapshot)).toBe(false);
     }
   });

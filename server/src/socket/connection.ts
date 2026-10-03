@@ -1,10 +1,11 @@
 import { RECONNECT_TIMEOUT_MS } from '@shared/constants';
+import type { AccountProfile } from '@shared/types';
 import type { SocketContext } from './context';
 import { affectedAccounts, broadcastState, leaveCurrentRoom, playerSnapshot, runAction } from './context';
 import * as playerManager from '../managers/player-manager';
 import * as roomManager from '../managers/room-manager';
 import { registerRoomHandlers } from './room-handler';
-import { registerGameHandlers } from './game-handler';
+import { registerGameHandlers, systemLine } from './game-handler';
 import { registerChatHandlers } from './chat-handler';
 import { leaveVoice, reconcileVoiceMembership, registerVoiceHandlers } from './voice-handler';
 
@@ -64,9 +65,14 @@ export function setupConnectionHandler(context: SocketContext): () => void {
   });
 
   const cleanup = setInterval(() => {
-    if (closing || playerManager.getExpiredPlayers(RECONNECT_TIMEOUT_MS).length === 0) return;
+    if (closing || (playerManager.getExpiredPlayers(RECONNECT_TIMEOUT_MS).length === 0
+      && !roomManager.hasExpiredAbortVote(Date.now()))) return;
     const recipients = new Set<string>();
     void runtime.mutate(() => {
+      for (const { code, startedBy } of roomManager.expireAbortVotes(Date.now())) {
+        for (const id of roomManager.getRoomMemberIds(code)) recipients.add(id);
+        systemLine(code, startedBy, 'abortVote.failed');
+      }
       for (const player of playerManager.getExpiredPlayers(RECONNECT_TIMEOUT_MS)) {
         for (const id of affectedAccounts(player.info.id)) recipients.add(id);
         leaveCurrentRoom(player.info.id);
@@ -87,13 +93,14 @@ export function setupConnectionHandler(context: SocketContext): () => void {
 
 export async function updateConnectedProfile(
   context: SocketContext,
-  account: Parameters<typeof playerManager.updatePlayerInfo>[0],
+  account: AccountProfile,
 ): Promise<void> {
   const recipients = new Set<string>();
+  const info = playerManager.toPlayerInfo(account);
   await context.runtime.mutate(() => {
     for (const id of affectedAccounts(account.id)) recipients.add(id);
-    playerManager.updatePlayerInfo(account);
-    roomManager.updateRoomPlayer(account,
+    playerManager.updatePlayerInfo(info);
+    roomManager.updateRoomPlayer(info,
       playerManager.getPlayerState(account.id)?.currentRoomCode ?? null);
   }, { skipUnchanged: true });
   broadcastState(context.io, recipients);

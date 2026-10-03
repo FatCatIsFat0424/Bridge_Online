@@ -1,4 +1,4 @@
-import type { ChatMessage, GameState, PlayerInfo, RoomInfo } from '@shared/types';
+import type { AnyGameState, ChatMessage, PlayerInfo, RoomInfo } from '@shared/types';
 
 export interface PersistedPlayer {
   info: PlayerInfo;
@@ -14,6 +14,6 @@ export interface PersistedRoom {
 export interface RuntimeSnapshot {
   players: PersistedPlayer[];
   rooms: PersistedRoom[];
-  games: GameState[];
+  games: AnyGameState[];
   chat: { roomCode: string; messages: ChatMessage[] }[];
 }

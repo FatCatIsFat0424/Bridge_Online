@@ -1,13 +1,23 @@
-import { useEffect, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import type { AccountProfile, AvatarId, MatchSummary } from '@shared/types';
-import { SUIT_SYMBOLS } from '@shared/constants';
+import type { AccountProfile, AvatarId, MatchHistory } from '@shared/types';
 import { apiRequest } from '../api';
+import { resizeImage } from '../image-resize';
+import { mediaUrl, uploadImage } from '../media';
 import { clearAccount, useAccountStore } from '../stores/account-store';
 import { useI18nStore } from '../stores/i18n-store';
 import { Avatar, AVATARS } from '../components/Avatar';
+import { MatchHistoryList } from '../components/MatchHistoryList';
+import { EmojiLibrary } from '../components/EmojiLibrary';
 import styles from './AccountPages.module.css';
+
+type MediaField = 'avatarImage' | 'tableBackground';
+
+const RESIZE = {
+  avatarImage: { size: 256, square: true, quality: 0.9, fallbackType: 'image/png' },
+  tableBackground: { size: 1920, square: false, quality: 0.85, fallbackType: 'image/jpeg' },
+} as const;
 
 export function AccountPage(): ReactNode {
   const account = useAccountStore((state) => state.account);
@@ -25,20 +35,57 @@ export function AccountPage(): ReactNode {
   const [saved, setSaved] = useState(false);
   const [profileBusy, setProfileBusy] = useState(false);
   const [securityBusy, setSecurityBusy] = useState(false);
-  const [matches, setMatches] = useState<MatchSummary[] | null>(null);
+  const [history, setHistory] = useState<MatchHistory | null>(null);
   const [historyError, setHistoryError] = useState('');
+  const [mediaBusy, setMediaBusy] = useState<MediaField | 'matchesPublic' | null>(null);
+  const [mediaError, setMediaError] = useState<{ field: MediaField | 'matchesPublic'; message: string } | null>(null);
+  const avatarInput = useRef<HTMLInputElement>(null);
+  const backgroundInput = useRef<HTMLInputElement>(null);
+  const accountId = account?.id;
 
   useEffect(() => {
+    if (!accountId) return;
     let active = true;
-    void apiRequest<{ matches: MatchSummary[] }>('/api/account/history').then((result) => {
+    void apiRequest<MatchHistory>(`/api/players/${encodeURIComponent(accountId)}/history`).then((result) => {
       if (!active) return;
-      if (result.success) setMatches(result.matches);
+      if (result.success) setHistory(result);
       else setHistoryError(result.error);
     });
     return () => { active = false; };
-  }, []);
+  }, [accountId]);
 
   if (!account) return null;
+
+  /** Media and visibility settings save immediately, independent of the profile form. */
+  const patchSetting = async (
+    field: MediaField | 'matchesPublic',
+    value: () => Promise<string | boolean | null>,
+  ): Promise<void> => {
+    setMediaError(null);
+    setMediaBusy(field);
+    try {
+      const result = await apiRequest<{ account: AccountProfile }>('/api/auth/profile', 'PATCH', {
+        [field]: await value(),
+      });
+      if (!result.success) throw new Error(result.error);
+      setAccount(result.account);
+    } catch (error) {
+      setMediaError({ field, message: error instanceof Error ? error.message : t('common.error') });
+    } finally {
+      setMediaBusy(null);
+    }
+  };
+
+  const chooseImage = (field: MediaField) => (event: ChangeEvent<HTMLInputElement>): void => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    void patchSetting(field, async () => uploadImage(await resizeImage(file, RESIZE[field]),
+      field === 'avatarImage' ? 'avatar' : 'background'));
+  };
+
+  const mediaFeedback = (field: MediaField | 'matchesPublic'): ReactNode =>
+    mediaError?.field === field && <p role="alert" className={styles.error}>{mediaError.message}</p>;
 
   const saveProfile = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -91,7 +138,7 @@ export function AccountPage(): ReactNode {
       <div className={styles.grid}>
         <section className={styles.card}>
           <div className={styles.identity}>
-            <Avatar avatar={avatar} color={color} size="large" />
+            <Avatar avatar={avatar} image={account?.avatarImage} color={color} size="large" />
             <div><h2>{nickname || account.username}</h2><small>@{account.username}</small>
               <small>{t('profile.joined')} {new Date(account.createdAt).toLocaleDateString(locale)}</small>
             </div>
@@ -115,6 +162,19 @@ export function AccountPage(): ReactNode {
                   </button>
                 ))}
               </div>
+              <div className={`${styles.actions} ${styles.section}`}>
+                <input ref={avatarInput} type="file" accept="image/*" hidden
+                  onChange={chooseImage('avatarImage')} />
+                <button type="button" className="btn btn-outline" disabled={mediaBusy !== null}
+                  onClick={() => avatarInput.current?.click()}>
+                  {mediaBusy === 'avatarImage' ? t('profile.uploading') : t('profile.uploadAvatar')}
+                </button>
+                {account.avatarImage && <button type="button" className="btn btn-outline"
+                  disabled={mediaBusy !== null}
+                  onClick={() => void patchSetting('avatarImage', async () => null)}>
+                  {t('profile.removeAvatar')}</button>}
+              </div>
+              {mediaFeedback('avatarImage')}
             </fieldset>
             <div className={styles.field}>
               <label htmlFor="profile-color">{t('lobby.color')}</label>
@@ -159,23 +219,43 @@ export function AccountPage(): ReactNode {
               onClick={() => void signOutAll()}>{t('auth.signOutAll')}</button>
           </form>
         </section>
+        <section className={styles.card}>
+          <h2>{t('profile.background')}</h2>
+          <p className={styles.hint}>{t('profile.backgroundHelp')}</p>
+          {account.tableBackground && <img className={styles.backgroundPreview}
+            src={mediaUrl(account.tableBackground)} alt="" />}
+          <div className={`${styles.actions} ${styles.section}`}>
+            <input ref={backgroundInput} type="file" accept="image/*" hidden
+              onChange={chooseImage('tableBackground')} />
+            <button type="button" className="btn btn-outline" disabled={mediaBusy !== null}
+              onClick={() => backgroundInput.current?.click()}>
+              {mediaBusy === 'tableBackground' ? t('profile.uploading') : t('profile.uploadBackground')}
+            </button>
+            {account.tableBackground && <button type="button" className="btn btn-outline"
+              disabled={mediaBusy !== null}
+              onClick={() => void patchSetting('tableBackground', async () => null)}>
+              {t('profile.removeBackground')}</button>}
+          </div>
+          {mediaFeedback('tableBackground')}
+        </section>
+        <section className={`${styles.card} ${styles.wide}`}>
+          <h2>{t('emoji.title')}</h2>
+          <EmojiLibrary />
+        </section>
         <section className={`${styles.card} ${styles.wide}`}>
           <h2>{t('history.title')}</h2>
+          <label className={styles.row}>
+            <input type="checkbox" checked={account.matchesPublic} disabled={mediaBusy !== null}
+              onChange={(event) => {
+                const value = event.target.checked;
+                void patchSetting('matchesPublic', async () => value);
+              }} />
+            {t('history.public')}
+          </label>
+          {mediaFeedback('matchesPublic')}
           {historyError ? <p className={styles.error} role="alert">{historyError}</p>
-            : matches === null ? <p role="status">{t('common.loading')}</p>
-            : matches.length === 0 ? <p className={styles.empty}>{t('history.empty')}</p>
-            : <ul className={styles.list}>{matches.map((match) => (
-              <li key={match.id} className={styles.history}>
-                <span>{t('room.title')} {match.roomCode}</span>
-                <span>{match.result.contract.level}{match.result.contract.suit === 'nt' ? 'NT'
-                  : SUIT_SYMBOLS[match.result.contract.suit]} · {match.result.declarerTeamTricks}
-                  /{match.result.requiredTricks} · {t(match.result.declarerTeamWins
-                    ? 'score.declarerWins' : 'score.defenderWins')}</span>
-                <time dateTime={new Date(match.finishedAt).toISOString()} className={styles.hint}>
-                  {new Date(match.finishedAt).toLocaleString(locale)}
-                </time>
-              </li>
-            ))}</ul>}
+            : history === null ? <p role="status">{t('common.loading')}</p>
+            : <MatchHistoryList matches={history.matches} players={history.players} />}
         </section>
       </div>
     </main>

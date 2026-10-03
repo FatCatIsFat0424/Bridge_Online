@@ -6,6 +6,7 @@ import { usePlayerStore } from './player-store';
 import { useRoomStore } from './room-store';
 import { useGameStore } from './game-store';
 import { useChatStore } from './chat-store';
+import { useEmojiStore } from './emoji-store';
 import { retainSnapshotValue } from './snapshot-equality';
 
 interface AccountStore {
@@ -25,6 +26,7 @@ function clearGameSession(): void {
   useRoomStore.getState().leaveRoom();
   useGameStore.getState().reset();
   useChatStore.getState().clearMessages();
+  useEmojiStore.getState().reset();
 }
 
 export const useAccountStore = create<AccountStore>((set, get) => ({
