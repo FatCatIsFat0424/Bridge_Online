@@ -15,6 +15,23 @@
 - 出牌方向為逆時針。
 - 跟牌時必須出同張數、同牌型、而且更大的牌，否則 pass。炸彈例外，見下面。
 - 本輪 pass 過的玩家被鎖住，直到本輪結束都不能再出牌。
+- The server schedules an automatic pass when a responding player has no legal
+  play, including no qualifying bomb. Each automatic pass waits for the preceding
+  presentation to finish, then a uniformly random delay of 0–3,000 ms. The current
+  seat remains unchanged during this wait; no pass log or seat lock is published
+  before the pass executes. Players with a legal response choose whether to play
+  or pass; a free lead is never automatically passed.
+- A manual pass can still execute immediately once the normal presentation lock
+  ends. Automatic passes run on the server without requiring the player's browser
+  or connection, with each due action serialized and saved through the runtime
+  coordinator. Pending deadlines survive restore and are not exposed in public
+  snapshots. A sequence of forced passes schedules each next pass separately.
+- The delay is sampled once as an integer number of milliseconds from 0 through
+  3,000 inclusive. Restarts retain an existing sampled deadline; eligible legacy
+  snapshots without one receive a deadline during startup. Overdue work resumes
+  through the same coordinator, and only committed passes are broadcast.
+- The random wait is separate from the 350 ms visual PASS frame; see the
+  [presentation timeline](./chat-and-presentation.md#authoritative-presentation-timeline).
 - 其他三家都 pass（或已被鎖住）後，最後出牌的人取得自由出牌權，可以出任何合法牌型，新的一輪開始，所有人解鎖。
 - 下家只剩一張時，不用報牌，也沒有必須出最大單張的限制。
 

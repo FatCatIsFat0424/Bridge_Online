@@ -12,6 +12,8 @@ import { useRoomStore } from '../../stores/room-store';
 import { useI18nStore } from '../../stores/i18n-store';
 import { CardHand } from '../../components/CardHand';
 import { GameShell } from '../GameShell';
+import { RoundHistory } from '../RoundHistory';
+import { useGamePresentation } from '../use-game-presentation';
 import {
   comboLabelKey, currentRoundEntries, lastPlayCombo, nextHint, penaltyFormula, sameCard, toggleCard,
 } from './bigtwo-view';
@@ -104,6 +106,7 @@ function ResultOverlay({ result, revealed, pending, error, onBack }: {
   pending: boolean; error: string; onBack: () => void;
 }): ReactNode {
   const { t } = useI18nStore();
+  const historyGame = useGameStore((state) => state.visible);
   const seatName = useSeatName();
   return <div className={styles.scoreOverlay}>
     <div className={styles.overlayCard}>
@@ -125,6 +128,7 @@ function ResultOverlay({ result, revealed, pending, error, onBack }: {
             : penaltyFormula(result.cardsLeft[seat], result.twosLeft[seat], result.scores[seat])}</td>
         </tr>)}</tbody>
       </table>
+      {historyGame && <RoundHistory game={historyGame} />}
       {error && <p className={styles.error} role="alert">{error}</p>}
       <button className="btn btn-primary" disabled={pending} onClick={onBack}>{t('score.backToRoom')}</button>
     </div>
@@ -132,6 +136,7 @@ function ResultOverlay({ result, revealed, pending, error, onBack }: {
 }
 
 export function BigTwoTable(): ReactNode {
+  const { locked } = useGamePresentation();
   const game = useGameStore((state) => state.bigTwo);
   const { t } = useI18nStore();
   const [selection, setSelection] = useState<Card[]>([]);
@@ -145,7 +150,7 @@ export function BigTwoTable(): ReactNode {
   const previous = lastPlayCombo(game?.lastPlay ?? null);
   const firstPlay = game?.firstPlay ?? false;
   const playing = game?.phase === 'playing';
-  const isMyTurn = playing && game.currentTurnSeat === game.mySeat;
+  const isMyTurn = playing && !locked && game.currentTurnSeat === game.mySeat;
   const selectedCombo = identifyCombo(selected);
   const playable = isMyTurn && canPlay(selected, previous, firstPlay);
 
@@ -166,6 +171,7 @@ export function BigTwoTable(): ReactNode {
   }, [playable, actionPending, selected, handleActionResult]);
 
   const pass = (): void => {
+    if (!isMyTurn || actionPending || !game?.lastPlay) return;
     setActionError('');
     setActionPending(true);
     socket.timeout(10000).emit('game:bigtwo:pass', handleActionResult);

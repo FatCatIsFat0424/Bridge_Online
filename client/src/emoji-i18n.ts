@@ -1,4 +1,6 @@
 const english = {
+  'sticker.mode': 'Stickers',
+  'sticker.unavailable': 'Image unavailable',
   'emoji.title': 'Chat emoji',
   'emoji.help': 'Type :name: in chat to send one. Up to 300 emoji; names use a–z, 0–9 and _.',
   'emoji.import': 'Import emoji library',
@@ -24,6 +26,8 @@ export type EmojiTranslationKey = keyof typeof english;
 export const emojiTranslations: Record<'en' | 'zh-TW', Record<EmojiTranslationKey, string>> = {
   en: english,
   'zh-TW': {
+    'sticker.mode': '貼圖',
+    'sticker.unavailable': '圖片無法顯示',
     'emoji.title': '聊天表情',
     'emoji.help': '在聊天輸入 :名稱: 即可送出表情。最多 300 個；名稱限 a–z、0–9 與 _。',
     'emoji.import': '匯入表情庫',

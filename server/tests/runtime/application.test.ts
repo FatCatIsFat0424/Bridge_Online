@@ -10,6 +10,7 @@ import { identifyCombo, isBomb, legalPlays } from '@shared/rules/bigtwo';
 import { rpPairOptions } from '@shared/rules/redpoints';
 import { NN_MAX, nnApply, nnIsPlayable, nnRequiresChoice } from '@shared/rules/ninetynine';
 import type { NnChoice } from '@shared/rules/ninetynine';
+import { getPresentationEndsAt } from '@shared/game-presentation';
 import { createApplication } from '../../src/app';
 import { createJsonRepository } from '../../src/database/json-repository';
 import type { Repository } from '../../src/database/repository';
@@ -25,6 +26,11 @@ interface RegisteredAccount {
 }
 
 describe('persistent authenticated application', () => {
+  let now: number;
+  function finishPresentation(game: PlayerSnapshot['gameState']): void {
+    if (game) now = Math.max(now, getPresentationEndsAt(game));
+  }
+
   let directory: string;
   let filePath: string;
   let repository: Repository;
@@ -37,6 +43,8 @@ describe('persistent authenticated application', () => {
     application = await createApplication(repository, {
       allowedOrigins: [ORIGIN], trustProxyLoopback,
     });
+    // Advancing the game clock must not expire real socket heartbeat deadlines.
+    application.io.engine.opts.pingTimeout = 24 * 60 * 60 * 1000;
     const server = application.httpServer;
     await new Promise<void>((resolve, reject): void => {
       server.once('error', reject);
@@ -54,6 +62,8 @@ describe('persistent authenticated application', () => {
   }
 
   beforeEach(async (): Promise<void> => {
+    now = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
     directory = await mkdtemp(join(tmpdir(), 'bridge-application-'));
     filePath = join(directory, 'database.json');
     await start();
@@ -309,6 +319,7 @@ describe('persistent authenticated application', () => {
 
     snapshot = resumed[0];
     for (let played = 0; snapshot.gameState?.phase === 'playing' && played < 52; played += 1) {
+      finishPresentation(snapshot.gameState);
       const seat = snapshot.gameState.playing?.currentTurnSeat;
       if (!seat) throw new Error('Expected player turn');
       const client = players[SEATS.indexOf(seat)];
@@ -413,6 +424,7 @@ describe('persistent authenticated application', () => {
     /** Leads the weakest play; follows with the weakest non-bomb, else passes. */
     async function step(): Promise<PlayerSnapshot> {
       const view = (await resume(players[0])).gameState;
+      finishPresentation(view);
       if (view?.gameType !== 'bigtwo') throw new Error('Expected Big Two state');
       const seat = view.currentTurnSeat;
       const client = players[SEATS.indexOf(seat)];
@@ -466,6 +478,8 @@ describe('persistent authenticated application', () => {
     await start();
     const finalPlayer = await connect(accounts[0].cookie);
     expect((await resume(finalPlayer)).gameState).toEqual(final);
+    expect(await finalPlayer.timeout(5_000).emitWithAck('game:continue')).toMatchObject({ success: false });
+    finishPresentation((await resume(finalPlayer)).gameState);
     expect(await finalPlayer.timeout(5_000).emitWithAck('game:continue')).toEqual({ success: true });
   }, 60_000);
 
@@ -487,6 +501,7 @@ describe('persistent authenticated application', () => {
     /** Plays the first hand card, capturing the first match; resolves flips with the first match. */
     async function step(): Promise<PlayerSnapshot> {
       const view = (await resume(players[0])).gameState;
+      finishPresentation(view);
       if (view?.gameType !== 'redpoints') throw new Error('Expected Red Points state');
       const client = players[SEATS.indexOf(view.currentTurnSeat)];
       const mine = (await resume(client)).gameState;
@@ -541,6 +556,8 @@ describe('persistent authenticated application', () => {
     await start();
     const finalPlayer = await connect(accounts[0].cookie);
     expect((await resume(finalPlayer)).gameState).toEqual(final);
+    expect(await finalPlayer.timeout(5_000).emitWithAck('game:continue')).toMatchObject({ success: false });
+    finishPresentation((await resume(finalPlayer)).gameState);
     expect(await finalPlayer.timeout(5_000).emitWithAck('game:continue')).toEqual({ success: true });
   }, 60_000);
 
@@ -562,6 +579,7 @@ describe('persistent authenticated application', () => {
     /** Plays the card reaching the highest legal total; a 5 names the first other seat still in. */
     async function step(): Promise<PlayerSnapshot> {
       const view = (await resume(players[0])).gameState;
+      finishPresentation(view);
       if (view?.gameType !== 'ninetynine') throw new Error('Expected 99 state');
       const client = players[SEATS.indexOf(view.currentTurnSeat)];
       const mine = (await resume(client)).gameState;
@@ -618,6 +636,8 @@ describe('persistent authenticated application', () => {
     await start();
     const finalPlayer = await connect(accounts[0].cookie);
     expect((await resume(finalPlayer)).gameState).toEqual(final);
+    expect(await finalPlayer.timeout(5_000).emitWithAck('game:continue')).toMatchObject({ success: false });
+    finishPresentation((await resume(finalPlayer)).gameState);
     expect(await finalPlayer.timeout(5_000).emitWithAck('game:continue')).toEqual({ success: true });
   }, 60_000);
 });

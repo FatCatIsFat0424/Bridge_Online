@@ -111,6 +111,29 @@ describe('Big Two gameplay', () => {
     expect(game().lastPlay?.comboType).toBe('fourOfAKind');
   });
 
+  it('should persist a round completed by separate passes and restore it unchanged', () => {
+    bigtwo.startGame(CODE, PLAYERS, orderedDeck());
+    expect(bigtwo.play(CODE, 'N', [card('clubs', 3)]).success).toBe(true);
+    expect(bigtwo.pass(CODE, 'W').success).toBe(true);
+    const bomb = [card('clubs', 10), card('diamonds', 10), card('hearts', 10),
+      card('spades', 10), card('spades', 9)];
+    expect(bigtwo.play(CODE, 'S', bomb).success).toBe(true);
+    expect(game().currentTurnSeat).toBe('E');
+    expect(bigtwo.pass(CODE, 'E').success).toBe(true);
+    expect(bigtwo.pass(CODE, 'N').success).toBe(true);
+    expect(game().log.slice(-3)).toEqual([
+      expect.objectContaining({ type: 'pass', seat: 'E' }),
+      expect.objectContaining({ type: 'pass', seat: 'N' }),
+      expect.objectContaining({ type: 'round_end', leaderSeat: 'S' }),
+    ]);
+    expect(game()).toMatchObject({ currentTurnSeat: 'S', lastPlay: null, lockedSeats: [] });
+    expect(persists()).toBe(true);
+    const saved = structuredClone(game());
+    bigtwo.restoreGames([saved]);
+    expect(game()).toEqual(saved);
+    expect(persists()).toBe(true);
+  });
+
   it('should end the game when the last card is played and charge the losers', () => {
     const deck = orderedDeck();
     bigtwo.startGame(CODE, PLAYERS, deck);
@@ -148,6 +171,20 @@ describe('Big Two gameplay', () => {
     expect(game().log).toEqual([expect.objectContaining({ type: 'dragon', seat: 'N' })]);
     expect(persists()).toBe(true);
     expect(bigtwo.play(CODE, 'N', [card('clubs', 3)])).toMatchObject({ success: false });
+  });
+
+  it('should validate durable presentation metadata without accepting transport timestamps', () => {
+    bigtwo.startGame(CODE, PLAYERS, orderedDeck());
+    game().presentation = { id: 'action', startedAt: 100, logStart: 0 };
+    expect(persists()).toBe(true);
+    game().presentation = { id: 'action', startedAt: 100, logStart: 1 };
+    expect(persists()).toBe(false);
+    game().presentation = { id: 'action', startedAt: 100, logStart: 0, serverNow: 101 };
+    expect(persists()).toBe(false);
+    game().presentation = { id: '', startedAt: 100, logStart: 0 };
+    expect(persists()).toBe(false);
+    delete game().presentation;
+    expect(persists()).toBe(true);
   });
 
   it('should reject an incoherent persisted game', () => {

@@ -6,12 +6,14 @@ import { useAccountStore } from '../stores/account-store';
 import { useGameStore } from '../stores/game-store';
 import { useRoomStore } from '../stores/room-store';
 import { useTurnSoundStore } from '../stores/turn-sound-store';
+import { presentationMoment } from '../games/presentation-state';
 
 export function getTurnSoundSnapshot(): TurnSoundSnapshot {
   const game = useGameStore.getState();
   const room = useRoomStore.getState();
   const account = useAccountStore.getState();
-  const owned = room.currentRoomCode && room.mySeat &&
+  const held = presentationMoment(game.visible, game.presentationReceivedAt, Date.now());
+  const owned = !held.locked && room.currentRoomCode && room.mySeat &&
     account.status === 'authenticated' && account.connection === 'ready' &&
     (game.phase === 'bidding' || game.phase === 'playing') &&
     game.currentTurnSeat === room.mySeat;
@@ -35,13 +37,20 @@ export function useTurnSound(): void {
     const controller = createTurnSoundController(audio);
     let disposed = false;
     let queued = false;
+    let presentationTimer: ReturnType<typeof setTimeout> | null = null;
     const update = (): void => {
       if (queued) return;
       queued = true;
       // Socket events can update several stores synchronously for one transition.
       queueMicrotask(() => {
         queued = false;
-        if (!disposed) controller.update(getTurnSoundSnapshot());
+        if (disposed) return;
+        if (presentationTimer !== null) clearTimeout(presentationTimer);
+        controller.update(getTurnSoundSnapshot());
+        const game = useGameStore.getState();
+        const moment = presentationMoment(game.visible, game.presentationReceivedAt, Date.now());
+        presentationTimer = moment.locked ? setTimeout(update,
+          Math.max(1, moment.endsAt - Date.now())) : null;
       });
     };
     const unlock = (event: Event): void => {
@@ -54,6 +63,7 @@ export function useTurnSound(): void {
     update();
     return () => {
       disposed = true;
+      if (presentationTimer !== null) clearTimeout(presentationTimer);
       unsubscribe.forEach((remove) => remove());
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);

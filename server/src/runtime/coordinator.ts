@@ -17,6 +17,7 @@ export interface RuntimeCoordinator {
   /** Reads committed runtime state in queue order without saving it. */
   inspect: <T>(operation: () => T | Promise<T>) => Promise<T>;
   snapshot: () => RuntimeSnapshot;
+  subscribe: (listener: () => void) => () => void;
   idle: () => Promise<void>;
 }
 
@@ -39,10 +40,11 @@ function restore(state: RuntimeSnapshot, restarting = false): void {
 }
 
 /** Serializes game mutations and persists each before acknowledging or broadcasting it. */
-export async function createRuntimeCoordinator(repository: Repository): Promise<RuntimeCoordinator> {
+export async function createRuntimeCoordinator(repository: Pick<Repository, 'loadRuntime' | 'saveRuntime'>): Promise<RuntimeCoordinator> {
   const initial = await repository.loadRuntime();
   restore(initial ?? { players: [], rooms: [], games: [], chat: [] }, true);
   let queue = Promise.resolve();
+  const listeners = new Set<() => void>();
 
   function mutate<T>(operation: () => T | Promise<T>, options: RuntimeMutationOptions = {}): Promise<T> {
     const result = queue.then(async (): Promise<T> => {
@@ -75,6 +77,7 @@ export async function createRuntimeCoordinator(repository: Repository): Promise<
       }
       // Notifications run only after durability is established, outside rollback handling.
       options.afterCommit?.();
+      for (const listener of listeners) listener();
       return value;
     });
     queue = result.then(() => undefined, () => undefined);
@@ -87,5 +90,10 @@ export async function createRuntimeCoordinator(repository: Repository): Promise<
     return result;
   }
 
-  return { mutate, inspect, snapshot, idle: (): Promise<void> => queue };
+  function subscribe(listener: () => void): () => void {
+    listeners.add(listener);
+    return () => { listeners.delete(listener); };
+  }
+
+  return { mutate, inspect, snapshot, subscribe, idle: (): Promise<void> => queue };
 }

@@ -1,0 +1,41 @@
+.history {
+  min-width: 0;
+  width: 100%;
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.history summary {
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  overflow-wrap: anywhere;
+}
+
+.history summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.scroll {
+  max-height: min(40dvh, 24rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.round {
+  padding-block: var(--spacing-xs);
+}
+
+.actions {
+  margin: var(--spacing-xs) 0;
+  padding-inline-start: var(--spacing-lg);
+  display: grid;
+  gap: var(--spacing-sm);
+  overflow-wrap: anywhere;
+}
+
+.cards {
+  font-family: var(--font-mono);
+}

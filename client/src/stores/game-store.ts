@@ -21,6 +21,8 @@ import { equalSnapshotValue, retainSnapshotValue } from './snapshot-equality';
 
 /** Bridge state lives in the individual fields; other games keep their whole visible state in one field. */
 interface GameStoreState {
+  visible: PlayerVisibleGameState | null;
+  presentationReceivedAt: number;
   bigTwo: BigTwoVisibleState | null;
   redPoints: RedPointsVisibleState | null;
   ninetyNine: NinetyNineVisibleState | null;
@@ -57,6 +59,8 @@ interface GameStoreActions {
 }
 
 const initialState: GameStoreState = {
+  visible: null,
+  presentationReceivedAt: 0,
   bigTwo: null,
   redPoints: null,
   ninetyNine: null,
@@ -96,6 +100,8 @@ export const useGameStore = create<GameStoreState & GameStoreActions>((set) => (
       currentTurnSeat: game.phase === 'playing' ? game.currentTurnSeat : null,
       ninetyNine: retainSnapshotValue(state.ninetyNine, game),
     } : {
+      visible: null,
+      presentationReceivedAt: 0,
       bigTwo: null,
       redPoints: null,
       ninetyNine: null,
@@ -113,6 +119,9 @@ export const useGameStore = create<GameStoreState & GameStoreActions>((set) => (
       result: retainSnapshotValue(state.result, game.result),
       redealPendingSeat: game.redealPendingSeat,
     };
+    nextState.visible = retainSnapshotValue(state.visible, game);
+    nextState.presentationReceivedAt = nextState.visible === state.visible
+      ? state.presentationReceivedAt : Date.now();
     return (Object.keys(nextState) as (keyof GameStoreState)[])
       .every((key) => Object.is(state[key], nextState[key])) ? state : nextState;
   }),

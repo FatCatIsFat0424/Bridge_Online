@@ -40,8 +40,15 @@ describe('socket delivery scope and read-only resume', () => {
   async function expectDeliveredStateMatchesResume(roomIndex: number): Promise<void> {
     const delivered = new Map(harness.metrics.latestSnapshots);
     for (let index = 0; index < 4; index += 1) {
-      expect(await resume(harness.clients[roomIndex][index]))
-        .toEqual(delivered.get(harness.accountIds[roomIndex][index]));
+      const actual = await resume(harness.clients[roomIndex][index]);
+      const expected = structuredClone(delivered.get(harness.accountIds[roomIndex][index]));
+      if (expected?.gameState?.presentation && actual.gameState?.presentation) {
+        expect(actual.gameState.presentation.serverNow)
+          .toBeGreaterThanOrEqual(expected.gameState.presentation.serverNow!);
+        expected.gameState.presentation = { ...expected.gameState.presentation,
+          serverNow: actual.gameState.presentation.serverNow };
+      }
+      expect(actual).toEqual(expected);
     }
   }
 

@@ -1,6 +1,6 @@
 // ─── Big Two Game：台式大老二流程管理 ───
 
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import type {
   BigTwoGameState,
   BigTwoMatchResult,
@@ -17,6 +17,7 @@ import {
   findClubThreeHolder,
   identifyCombo,
   isDragon,
+  legalPlays,
   nextSeatCounterClockwise,
   sortBigTwoHand,
 } from '@shared/rules/bigtwo';
@@ -78,10 +79,10 @@ function playableGame(roomCode: RoomCode, seat: Seat): BigTwoGameState | string 
   return game;
 }
 
-/** Moves the turn counter-clockwise past locked seats; reaching the last player ends the round. */
+/** Advance only past seats that have actually passed; pending passes stay private. */
 function advanceTurn(game: BigTwoGameState, from: Seat): void {
   let seat = nextSeatCounterClockwise(from);
-  while (seat !== game.lastPlay?.seat && game.lockedSeats.includes(seat)) {
+  while (game.lastPlay && seat !== game.lastPlay.seat && game.lockedSeats.includes(seat)) {
     seat = nextSeatCounterClockwise(seat);
   }
   if (seat === game.lastPlay?.seat) {
@@ -90,6 +91,22 @@ function advanceTurn(game: BigTwoGameState, from: Seat): void {
     game.lockedSeats = [];
   }
   game.currentTurnSeat = seat;
+}
+
+export function needsAutoPass(game: BigTwoGameState): boolean {
+  if (game.phase !== 'playing' || !game.lastPlay || game.firstPlay
+    || game.currentTurnSeat === game.lastPlay.seat
+    || game.lockedSeats.includes(game.currentTurnSeat)) return false;
+  const previous = identifyCombo(game.lastPlay.cards);
+  return previous !== null && legalPlays(game.hands[game.currentTurnSeat], previous, false).length === 0;
+}
+
+/** Sample once per eligible turn, after the preceding public presentation finishes. */
+export function prepareAutoPass(roomCode: RoomCode, earliestAt: number): void {
+  const game = games.get(roomCode);
+  if (!game || game.pendingAutoPass || !needsAutoPass(game)) return;
+  game.pendingAutoPass = { id: randomUUID(), seat: game.currentTurnSeat,
+    executeAt: Math.max(Date.now(), earliestAt) + randomInt(3001) };
 }
 
 export function play(roomCode: RoomCode, seat: Seat, cards: readonly Card[]): Result {
@@ -102,6 +119,7 @@ export function play(roomCode: RoomCode, seat: Seat, cards: readonly Card[]): Re
   const combo = identifyCombo(cards);
   if (!combo || !canPlay(cards, previous, game.firstPlay)) return { success: false, reason: 'Illegal play' };
 
+  delete game.pendingAutoPass;
   game.hands[seat] = hand.filter((own) => !combo.cards.some((card) => card.suit === own.suit && card.rank === own.rank));
   game.lastPlay = { seat, cards: combo.cards, comboType: combo.type };
   game.firstPlay = false;
@@ -120,6 +138,7 @@ export function pass(roomCode: RoomCode, seat: Seat): Result {
   const game = playableGame(roomCode, seat);
   if (typeof game === 'string') return { success: false, reason: game };
   if (!game.lastPlay) return { success: false, reason: 'You must lead this round' };
+  delete game.pendingAutoPass;
   game.lockedSeats.push(seat);
   game.log.push({ type: 'pass', seat, timestamp: Date.now() });
   advanceTurn(game, seat);

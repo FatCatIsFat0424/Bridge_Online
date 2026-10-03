@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { copyFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { io as connectSocket } from 'socket.io-client';
@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type {
   AccountProfile, ClientToServerEvents, EmojiRecord, ServerToClientEvents,
 } from '@shared/types';
+import { isRuntimeSnapshot } from '../../src/runtime/validate';
+import { restoreChat, getChatHistory } from '../../src/managers/chat-manager';
 import { createApplication } from '../../src/app';
 import { createJsonRepository } from '../../src/database/json-repository';
 import type { Repository } from '../../src/database/repository';
@@ -149,4 +151,50 @@ describe('custom emoji routes and chat', () => {
     expect(chatHistory?.[1]).not.toHaveProperty('emojis');
     expect((await repository.loadRuntime())?.chat[0].messages[0].emojis).toEqual({ wave: aliceMedia });
   }, 15_000);
+  it('should send owned stickers, reject forged payloads and restore durable history', async () => {
+    const alice = await register('sticker_alice');
+    const bob = await register('sticker_bob');
+    const mediaId = `${'a'.repeat(64)}.webp`;
+    const [asset] = await repository.createEmojis(alice.account.id, [{ name: 'wave', mediaId }], 1);
+    const client = await connect(alice.cookie);
+    expect(await client.timeout(5_000).emitWithAck('chat:send', { stickerId: asset.id }))
+      .toMatchObject({ success: false });
+    const created = await client.timeout(5_000).emitWithAck('room:create', { gameType: 'bridge' });
+    const other = await connect(bob.cookie);
+    await other.timeout(5_000).emitWithAck('room:join', { roomCode: created.roomCode! });
+    expect(await other.timeout(5_000).emitWithAck('chat:send', { stickerId: asset.id }))
+      .toMatchObject({ success: false });
+    for (const payload of [
+      { stickerId: '' }, { stickerId: 'missing' }, { stickerId: 42 },
+      { stickerId: asset.id, message: 'mixed' },
+      { stickerId: asset.id, mediaId: 'https://example.com/image.png' },
+      { stickerId: asset.id, url: 'https://example.com/image.png' },
+    ]) {
+      expect(await client.timeout(5_000).emitWithAck('chat:send', payload as { stickerId: string }))
+        .toMatchObject({ success: false });
+    }
+    expect(await client.timeout(5_000).emitWithAck('chat:send', { stickerId: asset.id }))
+      .toEqual({ success: true });
+    const expected = { content: '', sticker: { id: asset.id, name: 'wave', mediaId } };
+    const history = (await other.timeout(5_000).emitWithAck('player:resume')).chatHistory!;
+    expect(history.at(-1)).toMatchObject(expected);
+    await copyFile(join(directory, 'database.json'), join(directory, 'restored.json'));
+    const reopened = await createJsonRepository(join(directory, 'restored.json'));
+    const snapshot = (await reopened.loadRuntime())!;
+    await reopened.close();
+    expect(isRuntimeSnapshot(snapshot)).toBe(true);
+    expect(snapshot.chat[0].messages.at(-1)).toMatchObject(expected);
+    restoreChat(snapshot.chat);
+    expect(getChatHistory(created.roomCode!).at(-1)).toMatchObject(expected);
+    const invalid = structuredClone(snapshot);
+    invalid.chat[0].messages = [{ ...history.at(-1)!, sticker: {
+      id: asset.id, name: 'wave', mediaId: 'https://example.com/image.png',
+    } }];
+    expect(isRuntimeSnapshot(invalid)).toBe(false);
+    await repository.deleteAccountSessions(alice.account.id);
+    expect(await client.timeout(5_000).emitWithAck('chat:send', { stickerId: asset.id }))
+      .toMatchObject({ success: false });
+    expect((await repository.loadRuntime())?.chat[0].messages).toHaveLength(history.length);
+  }, 15_000);
+
 });

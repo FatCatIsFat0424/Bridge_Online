@@ -1,0 +1,139 @@
+.presentation {
+  --travel-x: 0%;
+  --travel-y: 90%;
+  --presentation-card-width: clamp(2.5rem, 8vw, 3.5rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  width: min(21rem, 85vw);
+  max-width: 100%;
+  min-height: 8rem;
+  padding: var(--spacing-sm);
+  box-sizing: border-box;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  text-align: center;
+  pointer-events: none;
+}
+
+.top { --travel-y: -90%; }
+.left { --travel-x: -90%; --travel-y: 0%; }
+.right { --travel-x: 90%; --travel-y: 0%; }
+
+.heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  max-width: 100%;
+  font-size: 0.85rem;
+}
+
+.playerName, .cardSeat, .summary, .effect {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+.playerName {
+  max-height: 2.6em;
+  overflow: hidden;
+}
+
+.cards {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--spacing-xs);
+}
+
+.cardSlot {
+  width: var(--presentation-card-width);
+  flex: 0 0 var(--presentation-card-width);
+}
+
+.cardSlot + .cardSlot { margin-left: calc(var(--presentation-card-width) * -0.35); }
+.cardSlot:nth-child(1) .card { transform: rotate(-5deg); }
+.cardSlot:nth-child(2) .card { transform: rotate(-2deg); }
+.cardSlot:nth-child(4) .card { transform: rotate(2deg); }
+.cardSlot:nth-child(5) .card { transform: rotate(5deg); }
+
+.card {
+  display: block;
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.trickCards { gap: var(--spacing-sm); }
+.trickCards .cardSlot + .cardSlot { margin-left: 0; }
+.trickCards .cardSlot .card { transform: none; }
+
+.cardSeat {
+  display: block;
+  padding-top: var(--spacing-xs);
+  font-size: 0.65rem;
+  line-height: 1.15;
+  max-height: 2.5em;
+  overflow: hidden;
+}
+
+.total {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-size: 0.75rem;
+}
+
+.total strong {
+  font-size: 1.7rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-warning);
+}
+
+.effect, .summary { font-size: 0.8rem; }
+.eliminated .heading { color: var(--color-danger); }
+.arriving { animation: arrive 300ms ease-out var(--enter-delay, 0ms) both; }
+.collecting { animation: collect 300ms ease-in var(--collect-delay, 1600ms) both; }
+.effect { animation: reveal 200ms ease-out var(--enter-delay, 0ms) both; }
+
+@keyframes arrive {
+  from { opacity: 0; transform: translate(var(--travel-x), var(--travel-y)) scale(0.8); }
+  to { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
+@keyframes collect {
+  from { opacity: 1; transform: translate(0, 0) scale(1); }
+  to { opacity: 0; transform: translate(var(--travel-x), var(--travel-y)) scale(0.5); }
+}
+
+@keyframes reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.reducedMotion .arriving, .reducedMotion .collecting, .reducedMotion .effect {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arriving, .collecting, .effect { animation: none; }
+}
+
+.flipped { animation: flip 400ms ease-out var(--enter-delay, 0ms) both; }
+@keyframes flip {
+  from { transform: perspective(20rem) rotateY(90deg); opacity: 0; }
+  to { transform: perspective(20rem) rotateY(0deg); opacity: 1; }
+}
+.reducedMotion .flipped { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .flipped { animation: none; }
+}

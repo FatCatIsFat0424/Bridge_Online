@@ -2,7 +2,8 @@ import {
   ABORT_VOTE_THRESHOLD, GAME_TYPES, MAX_MESSAGE_EMOJIS, isEmojiName, isMediaId,
 } from '@shared/constants';
 import { isDeepStrictEqual } from 'node:util';
-import { bigTwoPenalty, identifyCombo, isDragon } from '@shared/rules/bigtwo';
+import { getPresentationEndsAt } from '@shared/game-presentation';
+import { bigTwoPenalty, identifyCombo, isDragon, legalPlays } from '@shared/rules/bigtwo';
 import { RP_HAND_SIZE, RP_TABLE_SIZE, rpPairOptions, rpScore } from '@shared/rules/redpoints';
 import { NN_HAND_SIZE, NN_MAX, nnHasPlayable } from '@shared/rules/ninetynine';
 import type {
@@ -189,6 +190,10 @@ function bigTwoLog(value: unknown): boolean {
 
 function bigTwoGame(value: ObjectValue): boolean {
   const lastPlay = value.lastPlay;
+  const pending = value.pendingAutoPass;
+  if (pending !== undefined && (!object(pending) || !text(pending.id)
+    || pending.id.length > 128 || !oneOf(pending.seat, seats) || !number(pending.executeAt)
+    || Object.keys(pending).some((key) => !['id', 'seat', 'executeAt'].includes(key)))) return false;
   return (
     text(value.id) &&
     text(value.roomCode) &&
@@ -305,9 +310,19 @@ const gameValidators: Record<GameType, (value: ObjectValue) => boolean> = {
   ninetynine: ninetyNineGame,
 };
 
+function presentation(value: ObjectValue): boolean {
+  if (value.presentation === undefined) return true;
+  const metadata = value.presentation;
+  return object(metadata) && text(metadata.id) && metadata.id.length <= 128 &&
+    number(metadata.startedAt) && metadata.serverNow === undefined &&
+    Array.isArray(value.log) && typeof metadata.logStart === 'number' &&
+    Number.isInteger(metadata.logStart) && metadata.logStart >= 0 &&
+    metadata.logStart <= value.log.length;
+}
+
 function game(value: unknown): boolean {
   return object(value) && oneOf(value.gameType, [...GAME_TYPES]) &&
-    gameValidators[value.gameType as GameType](value);
+    gameValidators[value.gameType as GameType](value) && presentation(value);
 }
 
 function bridgeGame(value: ObjectValue): boolean {
@@ -470,6 +485,15 @@ function coherentBigTwoGame(state: BigTwoGameState): boolean {
     return false;
   if (plays.some((entry) => identifyCombo(entry.cards)?.type !== entry.comboType)) return false;
   const { lastPlay, lockedSeats, result } = state;
+  if (state.pendingAutoPass) {
+    const previous = lastPlay ? identifyCombo(lastPlay.cards) : null;
+    if (state.phase !== 'playing' || state.firstPlay || !previous
+      || state.pendingAutoPass.executeAt < getPresentationEndsAt(state)
+      || state.pendingAutoPass.seat !== state.currentTurnSeat
+      || lastPlay?.seat === state.currentTurnSeat
+      || lockedSeats.includes(state.currentTurnSeat)
+      || legalPlays(state.hands[state.currentTurnSeat], previous, false).length > 0) return false;
+  }
   if (lastPlay) {
     const last = plays[plays.length - 1];
     if (!last || last.seat !== lastPlay.seat || !isDeepStrictEqual(last.cards, lastPlay.cards) ||
@@ -604,6 +628,12 @@ export function isRuntimeSnapshot(value: unknown): value is RuntimeSnapshot {
             player(message.sender) &&
             typeof message.content === 'string' &&
             number(message.timestamp) &&
+            (message.sticker === undefined || (
+              object(message.sticker) && text(message.sticker.id) &&
+              isEmojiName(message.sticker.name) && isMediaId(message.sticker.mediaId) &&
+              Object.keys(message.sticker).every((key) => ['id', 'name', 'mediaId'].includes(key)) &&
+              message.content === '' && message.system === undefined && message.emojis === undefined
+            )) &&
             (message.emojis === undefined || messageEmojis(message.emojis)) &&
             (message.system === undefined || message.system === true),
         ),

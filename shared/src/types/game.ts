@@ -4,6 +4,13 @@ import type { RoomCode } from './room';
 import type { PlayerInfo, Seat } from './player';
 import type { BigTwoComboType } from '../rules/bigtwo';
 
+export interface GamePresentation {
+  readonly serverNow?: number;
+  readonly id: string;
+  readonly startedAt: number;
+  readonly logStart: number;
+}
+
 /** 花色 */
 export type Suit = 'clubs' | 'diamonds' | 'hearts' | 'spades';
 
@@ -90,6 +97,7 @@ export interface BiddingState {
 
 /** 完整橋牌遊戲狀態（伺服器內部） */
 export interface BridgeGameState {
+  presentation?: GamePresentation;
   readonly gameType: 'bridge';
   readonly id: string;
   readonly startedAt: number;
@@ -109,6 +117,7 @@ export interface BridgeGameState {
 
 /** 給特定玩家的可見橋牌狀態（隱藏他人手牌） */
 export interface BridgeVisibleState {
+  presentation?: GamePresentation;
   readonly gameType: 'bridge';
   readonly validCards: readonly Card[];
   readonly phase: GamePhase;
@@ -150,6 +159,9 @@ export interface BigTwoMatchResult {
 export type BigTwoPhase = 'playing' | 'scoring';
 
 export interface BigTwoGameState {
+  /** Private persisted deadline; never included in player-visible state. */
+  pendingAutoPass?: { readonly id: string; readonly seat: Seat; readonly executeAt: number };
+  presentation?: GamePresentation;
   readonly gameType: 'bigtwo';
   readonly id: string;
   readonly startedAt: number;
@@ -168,6 +180,7 @@ export interface BigTwoGameState {
 }
 
 export interface BigTwoVisibleState {
+  presentation?: GamePresentation;
   readonly gameType: 'bigtwo';
   readonly phase: BigTwoPhase;
   readonly mySeat: Seat;
@@ -207,6 +220,7 @@ export type RedPointsPhase = 'playing' | 'scoring';
 export type RedPointsStep = 'play' | 'flip-choose';
 
 export interface RedPointsGameState {
+  presentation?: GamePresentation;
   readonly gameType: 'redpoints';
   readonly id: string;
   readonly startedAt: number;
@@ -226,6 +240,7 @@ export interface RedPointsGameState {
 }
 
 export interface RedPointsVisibleState {
+  presentation?: GamePresentation;
   readonly gameType: 'redpoints';
   readonly phase: RedPointsPhase;
   readonly mySeat: Seat;
@@ -269,6 +284,7 @@ export interface NinetyNineMatchResult {
 export type NinetyNinePhase = 'playing' | 'scoring';
 
 export interface NinetyNineGameState {
+  presentation?: GamePresentation;
   readonly gameType: 'ninetynine';
   readonly id: string;
   readonly startedAt: number;
@@ -290,6 +306,7 @@ export interface NinetyNineGameState {
 }
 
 export interface NinetyNineVisibleState {
+  presentation?: GamePresentation;
   readonly gameType: 'ninetynine';
   readonly phase: NinetyNinePhase;
   readonly mySeat: Seat;

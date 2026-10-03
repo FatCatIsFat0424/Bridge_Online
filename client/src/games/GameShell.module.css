@@ -187,7 +187,19 @@
   gap: var(--spacing-sm);
 }
 
-.infoPanel > :last-child { flex: 1; min-height: 0; }
+.infoPanel > * { flex-shrink: 0; }
+
+.infoContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.infoContent > * { flex-shrink: 0; }
 
 .sheetHeader,
 .tableTools,
@@ -327,3 +339,11 @@
     --seat-reserve-y: 45px;
   }
 }
+
+.motionSetting { display: flex; gap: 8px; align-items: center; color: var(--text-secondary); }
+.motionSetting input { width: auto; }
+.gameContainer[data-reduced-motion] *,
+.gameContainer[data-reduced-motion] *::before,
+.gameContainer[data-reduced-motion] *::after { animation: none !important; transition: none !important; }
+
+.settledCentre *, .settledCentre *::before, .settledCentre *::after { animation: none !important; }

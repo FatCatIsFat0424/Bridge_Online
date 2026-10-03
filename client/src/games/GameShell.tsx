@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import type { Seat } from '@shared/types';
+import type { PlayerVisibleGameState, Seat } from '@shared/types';
+import type { TranslationKey } from '../i18n';
 import { playCardSound, playOutSound, unlockCardSounds, disposeCardSounds } from '../audio/card-sound';
 import { mediaUrl } from '../media';
 import { useAccountStore } from '../stores/account-store';
@@ -16,6 +17,10 @@ import { lastElimination, lastMove, tablePosition } from '../game-view';
 import type { TablePosition } from '../game-view';
 import { AbortVoteBanner, AbortVoteButton } from './AbortVote';
 import styles from './GameShell.module.css';
+import { useGamePresentation } from './use-game-presentation';
+import { GamePresentation } from './GamePresentation';
+import { RoundHistory } from './RoundHistory';
+import { useMotionStore } from '../stores/motion-store';
 
 const SEATS: readonly Seat[] = ['N', 'E', 'S', 'W'];
 const DESKTOP_QUERY = '(min-width: 1024px)';
@@ -28,6 +33,23 @@ const FLY_FROM: Record<TablePosition, CSSProperties> = {
   left: { '--fly-x': '-30vw', '--fly-y': '0px' } as CSSProperties,
   right: { '--fly-x': '30vw', '--fly-y': '0px' } as CSSProperties,
 };
+
+function presentationSummary(
+  game: PlayerVisibleGameState, locale: 'zh-TW' | 'en',
+  t: (key: TranslationKey, params?: Record<string, string>) => string,
+): string {
+  if (game.gameType === 'bridge') {
+    if (game.phase === 'scoring' && game.result) return t(game.result.declarerTeamWins
+      ? 'score.declarerWins' : 'score.defenderWins');
+    return game.playing ? `${t('seat.N')} / ${t('seat.S')}: ${game.playing.trickCountNS} · ` +
+      `${t('seat.E')} / ${t('seat.W')}: ${game.playing.trickCountEW}` : '';
+  }
+  if (game.gameType === 'redpoints' && game.result) {
+    return game.result.winners.map((seat) => `${t(`seat.${seat}`)} ${game.result?.points[seat]}`)
+      .join(' · ') + (locale === 'zh-TW' ? ' 分獲勝' : ' points — winner');
+  }
+  return '';
+}
 
 function matches(query: string): boolean {
   return typeof window !== 'undefined' && window.matchMedia(query).matches;
@@ -81,6 +103,11 @@ function FittedCentre({ children, style }: { children: ReactNode; style?: CSSPro
 export function GameShell({
   info, centre, hand, overlay, error, pickableSeats, onPickSeat, turnReady,
 }: GameShellProps): ReactNode {
+  const presentation = useGamePresentation();
+  const visibleGame = useGameStore((state) => state.visible);
+  const reducedMotion = useMotionStore((state) => state.reducedMotion);
+  const setReducedMotion = useMotionStore((state) => state.setReducedMotion);
+  const locale = useI18nStore((state) => state.locale);
   const mySeat = useRoomStore((state) => state.mySeat);
   const tableBackground = useAccountStore((state) => state.account?.tableBackground);
   const messageCount = useChatStore((state) => state.messages.length);
@@ -88,7 +115,7 @@ export function GameShell({
   const log = useGameStore((state) => state.bigTwo?.log ?? state.redPoints?.log ?? state.ninetyNine?.log ?? state.log);
   const ownedTurn = useGameStore((state) => mySeat !== null && state.currentTurnSeat === mySeat
     && (state.phase === 'bidding' || state.phase === 'playing'));
-  const myTurn = turnReady ?? ownedTurn;
+  const myTurn = (turnReady ?? ownedTurn) && !presentation.locked;
   const move = lastMove(log);
   const out = lastElimination(log);
   const [outBanner, setOutBanner] = useState<{ seat: Seat; index: number } | null>(null);
@@ -103,10 +130,10 @@ export function GameShell({
   // 只對進桌後的新動作出聲；進桌／重連時的既有紀錄不響
   const heardMove = useRef(move?.index);
   useEffect(() => {
-    if (!move || move.index === heardMove.current) return;
+    if (visibleGame?.presentation || !move || move.index === heardMove.current) return;
     heardMove.current = move.index;
     playCardSound(move.pass);
-  }, [move]);
+  }, [move, visibleGame?.presentation]);
 
   useEffect(() => {
     const unlock = (event: Event): void => { if (event.isTrusted) unlockCardSounds(); };
@@ -124,13 +151,23 @@ export function GameShell({
   const outIndex = out?.index;
   const outSeat = out?.seat;
   useEffect(() => {
-    if (outIndex === undefined || !outSeat || outIndex === heardOut.current) return;
+    if (visibleGame?.presentation || outIndex === undefined || !outSeat || outIndex === heardOut.current) return;
     heardOut.current = outIndex;
     playOutSound();
     setOutBanner({ seat: outSeat, index: outIndex });
     const timer = setTimeout(() => setOutBanner(null), OUT_BANNER_MS);
     return () => clearTimeout(timer);
-  }, [outIndex, outSeat]);
+  }, [outIndex, outSeat, visibleGame?.presentation]);
+
+  const heardFrame = useRef(presentation.frame?.key);
+  useEffect(() => {
+    const frame = presentation.frame;
+    if (!frame || heardFrame.current === frame.key) return;
+    heardFrame.current = frame.key;
+    if (frame.kind === 'play' || frame.kind === 'capture') playCardSound();
+    else if (frame.kind === 'pass') playCardSound(true);
+    else if (frame.kind === 'eliminated') playOutSound();
+  }, [presentation.frame]);
 
   const collapseChat = useCallback((): void => {
     setSeenMessages(messageCount);
@@ -170,7 +207,7 @@ export function GameShell({
   }, [closeSheets]);
 
   return (
-    <div className={`${styles.gameContainer} ${chatOpen ? '' : styles.chatCollapsed} ${infoOpen ? styles.infoOpen : ''}`}>
+    <div data-reduced-motion={reducedMotion || undefined} className={`${styles.gameContainer} ${chatOpen ? '' : styles.chatCollapsed} ${infoOpen ? styles.infoOpen : ''}`}>
       {(infoOpen || chatOpen) && <button type="button" className={styles.backdrop} tabIndex={-1}
         aria-label={t('table.close')} onClick={closeSheets} />}
 
@@ -181,7 +218,15 @@ export function GameShell({
             aria-label={t('table.close')} title={t('table.close')}>✕</button>
         </div>
         <AbortVoteButton />
-        {info}
+        <label className={styles.motionSetting}>
+          <input type="checkbox" checked={reducedMotion}
+            onChange={(event) => setReducedMotion(event.target.checked)} />
+          {locale === 'zh-TW' ? '減少動畫' : 'Reduce motion'}
+        </label>
+        <div className={styles.infoContent}>
+          {info}
+          {visibleGame && <RoundHistory game={visibleGame} />}
+        </div>
       </div>
 
       <main className={`${styles.centreColumn} ${tableBackground ? styles.customTable : ''}`}
@@ -202,11 +247,19 @@ export function GameShell({
           </div>
           {SEATS.map((seat) => (
             <TableSeat key={seat} seat={seat} position={tablePosition(seat, bottomSeat)}
-              moveKey={move?.seat === seat ? move.index : undefined}
+              suppressTurn={presentation.locked}
+              moveKey={visibleGame?.presentation
+                ? presentation.frame?.seat === seat ? presentation.frame.key : undefined
+                : move?.seat === seat ? move.index : undefined}
               onPick={onPickSeat && pickableSeats?.includes(seat) ? () => onPickSeat(seat) : undefined} />
           ))}
           <FittedCentre style={move ? FLY_FROM[tablePosition(move.seat, bottomSeat)] : undefined}>
-            {centre}
+            {presentation.frame && visibleGame ? (
+              <GamePresentation key={presentation.frame.key} frame={presentation.frame}
+                bottomSeat={bottomSeat} gameType={visibleGame.gameType}
+                elapsedMs={Math.max(0, Date.now() - presentation.frameStartedAt)}
+                summary={presentationSummary(visibleGame, locale, t)} />
+            ) : <div className={visibleGame?.presentation ? styles.settledCentre : undefined}>{centre}</div>}
           </FittedCentre>
           {myTurn && <p className={styles.yourTurn} role="status">{t('table.yourTurn')}</p>}
           {outBanner && <p key={outBanner.index} className={styles.outBanner} role="status">
@@ -232,7 +285,7 @@ export function GameShell({
         </div>
       </aside>
 
-      {overlay}
+      {!presentation.locked && overlay}
     </div>
   );
 }

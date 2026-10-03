@@ -186,6 +186,8 @@
   border-radius: var(--radius-sm);
 }
 
+.pickerItem:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .pickerItem:hover { background: var(--bg-card-hover); }
 
 .pickerItem img {
@@ -198,3 +200,20 @@
   font-size: var(--text-xs);
   color: var(--text-secondary);
 }
+
+.stickerImage {
+  --sticker-size: 160px;
+  display: grid;
+  place-items: center;
+  width: min(var(--sticker-size), 100%);
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+.stickerImage img { width: 100%; height: 100%; object-fit: contain; }
+.pickerTabs { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+.pickerTabs button { padding: var(--spacing-xs); color: var(--text-secondary); }
+.pickerTabs button[aria-pressed='true'] { color: var(--color-primary); background: var(--bg-card-hover); }
+
+.stickerImage.smallImage { --sticker-size: 28px; font-size: var(--text-xs); }
+.stickerPicker { max-height: calc(100% - 48px); overflow-y: auto; }
+.stickerPicker .pickerGrid { min-height: 36px; flex-shrink: 0; }

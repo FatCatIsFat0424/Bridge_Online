@@ -1,0 +1,89 @@
+import type { Card, PlayerVisibleGameState, Seat } from '@shared/types';
+import type { BigTwoComboType } from '@shared/rules/bigtwo';
+import { rpScore } from '@shared/rules/redpoints';
+
+export interface HistoryAction {
+  kind: 'play' | 'pass' | 'round_end' | 'dragon' | 'flip' | 'eliminated';
+  seat: Seat;
+  cards: readonly Card[];
+  comboType?: BigTwoComboType;
+  captured?: Card | null;
+  points?: number;
+  previousTotal?: number;
+  total?: number;
+  target?: Seat | null;
+  choice?: 'plus' | 'minus' | null;
+  pending?: boolean;
+}
+
+export interface HistoryRound {
+  number: number;
+  complete: boolean;
+  actions: HistoryAction[];
+}
+
+type HistoryInput = PlayerVisibleGameState extends infer T
+  ? T extends PlayerVisibleGameState
+    ? Pick<T, 'gameType' | 'phase' | 'log'> & (T extends { pendingFlip: unknown; currentTurnSeat: Seat }
+      ? Pick<T, 'pendingFlip' | 'currentTurnSeat'> : object)
+    : never
+  : never;
+
+/** Rebuild history from the full public log, including after reconnects. */
+export function deriveRoundHistory(game: HistoryInput): HistoryRound[] {
+  const rounds: HistoryRound[] = [];
+  if (game.gameType === 'bridge') return rounds;
+  let current: HistoryRound | undefined;
+  const start = (): HistoryRound => {
+    const round = { number: rounds.length + 1, complete: false, actions: [] as HistoryAction[] };
+    rounds.push(round);
+    current = round;
+    return round;
+  };
+  if (game.gameType === 'bigtwo') {
+    for (const entry of game.log) {
+      const round = current ?? start();
+      round.actions.push({ kind: entry.type,
+        seat: entry.type === 'round_end' ? entry.leaderSeat : entry.seat,
+        cards: entry.type === 'play' ? entry.cards : [],
+        ...(entry.type === 'play' ? { comboType: entry.comboType } : {}),
+      });
+      if (entry.type === 'round_end' || entry.type === 'dragon') {
+        round.complete = true;
+        current = undefined;
+      }
+    }
+  } else if (game.gameType === 'redpoints') {
+    for (const entry of game.log) {
+      if (entry.type === 'play' && current) current.complete = true;
+      const round = entry.type === 'play' ? start() : current ?? start();
+      round.actions.push({ kind: entry.type, seat: entry.seat, cards: [entry.card],
+        captured: entry.captured,
+        points: entry.captured ? rpScore([entry.card, entry.captured]) : 0,
+      });
+      if (entry.type === 'flip') {
+        round.complete = true;
+        current = undefined;
+      }
+    }
+    if (game.pendingFlip) {
+      (current ?? start()).actions.push({ kind: 'flip', seat: game.currentTurnSeat,
+        cards: [game.pendingFlip], pending: true });
+    } else if (current && current.actions[0]?.seat !== game.currentTurnSeat) {
+      current.complete = true;
+    }
+  } else {
+    let previousTotal = 0;
+    for (const entry of game.log) {
+      const round = entry.type === 'play' ? start() : current ?? start();
+      round.complete = true;
+      if (entry.type === 'play') {
+        round.actions.push({ kind: 'play', seat: entry.seat, cards: [entry.card],
+          previousTotal, total: entry.total, choice: entry.choice, target: entry.target });
+        previousTotal = entry.total;
+      } else round.actions.push({ kind: 'eliminated', seat: entry.seat, cards: [] });
+    }
+  }
+  if (game.phase === 'scoring' && current) current.complete = true;
+  return rounds;
+}

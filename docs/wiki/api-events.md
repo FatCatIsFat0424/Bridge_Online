@@ -74,10 +74,14 @@ callback 參數回覆，無 payload 的 action 直接傳 callback。操作會再
 | `game:bid` | `{ bid: BidAction }` | `{ success }` |
 | `game:playCard` | `{ card: Card }` | `{ success }`；驗證輪次與合法出牌 |
 | `game:continue` | — | `{ success }`；僅結算階段可清除該場遊戲、回到房間 |
-| `chat:send` | `{ message: string }` | `{ success }`；去除首尾空白後需有 1–500 字元 |
+| `chat:send` | `{ message: string }` or `{ stickerId: string }` | `{ success }`; text requires 1–500 trimmed characters; sticker IDs must belong to the sender |
 
 失敗 callback 一律為 `{ success: false, error: string }`。玩家身分由 session 決定，
 不接受客戶端傳入的帳號 ID 取代認證。暱稱與頭像透過 HTTP profile API 更新。
+
+Chat validation and sticker message fields are defined in [Stickers and game presentation](./chat-and-presentation.md#chat-contract).
+Play/pass/capture-choice actions and `game:continue` reject requests while the
+server presentation deadline is active; continue also requires scoring.
 
 ## Server → Client：`player:state`
 
@@ -134,3 +138,7 @@ ICE candidate 限制 2,048 字元並驗證相關欄位。來源 peer ID 一律�
 每次重新加入配置新的 peer ID；已離開的 peer 無法繼續協商。
 語音每連線每分鐘 1,200 次限流，與原有遊戲每分鐘 240 次限額分開。
 型別見 `shared/src/types/voice.ts`；操作、媒體清理與部署見[牌桌語音](./voice-chat.md)。
+
+Game snapshots may include `presentation: { id, startedAt, logStart, serverNow }`.
+See the [presentation timeline](./chat-and-presentation.md#authoritative-presentation-timeline)
+for frame durations, action gating, and resume behavior.

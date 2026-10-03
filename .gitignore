@@ -147,3 +147,6 @@ server/data/
 
 # Local deployment runtime prepared by deploy/build.sh
 .deploy/
+
+# Temporary implementation plans
+.plan/

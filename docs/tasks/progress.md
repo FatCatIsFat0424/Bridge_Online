@@ -2,6 +2,40 @@
 
 > **最後更新**: 2026-10-03
 
+## Stickers and four-game presentation
+
+- Added standalone sticker sending from the existing emoji upload library, with
+  direct selection to send, search, draft preservation, and server-side ownership validation.
+- Added shared public presentation frames for all four games, server action and
+  continue gating, remaining-time resume, reduced motion, and delayed turn cues.
+- All four games show current-game history during play and scoring, reconstructed
+  from restored public records without a separate cross-match archive.
+- Behavior and durations: [Stickers and game presentation](../wiki/chat-and-presentation.md).
+- Sticker simplification validation: full TypeScript, ESLint, 415 tests across
+  45 files and the subpath production build passed. Browser checks confirmed
+  immediate sending, duplicate-click prevention, preserved drafts, success close,
+  failure retry and unchanged emoji insertion. The T3 demonstration completed two
+  consecutive Big Two rounds and retained both in history.
+- Prior presentation validation: all 417 tests across 46 files, TypeScript, ESLint and the subpath
+  production build passed. Browser checks covered shared-asset sticker sending,
+  preserved drafts, frame-to-score timing, history expansion and
+  390x844, 844x390 and 1024x768 layouts. The information drawer scrolls internally
+  to keep expanded history reachable on short screens.
+
+## Big Two automatic pass
+
+- Responding hands with no legal play, including bomb checks, receive a server
+  automatic pass after the prior presentation and a uniform 0–3,000 ms delay.
+  Free leads and playable hands remain manual.
+- The waiting seat remains current until execution. Public logs and passed-seat
+  locks change only when the pass runs; manual PASS remains available after the
+  normal presentation lock ends.
+- Pending server deadlines are persisted and restored, with due actions routed
+  through the runtime coordinator. Each forced pass schedules the next separately;
+  no browser timer or active player connection is required.
+- The random delay is distinct from the visual 350 ms PASS frame. Rules and
+  implementation references: [Big Two rules](../wiki/big-two-rules.md).
+
 ## UI feedback integration
 
 - Integrated kbc's `ui-themes` feedback updates (2567a9e, 9fd15be).
@@ -57,8 +91,8 @@
   all hand cards remain inside the centre column without table or hand scrolling;
   short landscape layouts compact decorative seat elements.
 
-- Completed bridge tricks remain visible for 1.5 seconds, including the final
-  trick before scoring. History shows all four cards in play order and each winner.
+- Completed Bridge tricks use the [shared presentation timeline](../wiki/chat-and-presentation.md),
+  including the final trick before scoring. History shows all four cards in play order and each winner.
 - Waiting-room chat fills the remaining desktop height beside the table; mobile
   keeps a stacked layout. Table-only backgrounds sit beneath floating player labels
   and hands; chat and the option header retain their original theme surfaces.

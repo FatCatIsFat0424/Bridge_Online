@@ -88,3 +88,17 @@ export function restoreChat(records: { roomCode: string; messages: ChatMessage[]
   chatHistory.clear();
   for (const record of records) chatHistory.set(record.roomCode, record.messages);
 }
+
+/** Resolves stickers exclusively from the authenticated sender's library. */
+export function addSticker(
+  roomCode: RoomCode, sender: PlayerInfo, stickerId: string, library: readonly EmojiRecord[],
+): ChatMessage | null {
+  const asset = library.find((emoji) => emoji.id === stickerId && emoji.accountId === sender.id);
+  if (!asset) return null;
+  const message: ChatMessage = {
+    id: generateMessageId(), sender, content: '', timestamp: Date.now(),
+    sticker: { id: asset.id, name: asset.name, mediaId: asset.mediaId },
+  };
+  append(roomCode, message);
+  return message;
+}

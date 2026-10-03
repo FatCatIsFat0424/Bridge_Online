@@ -13,6 +13,8 @@ import { useRoomStore } from '../../stores/room-store';
 import { useI18nStore } from '../../stores/i18n-store';
 import { CardHand } from '../../components/CardHand';
 import { GameShell } from '../GameShell';
+import { RoundHistory } from '../RoundHistory';
+import { useGamePresentation } from '../use-game-presentation';
 import styles from './NinetyNineTable.module.css';
 
 const SEATS: readonly Seat[] = ['N', 'E', 'S', 'W'];
@@ -108,6 +110,7 @@ function ResultOverlay({ result, pending, error, onBack }: {
   result: NinetyNineMatchResult; pending: boolean; error: string; onBack: () => void;
 }): ReactNode {
   const { t } = useI18nStore();
+  const historyGame = useGameStore((state) => state.visible);
   const seatName = useSeatName();
   // 最後淘汰者第 2 名，以此類推
   const ranking = [result.winnerSeat, ...[...result.eliminationOrder].reverse()];
@@ -124,6 +127,7 @@ function ResultOverlay({ result, pending, error, onBack }: {
         ))}</tbody>
       </table>
       <p className={styles.note}>{t('ninetynine.total')} {result.finalTotal}</p>
+      {historyGame && <RoundHistory game={historyGame} />}
       {error && <p className={styles.error} role="alert">{error}</p>}
       <button className="btn btn-primary" disabled={pending} onClick={onBack}>{t('score.backToRoom')}</button>
     </div>
@@ -131,6 +135,7 @@ function ResultOverlay({ result, pending, error, onBack }: {
 }
 
 export function NinetyNineTable(): ReactNode {
+  const { locked } = useGamePresentation();
   const game = useGameStore((state) => state.ninetyNine);
   const { t } = useI18nStore();
   const seatName = useSeatName();
@@ -142,7 +147,7 @@ export function NinetyNineTable(): ReactNode {
   if (!game) return null;
 
   const playing = game.phase === 'playing';
-  const isMyTurn = playing && game.currentTurnSeat === game.mySeat;
+  const isMyTurn = playing && !locked && game.currentTurnSeat === game.mySeat;
   const canPlay = isMyTurn && !actionPending;
   const playable = game.myHand.filter((card) => nnIsPlayable(game.total, card));
   const unplayable = game.myHand.filter((card) => !nnIsPlayable(game.total, card));
@@ -157,7 +162,7 @@ export function NinetyNineTable(): ReactNode {
   };
 
   const send = (card: Card, choice?: NnChoice, target?: Seat): void => {
-    if (actionPending) return;
+    if (!canPlay) return;
     setActionError('');
     setActionPending(true);
     setPendingCard(null);

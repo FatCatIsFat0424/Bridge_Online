@@ -14,6 +14,7 @@ import { BiddingPanel } from '../../components/BiddingPanel';
 import { GameInfoRail } from '../../components/GameInfoRail';
 import { TrickArea } from '../../components/TrickArea';
 import { GameShell } from '../GameShell';
+import { useGamePresentation } from '../use-game-presentation';
 import styles from './BridgeTable.module.css';
 import { useTrickPresentation } from './use-trick-presentation';
 import { TrickHistory } from './TrickHistory';
@@ -36,8 +37,11 @@ export function BridgeTable(): ReactNode {
       })),
     );
 
-  const heldTrick = useTrickPresentation();
-  const isMyTurn = mySeat === currentTurnSeat && !heldTrick;
+  const { locked } = useGamePresentation();
+  const legacyTrick = useTrickPresentation();
+  const hasPresentation = useGameStore((state) => Boolean(state.visible?.presentation));
+  const heldTrick = hasPresentation ? null : legacyTrick;
+  const isMyTurn = mySeat === currentTurnSeat && !heldTrick && !locked;
   const bottomSeat: Seat = mySeat ?? 'S';
 
   const seatLabel = (seat: Seat): string => t(`seat.${seat}`);

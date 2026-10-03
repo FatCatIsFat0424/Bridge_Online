@@ -23,10 +23,11 @@ interface TableSeatProps {
   /** 可點選座位（99：指定下一位） */
   onPick?: () => void;
   /** 此座位剛出的牌（變動即重播閃光） */
-  moveKey?: number;
+  moveKey?: number | string;
+  suppressTurn?: boolean;
 }
 
-export function TableSeat({ seat, position, onPick, moveKey }: TableSeatProps): ReactNode {
+export function TableSeat({ seat, position, onPick, moveKey, suppressTurn }: TableSeatProps): ReactNode {
   const { t } = useI18nStore();
   const player = useRoomStore((state) => state.roomInfo?.seats[seat].player ?? null);
   const isMe = useRoomStore((state) => state.mySeat === seat);
@@ -45,7 +46,7 @@ export function TableSeat({ seat, position, onPick, moveKey }: TableSeatProps): 
     locked: state.bigTwo?.phase === 'playing' && state.bigTwo.lockedSeats.includes(seat),
     captured: state.redPoints?.captured[seat] ?? null,
   })));
-  const active = turn && (phase === 'bidding' || phase === 'playing');
+  const active = !suppressTurn && turn && (phase === 'bidding' || phase === 'playing');
   const cards = bigTwoCards ?? redPointsCards ?? ninetyNineCards ?? remainingCards(seat, playing);
   const redCaptured = captured?.filter((card) => rpCardPoints(card) > 0) ?? [];
 

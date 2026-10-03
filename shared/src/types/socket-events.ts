@@ -73,7 +73,7 @@ export interface ClientToServerEvents {
     payload: { agree: boolean }, callback: (response: ActionResult) => void,
   ) => void;
   'chat:send': (
-    payload: { message: string }, callback: (response: ActionResult) => void,
+    payload: { message: string; stickerId?: never } | { stickerId: string; message?: never }, callback: (response: ActionResult) => void,
   ) => void;
 }
 

@@ -12,6 +12,9 @@ import { createMediaRouter } from './http/media-routes';
 import { createEmojiRouter } from './http/emoji-routes';
 import { createMediaStore } from './media/media-store';
 import { createRuntimeCoordinator } from './runtime/coordinator';
+import { startBigTwoAutoPass } from './runtime/bigtwo-auto-pass';
+import { broadcastState } from './socket/context';
+import { getRoomMemberIds } from './managers/room-manager';
 import { createVoiceManager } from './managers/voice-manager';
 import { createFriendService } from './social/friend-service';
 import type { TypedServer } from './socket/context';
@@ -60,6 +63,15 @@ export async function createApplication(repository: Repository, options: Applica
     io, auth, runtime, voice: createVoiceManager(), friends: createFriendService(repository),
     listEmojis: (accountId: string) => repository.listEmojis(accountId),
   };
+  let stopAutoPass: () => void;
+  try {
+    stopAutoPass = await startBigTwoAutoPass(runtime, (code) => {
+      broadcastState(io, getRoomMemberIds(code));
+    });
+  } catch (error) {
+    await new Promise<void>((resolve) => io.close(() => resolve()));
+    throw error;
+  }
   const stopConnections = setupConnectionHandler(context);
   app.use('/api/auth', createAuthRouter(auth, {
     ...options,
@@ -92,6 +104,7 @@ export async function createApplication(repository: Repository, options: Applica
   return {
     httpServer, io,
     close: async (): Promise<void> => {
+      stopAutoPass();
       stopConnections();
       await new Promise<void>((resolve) => io.close(() => resolve()));
       await runtime.idle();

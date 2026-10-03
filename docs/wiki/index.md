@@ -4,6 +4,8 @@
 
 ## 目錄
 
+- [Stickers and game presentation](./chat-and-presentation.md) — Shared uploads, chat validation, four-game timelines and history, resume, and accessibility
+
 - [Deploy with systemd](./deployment.md) — One-command deployment, subpath hosting, updates, and backups
 - [系統架構](./architecture.md) — HTTP、Socket、遊戲流程與儲存邊界
 - [HTTP 與 Socket API](./api-events.md) — 帳號、好友、歷史 endpoints 與玩家狀態快照
@@ -45,6 +47,10 @@ JSON 資料庫保存帳號、七天 session、好友、房間、遊戲、聊天�
 
 ## 最近更新
 
+- Selecting a sticker sends it directly while preserving the text draft; see [chat behavior](./chat-and-presentation.md).
+
+- Big Two automatically passes hands with no legal response, including bomb checks; see [Big Two rules](./big-two-rules.md).
+
 - Integrated `ui-themes` play animations, hand highlights and elimination feedback while retaining fitted table layouts and a single turn-sound controller.
 
 - Expanded procedural instrument synthesis and rearranged all five Japanese tracks; see [music arrangements](./player-profiles-and-music.md).
@@ -57,8 +63,8 @@ energy labels, and BPM; see [background music](./player-profiles-and-music.md).
 
 Voice recovery and per-player connection status, background upload/display fixes,
 auction-column alignment, responsive card sizing, and an unobstructed lead badge are covered by the updated voice, deployment,
-component, and game-rule pages. Bridge now holds each completed trick for 1.5
-seconds and exposes per-trick history during play and scoring. Waiting-room chat
+component, and game-rule pages. Bridge uses the shared [presentation timeline](./chat-and-presentation.md)
+and exposes per-trick history during play and scoring. Waiting-room chat
 uses a right sidebar on desktop. Waiting and game tables share a background beneath floating player labels and
 cards; headers and chat retain their original theme colors.
 

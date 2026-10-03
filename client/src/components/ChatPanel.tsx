@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import type { ChatMessage } from '@shared/types';
+import type { ChatMessage, EmojiRecord } from '@shared/types';
 import { splitEmojiText } from '@shared/constants';
 import { socket } from '../socket';
 import { mediaUrl } from '../media';
@@ -15,6 +15,17 @@ import styles from './ChatPanel.module.css';
 interface ChatPanelProps {
   /** 提供時：面板填滿容器高度，標題列顯示收合按鈕 */
   onCollapse?: () => void;
+}
+
+function StickerImage({ asset, small = false }: {
+  asset: Pick<EmojiRecord, 'name' | 'mediaId'>; small?: boolean;
+}): ReactNode {
+  const [failed, setFailed] = useState(false);
+  const { t } = useI18nStore();
+  return <span className={`${styles.stickerImage} ${small ? styles.smallImage : ''}`}>
+    {failed ? <span role="img" aria-label={asset.name}>{t('sticker.unavailable')}: {asset.name}</span>
+      : <img src={mediaUrl(asset.mediaId)} alt={asset.name} onError={() => setFailed(true)} />}
+  </span>;
 }
 
 /** Text stays text; only emoji the server attached to this message become images. */
@@ -36,6 +47,8 @@ export function ChatPanel({ onCollapse }: ChatPanelProps): ReactNode {
   const [error, setError] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [mode, setMode] = useState<'emoji' | 'sticker'>('emoji');
+  const busyRef = useRef(false);
   const messagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -80,14 +93,30 @@ export function ChatPanel({ onCollapse }: ChatPanelProps): ReactNode {
   const send = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const message = input.trim();
-    if (!message || busy) return;
+    if (!message || busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError('');
     socket.timeout(10000).emit('chat:send', { message }, (timeout, result) => {
+      busyRef.current = false;
       setBusy(false);
       if (timeout) setError(t('auth.connectionError'));
       else if (result.success) setInput('');
       else setError(result.error ?? t('common.error'));
+    });
+  };
+
+  const sendSticker = (stickerId: string): void => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setError('');
+    socket.timeout(10000).emit('chat:send', { stickerId }, (timeout, result) => {
+      busyRef.current = false;
+      setBusy(false);
+      if (timeout) setError(t('auth.connectionError'));
+      else if (!result.success) setError(result.error ?? t('common.error'));
+      else setPickerOpen(false);
     });
   };
 
@@ -110,13 +139,17 @@ export function ChatPanel({ onCollapse }: ChatPanelProps): ReactNode {
           <div key={message.id} className={styles.chatMessage}>
             <Avatar avatar={message.sender.avatar} image={message.sender.avatarImage} color={message.sender.color} size="small" />
             <span className={styles.chatSender}>{message.sender.nickname}</span>
-            <span className={styles.chatContent}>{messageContent(message)}</span>
+            <span className={styles.chatContent}>{message.sticker ? <StickerImage asset={message.sticker} /> : messageContent(message)}</span>
           </div>
         ))}
       </div>
       {error && <p className={styles.error} role="alert">{error}</p>}
       {pickerOpen && (
-        <div className={styles.picker} data-emoji-picker>
+        <div className={`${styles.picker} ${mode === 'sticker' ? styles.stickerPicker : ''}`} data-emoji-picker>
+          <div className={styles.pickerTabs}>
+            <button type="button" aria-pressed={mode === 'emoji'} onClick={() => setMode('emoji')}>{t('emoji.title')}</button>
+            <button type="button" aria-pressed={mode === 'sticker'} onClick={() => setMode('sticker')}>{t('sticker.mode')}</button>
+          </div>
           <input className={styles.pickerSearch} type="search" value={search} autoFocus
             aria-label={t('emoji.search')} placeholder={t('emoji.search')}
             onChange={(event) => setSearch(event.target.value)} />
@@ -129,8 +162,9 @@ export function ChatPanel({ onCollapse }: ChatPanelProps): ReactNode {
             <div className={styles.pickerGrid}>
               {matches.map((emoji) => (
                 <button key={emoji.id} type="button" className={styles.pickerItem}
-                  title={`:${emoji.name}:`} onClick={() => insertEmoji(emoji.name)}>
-                  <img src={mediaUrl(emoji.mediaId)} alt={`:${emoji.name}:`} />
+                  title={`:${emoji.name}:`} disabled={mode === 'sticker' && busy}
+                  onClick={() => mode === 'emoji' ? insertEmoji(emoji.name) : sendSticker(emoji.id)}>
+                  <StickerImage asset={emoji} small />
                 </button>
               ))}
             </div>
