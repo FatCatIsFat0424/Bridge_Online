@@ -4,6 +4,10 @@
 
 ## systemd deployment
 
+- Moved HTTP redirects into `bridge-online-http.conf`; deployment migrates the
+  exact legacy managed block and backs up/restores both protocol snippets.
+  HTTPS proxy routes continue to remove the external `/bridge_online` prefix.
+
 - Deployment health checks now wait for healthy JSON during backend startup and
   Nginx reload, including transient 404 responses, before deciding to roll back.
 

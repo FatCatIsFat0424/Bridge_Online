@@ -9,7 +9,7 @@ from dataclasses import dataclass
 HOST = "acserver.csie.org"
 SNIPPET = "/etc/nginx/snippets/bridge-online.conf"
 MARKER = "# Bridge Online managed route"
-BLOCKS = {
+LEGACY_BLOCKS = {
     "http": "\n" + MARKER + " BEGIN http\n"
     "    location = /bridge_online { return 308 https://acserver.csie.org$request_uri; }\n"
     "    location ^~ /bridge_online/ { return 308 https://acserver.csie.org$request_uri; }\n"
@@ -18,6 +18,15 @@ BLOCKS = {
     f"    include {SNIPPET};\n"
     + MARKER + " END https\n",
 }
+BLOCKS = {
+    protocol: "\n" + MARKER + f" BEGIN {protocol}\n"
+    f"    include /etc/nginx/snippets/{filename};\n"
+    + MARKER + f" END {protocol}\n"
+    for protocol, filename in (
+        ("http", "bridge-online-http.conf"), ("https", "bridge-online.conf")
+    )
+}
+
 
 
 @dataclass
@@ -129,11 +138,13 @@ def configure(source: str) -> str:
     original = source
     managed = {}
     for protocol, block in BLOCKS.items():
-        count = source.count(block)
+        variants = set((block, LEGACY_BLOCKS[protocol]))
+        count = sum(source.count(variant) for variant in variants)
         if count > 1:
             raise ValueError(f"Duplicate managed {protocol} block")
-        managed[protocol] = count
-        source = source.replace(block, "")
+        managed[protocol] = next((variant for variant in variants if variant in source), None)
+        for variant in variants:
+            source = source.replace(variant, "")
     if MARKER in source:
         raise ValueError("Unrecognized or modified Bridge Online managed block")
     servers = {}
@@ -173,10 +184,10 @@ def configure(source: str) -> str:
     if set(servers) != set(BLOCKS):
         raise ValueError(f"Expected one HTTP and one HTTPS server for {HOST}")
     original_nodes = list(walk(parse(original)))
-    for protocol, count in managed.items():
-        if not count:
+    for protocol, block in managed.items():
+        if block is None:
             continue
-        position = original.index(BLOCKS[protocol])
+        position = original.index(block)
         owners = [node for node in original_nodes if node.words == ["server"]
                   and node.children is not None and node.start < position < node.end]
         nested = any(node.children is not None and node.words != ["server"]

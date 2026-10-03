@@ -37,6 +37,40 @@ class ConfigureTests(unittest.TestCase):
             restored = restored.replace(block, "")
         self.assertEqual(restored, SITE)
 
+    def test_legacy_http_block_migration(self):
+        legacy = MODULE.configure(SITE).replace(
+            MODULE.BLOCKS['http'], MODULE.LEGACY_BLOCKS['http']
+        )
+        result = MODULE.configure(legacy)
+        self.assertEqual(result, MODULE.configure(SITE))
+        self.assertEqual(MODULE.configure(result), result)
+
+    def test_duplicate_legacy_and_current_block(self):
+        with self.assertRaises(ValueError):
+            MODULE.configure(MODULE.configure(SITE) + MODULE.LEGACY_BLOCKS['http'])
+
+    def test_modified_legacy_block_is_rejected(self):
+        legacy = MODULE.configure(SITE).replace(
+            MODULE.BLOCKS['http'], MODULE.LEGACY_BLOCKS['http'].replace('308', '301')
+        )
+        with self.assertRaises(ValueError):
+            MODULE.configure(legacy)
+
+    def test_proxy_paths_remove_service_prefix(self):
+        snippet = (Path(__file__).resolve().parents[1] / 'nginx/bridge-online.conf').read_text()
+        nodes = MODULE.parse(snippet)
+        expected = {
+            '/bridge_online/api/': 'http://127.0.0.1:3001/api/',
+            '/bridge_online/socket.io/': 'http://127.0.0.1:3001/socket.io/',
+            '/bridge_online/health': 'http://127.0.0.1:3001/health',
+        }
+        actual = {
+            node.words[-1]: child.words[1]
+            for node in nodes if node.words[0] == 'location'
+            for child in node.children if child.words[0] == 'proxy_pass'
+        }
+        self.assertEqual(actual, expected)
+
     def test_comments_quotes_escapes_and_variables(self):
         site = SITE.replace('ssl_certificate /etc/cert.pem;', r'''
     # } { ignored comment
@@ -76,7 +110,7 @@ class ConfigureTests(unittest.TestCase):
     def test_modified_markers(self):
         result = MODULE.configure(SITE)
         with self.assertRaises(ValueError):
-            MODULE.configure(result.replace('return 308', 'return 301'))
+            MODULE.configure(result.replace('bridge-online-http.conf', 'modified.conf'))
 
     def test_wrong_managed_block_placement(self):
         with self.assertRaises(ValueError):
