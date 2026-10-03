@@ -23,3 +23,4 @@
 .field select { min-width: 0; }
 .peerControls { display: flex; align-items: center; gap: var(--spacing-sm); flex-basis: 100%; }
 .peerControls input { flex: 1; min-width: 0; }
+.peerStatus { flex-basis: 100%; font-size: var(--text-xs); }

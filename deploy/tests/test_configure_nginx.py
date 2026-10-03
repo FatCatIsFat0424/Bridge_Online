@@ -71,6 +71,16 @@ class ConfigureTests(unittest.TestCase):
         }
         self.assertEqual(actual, expected)
 
+    def test_api_upload_limit_accepts_base64_background(self):
+        snippet = (Path(__file__).resolve().parents[1] / 'nginx/bridge-online.conf').read_text()
+        location = next(node for node in MODULE.parse(snippet)
+                        if node.words[-1] == '/bridge_online/api/')
+        limit = next(child.words[1] for child in location.children
+                     if child.words[0] == 'client_max_body_size')
+        self.assertEqual(limit, '3m')
+        maximum_background_json = 4 * ((2 * 1024 * 1024 + 2) // 3) + 64
+        self.assertLess(maximum_background_json, 3 * 1024 * 1024)
+
     def test_comments_quotes_escapes_and_variables(self):
         site = SITE.replace('ssl_certificate /etc/cert.pem;', r'''
     # } { ignored comment

@@ -415,8 +415,171 @@ describe('voice session lifecycle', () => {
     peer.onconnectionstatechange?.();
     await vi.advanceTimersByTimeAsync(30_000);
     expect(peer.close).toHaveBeenCalledOnce();
-    expect(state).toMatchObject({ status: 'joined', error: 'connection-failed' });
+    expect(state).toMatchObject({
+      status: 'joined',
+      error: null,
+      peerErrors: { remote: 'connection-failed' },
+    });
     expect(microphone.stop).not.toHaveBeenCalled();
+  });
+
+  it('should remove only departed peer failures and reconnect a refreshed player with a fresh peer ID', async () => {
+    joinResult = { success: true, peerId: 'self', state: room('self', ['remote', 'remote2']) };
+    await session.join('ABC123', 'alice');
+    for (const peer of peerConnections) {
+      peer.connectionState = 'failed';
+      peer.onconnectionstatechange?.();
+    }
+    expect(state.peerErrors).toEqual({ remote: 'connection-failed', remote2: 'connection-failed' });
+    receive('voice:state', room('self', ['remote', 'remote2']));
+    expect(state.peerErrors).toEqual({ remote: 'connection-failed', remote2: 'connection-failed' });
+    const refreshedRoom = room('self', ['refreshed', 'remote2']);
+    refreshedRoom.participants[1].accountId = 'account-remote';
+    receive('voice:state', refreshedRoom);
+    expect(state.peerErrors).toEqual({ remote2: 'connection-failed' });
+    expect(peerConnections).toHaveLength(3);
+    const refreshed = peerConnections[2];
+    refreshed.connectionState = 'connected';
+    refreshed.onconnectionstatechange?.();
+    incomingTrack(2);
+    await flush();
+    expect(audios[2].play).toHaveBeenCalledOnce();
+    expect(state.peerErrors).toEqual({ remote2: 'connection-failed' });
+    receive('voice:state', room('self', ['refreshed']));
+    expect(state.peerErrors).toEqual({});
+    expect(state.error).toBeNull();
+    expect(microphone.stop).not.toHaveBeenCalled();
+  });
+
+  it('should preserve microphone errors when a failed remote player leaves', async () => {
+    joinResult = { success: true, peerId: 'self', state: room('self', ['remote']) };
+    await session.join('ABC123', 'alice');
+    peerConnections[0].connectionState = 'failed';
+    peerConnections[0].onconnectionstatechange?.();
+    media.mockRejectedValueOnce({ name: 'NotAllowedError' });
+    await session.setInputDevice('blocked-microphone');
+    receive('voice:state', room());
+    expect(state.peerErrors).toEqual({});
+    expect(state.error).toBe('permission');
+  });
+
+  it('should clear a recovered microphone error without hiding failed peers', async () => {
+    joinResult = { success: true, peerId: 'self', state: room('self', ['remote']) };
+    await session.join('ABC123', 'alice');
+    peerConnections[0].connectionState = 'failed';
+    peerConnections[0].onconnectionstatechange?.();
+    media.mockRejectedValueOnce({ name: 'NotReadableError' });
+    await session.setInputDevice('busy-microphone');
+    expect(state.error).toBe('microphone-busy');
+    media.mockResolvedValueOnce(makeStream([makeTrack()]));
+    await session.setInputDevice(null);
+    expect(state.error).toBeNull();
+    expect(state.peerErrors).toEqual({ remote: 'connection-failed' });
+  });
+
+  it('should expose each peer connection independently and discard departed state', async () => {
+    joinResult = { success: true, peerId: 'self', state: room('self', ['remote', 'remote2']) };
+    await session.join('ABC123', 'alice');
+    expect(state.peerConnections).toEqual({ remote: 'connecting', remote2: 'connecting' });
+    peerConnections[0].connectionState = 'connected';
+    peerConnections[0].onconnectionstatechange?.();
+    peerConnections[1].connectionState = 'failed';
+    peerConnections[1].onconnectionstatechange?.();
+    expect(state.peerConnections).toEqual({ remote: 'connected', remote2: 'failed' });
+    peerConnections[0].connectionState = 'disconnected';
+    peerConnections[0].onconnectionstatechange?.();
+    expect(state.peerConnections.remote).toBe('connecting');
+    receive('voice:state', room('self', ['remote']));
+    expect(state.peerConnections).toEqual({ remote: 'connecting' });
+    session.leave();
+    expect(state.peerConnections).toEqual({});
+  });
+
+  it('should isolate peer construction failures and avoid retrying them on unrelated room updates', async () => {
+    joinResult = { success: true, peerId: 'self', state: room('self', ['remote', 'remote2']) };
+    const constructor = vi.mocked(RTCPeerConnection);
+    constructor.mockImplementationOnce(function () {
+      throw new Error('Resource unavailable');
+    });
+    await session.join('ABC123', 'alice');
+    expect(state.status).toBe('joined');
+    expect(state.peerConnections).toEqual({ remote: 'failed', remote2: 'connecting' });
+    expect(peerConnections).toHaveLength(1);
+    receive('voice:state', room('self', ['remote', 'remote2']));
+    expect(constructor).toHaveBeenCalledTimes(2);
+    expect(microphone.stop).not.toHaveBeenCalled();
+  });
+
+  it('should retry a refreshed page join while its previous socket is still being removed', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    joinResult = {
+      success: false,
+      error: 'Voice is already active in another tab. Leave it there first.',
+    };
+    const joining = session.join('ABC123', 'alice');
+    await flush();
+    expect(state.status).toBe('joining');
+    expect(emit.mock.calls.filter(([event]) => event === 'voice:join')).toHaveLength(1);
+    joinResult = { success: true, peerId: 'new', state: room('new', ['remote']) };
+    await vi.advanceTimersByTimeAsync(1_000);
+    await joining;
+    expect(state).toMatchObject({ status: 'joined', peerId: 'new' });
+    expect(media).toHaveBeenCalledOnce();
+    expect(peerConnections).toHaveLength(1);
+  });
+
+  it('should cancel refresh retry immediately on leave without waiting for the retry timer', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    joinResult = {
+      success: false,
+      error: 'Voice is already active in another tab. Leave it there first.',
+    };
+    const joining = session.join('ABC123', 'alice');
+    await flush();
+    session.leave();
+    await joining;
+    await flush();
+    expect(state.status).toBe('idle');
+    expect(microphone.stop).toHaveBeenCalledOnce();
+    expect(emit).toHaveBeenCalledWith('voice:leave');
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(emit.mock.calls.filter(([event]) => event === 'voice:join')).toHaveLength(1);
+  });
+
+  it('should cancel a pending refresh retry on disconnect and allow a fresh explicit join', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    joinResult = {
+      success: false,
+      error: 'Voice is already active in another tab. Leave it there first.',
+    };
+    const joining = session.join('ABC123', 'alice');
+    await flush();
+    transport.connected = false;
+    receive('disconnect');
+    await joining;
+    expect(state).toMatchObject({ status: 'error', error: 'disconnected' });
+    transport.connected = true;
+    transport.id = 'fresh-socket';
+    media.mockResolvedValueOnce(makeStream([makeTrack()]));
+    joinResult = { success: true, peerId: 'fresh-peer', state: room('fresh-peer') };
+    await session.join('ABC123', 'alice');
+    expect(state).toMatchObject({ status: 'joined', peerId: 'fresh-peer' });
+    expect(emit).not.toHaveBeenCalledWith('voice:leave');
+  });
+
+  it('should stop retrying another active tab at the deadline without taking over its session', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    joinResult = {
+      success: false,
+      error: 'Voice is already active in another tab. Leave it there first.',
+    };
+    const joining = session.join('ABC123', 'alice');
+    await flush();
+    await vi.advanceTimersByTimeAsync(45_000);
+    await joining;
+    expect(state).toMatchObject({ status: 'error', error: 'join-failed' });
+    expect(microphone.stop).toHaveBeenCalledOnce();
+    expect(emit.mock.calls.filter(([event]) => event === 'voice:join')).toHaveLength(45);
   });
 
   it('should stop capture and peers when the server rejects a settings update', async () => {
@@ -483,9 +646,13 @@ describe('voice session lifecycle', () => {
 
   it('should fall back to the default microphone when the remembered one is gone', async () => {
     session.dispose();
-    session = createVoiceSession(transport as unknown as VoiceSocket, (next) => {
-      state = next;
-    }, { inputDeviceId: 'unplugged' });
+    session = createVoiceSession(
+      transport as unknown as VoiceSocket,
+      (next) => {
+        state = next;
+      },
+      { inputDeviceId: 'unplugged' },
+    );
     media.mockRejectedValueOnce({ name: 'OverconstrainedError' });
     await session.join('ABC123', 'alice');
     expect(media).toHaveBeenCalledTimes(2);
@@ -497,7 +664,10 @@ describe('voice session lifecycle', () => {
     await session.join('ABC123', 'alice');
     session.setPeerMuted('account-remote', true);
     session.setPeerVolume('account-remote2', 0.4);
-    expect(audios.map((audio) => [audio.muted, audio.volume])).toEqual([[true, 1], [false, 0.4]]);
+    expect(audios.map((audio) => [audio.muted, audio.volume])).toEqual([
+      [true, 1],
+      [false, 0.4],
+    ]);
     session.setDeafened(true);
     expect(audios.every((audio) => audio.muted)).toBe(true);
     session.setDeafened(false);
@@ -619,7 +789,11 @@ describe('voice session lifecycle', () => {
     );
     await session.join('ABC123', 'alice');
     await flush();
-    expect(state).toMatchObject({ status: 'joined', error: 'signal-failed' });
+    expect(state).toMatchObject({
+      status: 'joined',
+      error: null,
+      peerErrors: { 'z-remote': 'signal-failed' },
+    });
     expect(peerConnections[0].close).toHaveBeenCalledOnce();
     expect(microphone.stop).not.toHaveBeenCalled();
     expect(transport.connected).toBe(true);
@@ -682,11 +856,15 @@ describe('voice session lifecycle', () => {
 
 describe('stored peer preferences', () => {
   it('should keep valid entries and drop malformed storage', () => {
-    expect(parsePeerPrefs(JSON.stringify({
-      a: { muted: true, volume: 0.5 },
-      b: { muted: 'yes', volume: 1 },
-      c: { muted: false, volume: 3 },
-    }))).toEqual({ a: { muted: true, volume: 0.5 } });
+    expect(
+      parsePeerPrefs(
+        JSON.stringify({
+          a: { muted: true, volume: 0.5 },
+          b: { muted: 'yes', volume: 1 },
+          c: { muted: false, volume: 3 },
+        }),
+      ),
+    ).toEqual({ a: { muted: true, volume: 0.5 } });
     expect(parsePeerPrefs('not json')).toEqual({});
     expect(parsePeerPrefs(null)).toEqual({});
   });

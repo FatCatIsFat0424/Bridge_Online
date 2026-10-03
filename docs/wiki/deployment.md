@@ -168,6 +168,10 @@ deployment, clear the old `bridge_session` cookie once before signing in again.
 
 ## Operations, updates, and rollback
 
+The API proxy allows a 3 MiB request body so a supported 2 MiB background image
+fits after base64 JSON encoding. Application routes still enforce their own limits.
+Deploy the updated Nginx snippet as well as the frontend when applying this fix.
+
 Health checks poll for up to 30 seconds and require HTTP 200 with JSON
 `status: ok`. This covers connection refusal during Node startup and temporary
 404/502 responses while Nginx workers switch configurations after a reload.

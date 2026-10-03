@@ -98,6 +98,25 @@ describe('media HTTP routes', () => {
     expect((await upload(PNG, 'avatar', anonymous as typeof HEADERS)).status).toBe(401);
   });
 
+  it('should save and serve a maximum-size background after updating the profile', async () => {
+    await start(join(directory, 'media'));
+    const background = Buffer.alloc(2 * 1024 * 1024);
+    PNG.copy(background);
+    const uploaded = await upload(background, 'background');
+    expect(uploaded.status).toBe(200);
+    const { id } = await uploaded.json() as { id: string };
+    const updated = await fetch(`${baseUrl}/api/auth/profile`, {
+      method: 'PATCH', headers: HEADERS, body: JSON.stringify({ tableBackground: id }),
+    });
+    expect(updated.status).toBe(200);
+    expect(await updated.json()).toMatchObject({ account: { tableBackground: id } });
+    const served = await fetch(`${baseUrl}/api/media/${id}`);
+    expect(served.status).toBe(200);
+    expect(Buffer.from(await served.arrayBuffer()).equals(background)).toBe(true);
+    expect((await upload(Buffer.concat([background, Buffer.alloc(1)]), 'background')).status)
+      .toBe(413);
+  });
+
   it('should return 404 for malformed and missing media ids', async () => {
     await start(join(directory, 'media'));
     for (const id of ['nope', '..%2Fdatabase.json', `${'0'.repeat(64)}.png`]) {

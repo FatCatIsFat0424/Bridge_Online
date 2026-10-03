@@ -21,6 +21,10 @@ export type VoiceErrorCode =
   | 'signal-failed'
   | 'disconnected';
 
+export type VoicePeerConnection = 'connecting' | 'connected' | 'failed';
+
+export type VoicePeerError = 'connection-failed' | 'signal-failed';
+
 export interface VoiceClientState {
   status: 'idle' | 'joining' | 'joined' | 'error';
   roomCode: string | null;
@@ -30,6 +34,8 @@ export interface VoiceClientState {
   deafened: boolean;
   error: VoiceErrorCode | null;
   autoplayBlocked: boolean;
+  peerErrors: Record<string, VoicePeerError>;
+  peerConnections: Record<string, VoicePeerConnection>;
   inputDeviceId: string | null;
   outputDeviceId: string | null;
   peerPrefs: Record<string, PeerPreference>;
@@ -85,6 +91,8 @@ export function initialVoiceState(): VoiceClientState {
     deafened: false,
     error: null,
     autoplayBlocked: false,
+    peerErrors: {},
+    peerConnections: {},
     inputDeviceId: null,
     outputDeviceId: null,
     peerPrefs: {},
@@ -173,6 +181,7 @@ export function createVoiceSession(
   let configuration: RTCConfiguration = {};
   let latestState: VoiceRoomState | null = null;
   let pendingSignals: VoiceIncomingSignal[] = [];
+  let cancelJoinRetry: (() => void) | null = null;
   let membershipPossible = false;
   let membershipGeneration = -1;
   let membershipSocketId: string | undefined;
@@ -186,6 +195,8 @@ export function createVoiceSession(
         ...state,
         participants: state.participants.map((participant) => ({ ...participant })),
         peerPrefs: { ...state.peerPrefs },
+        peerErrors: { ...state.peerErrors },
+        peerConnections: { ...state.peerConnections },
       });
   }
 
@@ -277,6 +288,8 @@ export function createVoiceSession(
 
   function release(error: VoiceErrorCode | null = null, notify = true): void {
     generation += 1;
+    cancelJoinRetry?.();
+    cancelJoinRetry = null;
     for (const [track, listener] of trackListeners) track.removeEventListener('ended', listener);
     trackListeners.clear();
     localStream?.getTracks().forEach((track) => track.stop());
@@ -300,14 +313,19 @@ export function createVoiceSession(
       peerId: null,
       participants: [],
       error,
+      peerErrors: {},
+      peerConnections: {},
       autoplayBlocked: false,
     });
   }
 
-  function failPeer(peer: Peer, error: VoiceErrorCode): void {
+  function failPeer(peer: Peer, error: VoicePeerError): void {
     if (!active(peer)) return;
     closePeer(peer);
-    publish({ error });
+    publish({
+      peerErrors: { ...state.peerErrors, [peer.id]: error },
+      peerConnections: { ...state.peerConnections, [peer.id]: 'failed' },
+    });
     playbackState();
   }
 
@@ -374,6 +392,7 @@ export function createVoiceSession(
       timer: null,
     };
     peers.set(id, peer);
+    publish({ peerConnections: { ...state.peerConnections, [id]: 'connecting' } });
     audio.hidden = true;
     applyPeerAudio(peer);
     if (state.outputDeviceId) applySink(peer);
@@ -401,7 +420,16 @@ export function createVoiceSession(
     };
     connection.onconnectionstatechange = (): void => {
       if (!active(peer)) return;
-      if (connection.connectionState === 'failed') failPeer(peer, 'connection-failed');
+      if (connection.connectionState === 'failed') {
+        failPeer(peer, 'connection-failed');
+        return;
+      }
+      publish({
+        peerConnections: {
+          ...state.peerConnections,
+          [id]: connection.connectionState === 'connected' ? 'connected' : 'connecting',
+        },
+      });
       if (connection.connectionState === 'connected' && peer.timer) {
         clearTimeout(peer.timer);
         peer.timer = null;
@@ -455,11 +483,25 @@ export function createVoiceSession(
         closePeer(peer);
         peers.delete(id);
       }
-    publish({ participants });
-    try {
-      for (const id of remoteIds) if (!peers.has(id)) createPeer(id);
-    } catch {
-      release('connection-failed');
+    const peerErrors = Object.fromEntries(
+      Object.entries(state.peerErrors).filter(([id]) => remoteIds.has(id)),
+    );
+    const peerConnections = Object.fromEntries(
+      Object.entries(state.peerConnections).filter(([id]) => remoteIds.has(id)),
+    );
+    publish({ participants, peerErrors, peerConnections });
+    for (const id of remoteIds) {
+      if (peers.has(id) || state.peerErrors[id]) continue;
+      try {
+        createPeer(id);
+      } catch {
+        const peer = peers.get(id);
+        if (peer) closePeer(peer);
+        publish({
+          peerErrors: { ...state.peerErrors, [id]: 'connection-failed' },
+          peerConnections: { ...state.peerConnections, [id]: 'failed' },
+        });
+      }
     }
     playbackState();
   }
@@ -603,7 +645,40 @@ export function createVoiceSession(
           membershipGeneration = currentGeneration;
           membershipSocketId = socket.id;
           const settings = { muted: state.muted, deafened: state.deafened };
-          const result = await socket.timeout(10_000).emitWithAck('voice:join', settings);
+          const joinSocketId = socket.id;
+          const deadline = Date.now() + 45_000;
+          let result = await socket.timeout(10_000).emitWithAck('voice:join', settings);
+          // A refreshed page can reconnect before the server observes the old socket closing.
+          while (
+            !result.success &&
+            result.error === 'Voice is already active in another tab. Leave it there first.' &&
+            currentGeneration === generation &&
+            !disposed &&
+            socket.connected &&
+            socket.id === joinSocketId &&
+            Date.now() < deadline
+          ) {
+            await new Promise<void>((resolve) => {
+              const finish = (): void => {
+                clearTimeout(timer);
+                cancelJoinRetry = null;
+                resolve();
+              };
+              const timer = setTimeout(finish, Math.min(1_000, deadline - Date.now()));
+              cancelJoinRetry = finish;
+            });
+            if (
+              currentGeneration !== generation ||
+              disposed ||
+              !socket.connected ||
+              socket.id !== joinSocketId
+            )
+              return;
+            if (Date.now() >= deadline) break;
+            result = await socket
+              .timeout(Math.min(10_000, deadline - Date.now()))
+              .emitWithAck('voice:join', settings);
+          }
           if (currentGeneration !== generation || disposed) return;
           if (
             !result.success ||
@@ -689,6 +764,12 @@ export function createVoiceSession(
         old.stop();
       }
       localStream = stream;
+      if (
+        state.error === 'permission' ||
+        state.error === 'no-microphone' ||
+        state.error === 'microphone-busy'
+      )
+        publish({ error: null });
     },
     setOutputDevice(deviceId): void {
       publish({ outputDeviceId: deviceId });

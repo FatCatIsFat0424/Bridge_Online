@@ -98,7 +98,8 @@ export function VoicePanel(): ReactNode {
   const roomCode = useRoomStore((state) => state.currentRoomCode);
   const roomInfo = useRoomStore((state) => state.roomInfo);
   const accountId = account?.id;
-  const { status, participants, muted, deafened, error, autoplayBlocked, peerPrefs } =
+  const { status, participants, muted, deafened, error, autoplayBlocked, peerPrefs,
+    peerErrors, peerConnections, peerId } =
     useVoiceStore(useShallow((state) => ({
       status: state.status,
       participants: state.participants,
@@ -107,6 +108,9 @@ export function VoicePanel(): ReactNode {
       error: state.error,
       autoplayBlocked: state.autoplayBlocked,
       peerPrefs: state.peerPrefs,
+      peerErrors: state.peerErrors,
+      peerConnections: state.peerConnections,
+      peerId: state.peerId,
     })));
   const [profiles, setProfiles] = useState<Record<string, PublicAccount>>({});
   const [showDevices, setShowDevices] = useState(false);
@@ -143,6 +147,11 @@ export function VoicePanel(): ReactNode {
   const joined = status === 'joined';
   const joining = status === 'joining';
   const canJoin = connection === 'ready';
+  const remoteParticipants = participants.filter((participant) => participant.peerId !== peerId);
+  const hasPeerErrors = Object.keys(peerErrors).length > 0;
+  const allConnected = remoteParticipants.length > 0 && remoteParticipants.every(
+    (participant) => peerConnections[participant.peerId] === 'connected',
+  );
 
   return (
     <section className={styles.panel} aria-labelledby="table-voice-title">
@@ -150,8 +159,9 @@ export function VoicePanel(): ReactNode {
         <div className={styles.heading}>
           <h2 id="table-voice-title">{t('voice.title')}</h2>
           <span className={styles.roomCode}>{roomCode}</span>
-          <span className={joined ? styles.connected : styles.status} role="status">
-            {t(joined ? 'voice.joined' : joining ? 'common.loading' : 'voice.off')}
+          <span className={joined && allConnected ? styles.connected : styles.status} role="status">
+            {t(joined ? hasPeerErrors ? 'voice.partial' : allConnected ? 'voice.connected'
+              : 'voice.joined' : joining ? 'common.loading' : 'voice.off')}
           </span>
         </div>
         <div className={styles.controls}>
@@ -167,6 +177,10 @@ export function VoicePanel(): ReactNode {
             </button>
             <button type="button" className="btn btn-outline" onClick={leaveVoice}>
               {t('voice.leave')}
+            </button>
+            <button type="button" className="btn btn-outline" disabled={!canJoin}
+              onClick={() => { leaveVoice(); void joinVoice(roomCode, account.id); }}>
+              {t('voice.rejoin')}
             </button>
           </> : joining ? <button type="button" className="btn btn-outline" onClick={leaveVoice}>
             {t('common.cancel')}
@@ -199,6 +213,13 @@ export function VoicePanel(): ReactNode {
               <span className={participant.muted ? styles.muted : styles.status}>
                 {t(participant.muted ? 'voice.muted' : 'voice.microphoneOn')}</span>
               {participant.deafened && <span className={styles.muted}>{t('voice.deafened')}</span>}
+              {participant.peerId !== peerId && <span
+                className={`${styles.peerStatus} ${peerErrors[participant.peerId] ? styles.error : styles.status}`}
+                role={peerErrors[participant.peerId] ? 'alert' : 'status'}>
+                {t(peerErrors[participant.peerId] ? 'voice.peerFailed'
+                  : peerConnections[participant.peerId] === 'connected'
+                    ? 'voice.peerConnected' : 'voice.peerConnecting')}
+              </span>}
               {participant.accountId !== account.id && (() => {
                 const preference = peerPrefs[participant.accountId] ?? DEFAULT_PEER_PREFERENCE;
                 return <div className={styles.peerControls}>

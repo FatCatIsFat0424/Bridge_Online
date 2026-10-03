@@ -50,6 +50,26 @@ TURN 憑證須使用適合瀏覽器的短效或限制用途憑證，不能放入
 
 ## 隔離與生命週期
 
+The panel distinguishes room membership from audio transport connectivity. Each
+remote player has a connecting, connected, or failed state. Errors belong to a
+peer ID and disappear when that peer leaves or rejoins with a fresh ID; another
+player's success never hides remaining failures. Device/session errors stay separate.
+A connected transport does not prove audible microphone input: also check mute,
+per-player volume, output device, and the browser playback prompt.
+
+**Rejoin voice** explicitly replaces failed connections while retaining device
+and listening preferences. Refresh closes the old Socket.IO transport. If its
+membership has not expired yet, a user-initiated join retries the duplicate-tab
+response for up to 45 seconds. Cancel, leave, and disconnect stop that retry; it
+never takes over another active tab. Refresh still requires explicitly joining
+voice again and does not automatically enable a microphone.
+
+Browser validation used three synthetic audio streams and real WebRTC connections
+with a local signaling harness. All six connections exchanged RTP bytes; replacing
+one participant restored its links without dropping the remaining pair. This does
+not verify physical microphones or restrictive cross-network connectivity. TURN
+is still needed when peers cannot connect directly; see ICE configuration above.
+
 伺服器每次協商驗證來源與目標的 session、語音 peer 及已提交的房間身分。
 新的加入週期取得新的 peer ID；過期協商不會接到新的通話。
 同一分頁重複 join 保持原 peer ID，離開再加入才換 ID。

@@ -148,6 +148,38 @@ describe('table voice signaling', (): void => {
     expect(replacement.state?.participants).toHaveLength(2);
   });
 
+  it('should restore signaling after a refreshed page resumes its table with a new peer', async (): Promise<void> => {
+    const app = await fixture();
+    const [originalPage, otherPlayer] = app.clients[0];
+    const original = await join(originalPage);
+    const other = await join(otherPlayer);
+    const departed = nextState(otherPlayer, (state) => state.participants.length === 1);
+    originalPage.disconnect();
+    await departed;
+
+    const refreshedPage = await app.connect(app.cookies[0][0]);
+    expect(await refreshedPage.timeout(5_000).emitWithAck('player:resume'))
+      .toMatchObject({ success: true, room: { code: app.roomCodes[0] } });
+    const replacement = await join(refreshedPage);
+    expect(replacement.peerId).not.toBe(original.peerId);
+    expect(replacement.state?.participants).toHaveLength(2);
+    expect(await otherPlayer.timeout(5_000).emitWithAck('voice:signal', {
+      targetPeerId: original.peerId, description,
+    })).toMatchObject({ success: false });
+
+    const offer = nextSignal(refreshedPage);
+    expect(await otherPlayer.timeout(5_000).emitWithAck('voice:signal', {
+      targetPeerId: replacement.peerId, description,
+    })).toEqual({ success: true });
+    expect(await offer).toEqual({ fromPeerId: other.peerId, description });
+    const answerDescription = { type: 'answer' as const, sdp: description.sdp };
+    const answer = nextSignal(otherPlayer);
+    expect(await refreshedPage.timeout(5_000).emitWithAck('voice:signal', {
+      targetPeerId: other.peerId, description: answerDescription,
+    })).toEqual({ success: true });
+    expect(await answer).toEqual({ fromPeerId: replacement.peerId, description: answerDescription });
+  });
+
   it('removes voice on HTTP logout and reauthenticates both signal endpoints', async (): Promise<void> => {
     const app = await fixture();
     const [a, b, c] = app.clients[0];

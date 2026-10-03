@@ -5,6 +5,8 @@ import { SERVER_URL, SOCKET_PATH } from './deployment';
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(SERVER_URL, {
   path: SOCKET_PATH,
   autoConnect: false,
+  // Close the old transport on refresh instead of waiting for its heartbeat timeout.
+  closeOnBeforeunload: true,
   withCredentials: true,
   transports: ['websocket', 'polling'],
   reconnection: true,
