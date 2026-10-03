@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayingState } from '@shared/types';
-import { auctionRows, formatCountdown, remainingCards } from '../../../client/src/game-view';
+import { auctionRows, formatCountdown, lastElimination, lastMove, remainingCards } from '../../../client/src/game-view';
 import type { AuctionCall } from '../../../client/src/game-view';
 
 const pass = { type: 'pass' } as const;
@@ -53,5 +53,25 @@ describe('formatCountdown', () => {
     expect(formatCountdown(9_500)).toBe('0:10');
     expect(formatCountdown(0)).toBe('0:00');
     expect(formatCountdown(-5_000)).toBe('0:00');
+  });
+});
+
+describe('lastMove', () => {
+  it('finds the latest play, flip or pass and skips other entries', () => {
+    expect(lastMove([])).toBeNull();
+    expect(lastMove([{ type: 'bid', seat: 'N' }])).toBeNull();
+    expect(lastMove([
+      { type: 'play', seat: 'N' }, { type: 'pass', seat: 'E' }, { type: 'trick_end' }, { type: 'eliminated', seat: 'S' },
+    ])).toEqual({ seat: 'E', index: 1, pass: true });
+    expect(lastMove([{ type: 'flip', seat: 'W' }])).toEqual({ seat: 'W', index: 0, pass: false });
+  });
+});
+
+describe('lastElimination', () => {
+  it('finds the latest bust only', () => {
+    expect(lastElimination([{ type: 'play', seat: 'N' }])).toBeNull();
+    expect(lastElimination([
+      { type: 'eliminated', seat: 'E' }, { type: 'play', seat: 'S' }, { type: 'eliminated', seat: 'W' }, { type: 'play', seat: 'N' },
+    ])).toEqual({ seat: 'W', index: 2 });
   });
 });

@@ -22,9 +22,11 @@ interface TableSeatProps {
   position: TablePosition;
   /** 可點選座位（99：指定下一位） */
   onPick?: () => void;
+  /** 此座位剛出的牌（變動即重播閃光） */
+  moveKey?: number;
 }
 
-export function TableSeat({ seat, position, onPick }: TableSeatProps): ReactNode {
+export function TableSeat({ seat, position, onPick, moveKey }: TableSeatProps): ReactNode {
   const { t } = useI18nStore();
   const player = useRoomStore((state) => state.roomInfo?.seats[seat].player ?? null);
   const isMe = useRoomStore((state) => state.mySeat === seat);
@@ -48,7 +50,7 @@ export function TableSeat({ seat, position, onPick }: TableSeatProps): ReactNode
   const redCaptured = captured?.filter((card) => rpCardPoints(card) > 0) ?? [];
 
   return (
-    <div className={`${styles.seat} ${styles[position]} ${active ? styles.turn : ''} ${onPick ? styles.pickable : ''}`}
+    <div className={`${styles.seat} ${styles[position]} ${active ? styles.turn : ''} ${busted ? styles.out : ''} ${onPick ? styles.pickable : ''}`}
       role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={onPick}
       onKeyDown={onPick ? (event) => { if (event.key === 'Enter' || event.key === ' ') onPick(); } : undefined}>
       <div className={styles.plate}>
@@ -61,7 +63,8 @@ export function TableSeat({ seat, position, onPick }: TableSeatProps): ReactNode
           {locked && <span className={styles.locked}>🔒 {t('bigtwo.locked')}</span>}
           {busted && <span className={styles.locked}>💥 {t('ninetynine.busted')}</span>}
         </span>
-        {active && <span className={styles.turnFlag}>{t('table.turn')}</span>}
+        {active && <span className={styles.turnFlag}>▼ {t('table.turn')}</span>}
+        {moveKey !== undefined && <span key={moveKey} className={styles.moved} aria-hidden="true" />}
       </div>
       {captured && <div className={styles.pile} title={t('redpoints.captured')}>
         <span className={styles.redPoints}>{t('redpoints.points', { n: String(rpScore(captured)) })}</span>
