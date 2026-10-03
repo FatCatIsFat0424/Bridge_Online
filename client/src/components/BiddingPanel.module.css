@@ -105,3 +105,11 @@
   .bidBtn { height: 30px; }
   .waitingPill { white-space: normal; text-align: center; }
 }
+
+@container (max-height: 420px) {
+  .biddingContainer { width: 280px; padding: 4px 6px; }
+  .header { margin-bottom: 4px; }
+  .bidGrid { grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; }
+  .bidBtn { height: 22px; font-size: var(--text-xs); }
+  .passBtn { height: 24px; font-size: var(--text-xs); }
+}

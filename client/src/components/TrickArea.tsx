@@ -35,9 +35,11 @@ export function TrickArea({ currentTrick, leadSeat, bottomSeat, myTurn }: TrickA
             <div className={styles.trickCard} role="img"
               aria-label={`${t(`seat.${seat}`)} ${RANK_DISPLAY[card.rank]}${SUIT_SYMBOLS[card.suit]}`}>
               <img src={cardImageUrl(card)} alt="" draggable={false} />
-              {seat === leadSeat && <span className={styles.lead}>{t('table.lead')}</span>}
             </div>
-            <span className={styles.who}>{t(`seat.${seat}`)}</span>
+            <span className={styles.who}>
+              {t(`seat.${seat}`)}
+              {seat === leadSeat && <span className={styles.lead}>{t('table.lead')}</span>}
+            </span>
           </div>
         );
       })}

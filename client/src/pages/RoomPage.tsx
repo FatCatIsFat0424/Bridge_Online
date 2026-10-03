@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { GAME_TYPES } from '@shared/constants';
 import type { GameType, Seat } from '@shared/types';
 import { socket } from '../socket';
+import { mediaUrl } from '../media';
+import { useAccountStore } from '../stores/account-store';
 import { usePlayerStore } from '../stores/player-store';
 import { useRoomStore } from '../stores/room-store';
 import { useGameStore } from '../stores/game-store';
@@ -20,6 +22,7 @@ const SEAT_STYLE_MAP: Record<Seat, string> = {
 export function RoomPage(): ReactNode {
   const { roomCode } = useParams<{ roomCode: string }>();
   const navigate = useNavigate();
+  const tableBackground = useAccountStore((state) => state.account?.tableBackground);
   const playerId = usePlayerStore((state) => state.playerId);
   const roomInfo = useRoomStore((state) => state.roomInfo);
   const mySeat = useRoomStore((state) => state.mySeat);
@@ -89,7 +92,7 @@ export function RoomPage(): ReactNode {
   </main>;
 
   return (
-    <main className={styles.roomContainer}>
+    <main className={`${styles.roomContainer} ${styles.roomLayout}`}>
       <div className={styles.roomHeader}>
         <div><div className={styles.roomCodeLabel}>{t('room.code')}</div>
           <div className={styles.roomCode}>{roomInfo.code}</div></div>
@@ -113,6 +116,9 @@ export function RoomPage(): ReactNode {
         </div>
       </div>
       {error && <p className={styles.error} role="alert">{error}</p>}
+      <div className={`${styles.tableArea} ${tableBackground ? styles.customTable : ''}`}
+        style={tableBackground
+          ? { '--table-image': `url("${mediaUrl(tableBackground)}")` } as CSSProperties : undefined}>
       <div className={styles.seatLayout}>
         {(['N', 'E', 'S', 'W'] as Seat[]).map((seat) => {
           const seatInfo = roomInfo.seats[seat];
@@ -140,12 +146,14 @@ export function RoomPage(): ReactNode {
             </button>
           );
         })}
-        <div className={styles.tableCenter}><div className={styles.tableCenterText}>
+        <div className={styles.tableCenter}>
+          <div className={styles.tableCenterText}>
           {t('room.waiting')}</div></div>
       </div>
       <div className={styles.roomFooter}>
         <button className={`btn ${isReady ? 'btn-danger' : 'btn-success'} ${styles.readyBtn}`}
           onClick={ready} disabled={busy || !mySeat}>{t(isReady ? 'room.unready' : 'room.ready')}</button>
+      </div>
       </div>
       <div className={styles.chat}><ChatPanel /></div>
     </main>

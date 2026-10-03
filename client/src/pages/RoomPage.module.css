@@ -6,9 +6,7 @@
   flex-direction: column;
   align-items: center;
   padding: var(--spacing-md) var(--spacing-xl);
-  background:
-    radial-gradient(ellipse at bottom, color-mix(in srgb, var(--color-primary) 5%, transparent) 0%, transparent 60%),
-    var(--bg-page);
+  background: var(--bg-page);
 }
 
 .headerActions { display: flex; gap: var(--spacing-sm); }
@@ -132,14 +130,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-table);
-  border: 2px solid var(--bg-table-border);
+  color: var(--table-ink);
+}
+
+.tableArea {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--table-surface);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-inset);
+  min-height: 0;
+}
+
+.customTable {
+  background:
+    linear-gradient(color-mix(in srgb, var(--bg-surface) 35%, transparent),
+      color-mix(in srgb, var(--bg-surface) 35%, transparent)),
+    var(--table-image) center / cover no-repeat,
+    var(--table-surface);
 }
 
 .tableCenterText {
-  color: var(--text-muted);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--bg-surface) 75%, transparent);
+  color: var(--text-primary);
   font-size: var(--text-sm);
 }
 
@@ -150,8 +166,8 @@
   align-items: center;
   justify-content: center;
   padding: var(--spacing-md);
-  background: var(--bg-card);
-  border: 2px solid var(--border-color);
+  background: transparent;
+  border: 2px solid transparent;
   border-radius: var(--radius-lg);
   cursor: pointer;
   transition: all var(--transition-normal);
@@ -159,8 +175,7 @@
 }
 
 .seatSlot:hover {
-  border-color: var(--color-primary);
-  background: var(--bg-card-hover);
+  background: color-mix(in srgb, var(--bg-surface) 20%, transparent);
   transform: scale(1.02);
 }
 
@@ -170,16 +185,26 @@
 
 .seatSlotOccupied:hover {
   transform: none;
+  background: transparent;
 }
 
 .seatSlotMine {
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-glow);
+  color: var(--color-primary);
 }
+
+.seatSlot > a {
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--bg-surface) 75%, transparent);
+}
+
+.seatSlotMine > a { box-shadow: 0 0 0 2px var(--color-primary); }
+
+.hostBadge { color: var(--table-ink); }
 
 .seatLabel {
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--table-ink);
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: var(--spacing-xs);
@@ -187,7 +212,7 @@
 
 .seatEmpty {
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--table-ink);
 }
 
 .seatPlayerName {
@@ -242,4 +267,57 @@
 
 @media (max-width: 767px) {
   .gameTypeRow { order: 3; width: 100%; justify-content: center; }
+}
+
+/* Keep the waiting table and readiness controls beside the conversation. */
+.roomLayout {
+  display: grid;
+  height: calc(100dvh - var(--topbar-height));
+  min-height: 600px;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 28vw, 440px);
+  grid-template-areas:
+    'header header'
+    'error error'
+    'table chat';
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-items: start;
+  justify-content: center;
+  column-gap: var(--spacing-xl);
+  row-gap: var(--spacing-md);
+}
+
+.roomLayout > * { min-width: 0; }
+.roomLayout .roomHeader { grid-area: header; max-width: none; margin-bottom: 0; }
+.roomLayout .error { grid-area: error; }
+.roomLayout .tableArea { grid-area: table; height: 100%; }
+.roomLayout .seatLayout {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  aspect-ratio: auto;
+}
+.roomLayout .roomFooter { justify-self: center; margin-top: 0; }
+
+.roomLayout .chat {
+  grid-area: chat;
+  margin-top: 0;
+  height: 100%;
+  max-width: none;
+  min-height: 0;
+}
+
+.roomLayout .chat > * { height: 100%; }
+
+@media (max-width: 767px) {
+  .roomLayout {
+    height: auto;
+    min-height: calc(100dvh - var(--topbar-height));
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'header' 'error' 'table' 'chat';
+    grid-template-rows: auto;
+  }
+
+  .roomLayout .seatLayout { height: auto; }
+  .roomLayout .tableArea { height: auto; grid-template-rows: auto auto; }
+  .roomLayout .chat { height: 360px; }
 }

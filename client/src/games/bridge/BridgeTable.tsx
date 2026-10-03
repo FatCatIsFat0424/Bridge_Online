@@ -15,55 +15,59 @@ import { GameInfoRail } from '../../components/GameInfoRail';
 import { TrickArea } from '../../components/TrickArea';
 import { GameShell } from '../GameShell';
 import styles from './BridgeTable.module.css';
+import { useTrickPresentation } from './use-trick-presentation';
+import { TrickHistory } from './TrickHistory';
 
 export function BridgeTable(): ReactNode {
   const mySeat = useRoomStore((state) => state.mySeat);
   const { t } = useI18nStore();
   const [actionError, setActionError] = useState('');
   const [actionPending, setActionPending] = useState(false);
-  const {
-    phase,
-    myHand,
-    currentTurnSeat,
-    validCards,
-    playing,
-    result,
-    redealPendingSeat,
-  } = useGameStore(useShallow((state) => ({
-    phase: state.phase,
-    myHand: state.myHand,
-    currentTurnSeat: state.currentTurnSeat,
-    validCards: state.validCards,
-    playing: state.playing,
-    result: state.result,
-    redealPendingSeat: state.redealPendingSeat,
-  })));
+  const { phase, myHand, currentTurnSeat, validCards, playing, result, redealPendingSeat } =
+    useGameStore(
+      useShallow((state) => ({
+        phase: state.phase,
+        myHand: state.myHand,
+        currentTurnSeat: state.currentTurnSeat,
+        validCards: state.validCards,
+        playing: state.playing,
+        result: state.result,
+        redealPendingSeat: state.redealPendingSeat,
+      })),
+    );
 
-  const isMyTurn = mySeat === currentTurnSeat;
+  const heldTrick = useTrickPresentation();
+  const isMyTurn = mySeat === currentTurnSeat && !heldTrick;
   const bottomSeat: Seat = mySeat ?? 'S';
 
   const seatLabel = (seat: Seat): string => t(`seat.${seat}`);
 
-  const handleActionResult = useCallback((
-    timeout: Error | null,
-    response?: { success: boolean; error?: string },
-  ): void => {
-    setActionPending(false);
-    if (timeout) setActionError(t('auth.connectionError'));
-    else if (!response?.success) setActionError(response?.error ?? t('common.error'));
-  }, [t]);
+  const handleActionResult = useCallback(
+    (timeout: Error | null, response?: { success: boolean; error?: string }): void => {
+      setActionPending(false);
+      if (timeout) setActionError(t('auth.connectionError'));
+      else if (!response?.success) setActionError(response?.error ?? t('common.error'));
+    },
+    [t],
+  );
 
-  const handlePlayCard = useCallback((card: Card): void => {
-    setActionError('');
-    setActionPending(true);
-    socket.timeout(10000).emit('game:playCard', { card }, handleActionResult);
-  }, [handleActionResult]);
+  const handlePlayCard = useCallback(
+    (card: Card): void => {
+      setActionError('');
+      setActionPending(true);
+      socket.timeout(10000).emit('game:playCard', { card }, handleActionResult);
+    },
+    [handleActionResult],
+  );
 
-  const handleRedealResponse = useCallback((accept: boolean): void => {
-    setActionError('');
-    setActionPending(true);
-    socket.timeout(10000).emit('game:redealResponse', { accept }, handleActionResult);
-  }, [handleActionResult]);
+  const handleRedealResponse = useCallback(
+    (accept: boolean): void => {
+      setActionError('');
+      setActionPending(true);
+      socket.timeout(10000).emit('game:redealResponse', { accept }, handleActionResult);
+    },
+    [handleActionResult],
+  );
 
   const handleBackToRoom = useCallback((): void => {
     setActionError('');
@@ -72,9 +76,30 @@ export function BridgeTable(): ReactNode {
   }, [handleActionResult]);
 
   let centre: ReactNode;
-  if (phase === 'playing' && playing) {
-    centre = <TrickArea currentTrick={playing.currentTrick} leadSeat={playing.trickLeadSeat}
-      bottomSeat={bottomSeat} myTurn={isMyTurn} />;
+  if (heldTrick) {
+    centre = (
+      <div className={styles.completedTrick}>
+        <TrickArea
+          currentTrick={heldTrick.trick.cards}
+          leadSeat={heldTrick.trick.leadSeat}
+          bottomSeat={bottomSeat}
+          myTurn={false}
+        />
+        <p className={styles.trickResult} role="status">
+          {t('table.trickNumber', { n: String(heldTrick.number) })} ·{' '}
+          {t('table.trickWinner', { seat: seatLabel(heldTrick.trick.winnerSeat) })}
+        </p>
+      </div>
+    );
+  } else if (phase === 'playing' && playing) {
+    centre = (
+      <TrickArea
+        currentTrick={playing.currentTrick}
+        leadSeat={playing.trickLeadSeat}
+        bottomSeat={bottomSeat}
+        myTurn={isMyTurn}
+      />
+    );
   } else if (phase === 'bidding') {
     centre = <BiddingPanel />;
   } else if (phase === 'redeal_pending' && redealPendingSeat === mySeat) {
@@ -83,12 +108,18 @@ export function BridgeTable(): ReactNode {
         <h2 className={styles.overlayTitle}>{t('redeal.title')}</h2>
         <p className={styles.overlayText}>{t('redeal.description')}</p>
         <div className={styles.overlayActions}>
-          <button className="btn btn-success" disabled={actionPending}
-            onClick={() => handleRedealResponse(true)}>
+          <button
+            className="btn btn-success"
+            disabled={actionPending}
+            onClick={() => handleRedealResponse(true)}
+          >
             {t('redeal.accept')}
           </button>
-          <button className="btn btn-outline" disabled={actionPending}
-            onClick={() => handleRedealResponse(false)}>
+          <button
+            className="btn btn-outline"
+            disabled={actionPending}
+            onClick={() => handleRedealResponse(false)}
+          >
             {t('redeal.decline')}
           </button>
         </div>
@@ -101,19 +132,36 @@ export function BridgeTable(): ReactNode {
   }
 
   // 結算彈窗
-  const overlay = phase === 'scoring' && result && (
+  const overlay = phase === 'scoring' && result && !heldTrick && (
     <div className={styles.scoreOverlay}>
       <div className={styles.overlayCard}>
-        <h2 className={`${styles.scoreTitle} ${result.declarerTeamWins ? styles.scoreWin : styles.scoreLose}`}>
+        <h2
+          className={`${styles.scoreTitle} ${result.declarerTeamWins ? styles.scoreWin : styles.scoreLose}`}
+        >
           {result.declarerTeamWins ? t('score.declarerWins') : t('score.defenderWins')}
         </h2>
         <div className={styles.scoreDetails}>
-          <div>{t('game.contract')}：<BidLabel level={result.contract.level} suit={result.contract.suit} /> by {seatLabel(result.contract.declarer)}</div>
-          <div>{t('score.required')}：{result.requiredTricks}</div>
-          <div>{t('score.declarerTricks')}：{result.declarerTeamTricks}</div>
-          <div>{t('score.defenderTricks')}：{result.defenderTeamTricks}</div>
+          <div>
+            {t('game.contract')}：
+            <BidLabel level={result.contract.level} suit={result.contract.suit} /> by{' '}
+            {seatLabel(result.contract.declarer)}
+          </div>
+          <div>
+            {t('score.required')}：{result.requiredTricks}
+          </div>
+          <div>
+            {t('score.declarerTricks')}：{result.declarerTeamTricks}
+          </div>
+          <div>
+            {t('score.defenderTricks')}：{result.defenderTeamTricks}
+          </div>
         </div>
-        {actionError && <p className={styles.actionError} role="alert">{actionError}</p>}
+        <TrickHistory tricks={playing?.completedTricks ?? []} />
+        {actionError && (
+          <p className={styles.actionError} role="alert">
+            {actionError}
+          </p>
+        )}
         <button className="btn btn-primary" disabled={actionPending} onClick={handleBackToRoom}>
           {t('score.backToRoom')}
         </button>
@@ -125,12 +173,14 @@ export function BridgeTable(): ReactNode {
     <GameShell
       info={<GameInfoRail />}
       centre={centre}
-      hand={<CardHand
-        cards={myHand}
-        playableCards={isMyTurn ? validCards : []}
-        onCardClick={handlePlayCard}
-        disabled={actionPending || !isMyTurn || phase !== 'playing'}
-      />}
+      hand={
+        <CardHand
+          cards={myHand}
+          playableCards={isMyTurn ? validCards : []}
+          onCardClick={handlePlayCard}
+          disabled={actionPending || !isMyTurn || phase !== 'playing'}
+        />
+      }
       overlay={overlay}
       error={phase !== 'scoring' ? actionError : undefined}
     />

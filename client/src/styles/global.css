@@ -6,6 +6,7 @@
 /* ─── CSS 變數 ─── */
 /* :root = dashboard 主題；[data-theme] 區塊只覆寫變數 */
 :root {
+  --playing-card-scale: 1;
   color-scheme: dark;
 
   /* 色彩 — 深色主題 */

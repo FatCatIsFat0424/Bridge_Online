@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import type { BidLevel, BidSuit, Seat } from '@shared/types';
 import { SUIT_SYMBOLS } from '@shared/constants';
-import { AUCTION_COLUMNS, auctionRows } from '../game-view';
+import { AUCTION_COLUMNS, auctionRows, auctionWaitIndex } from '../game-view';
 import type { AuctionCall } from '../game-view';
 import { useI18nStore } from '../stores/i18n-store';
 import styles from './AuctionTable.module.css';
@@ -16,16 +16,14 @@ export function BidLabel({ level, suit }: { level: BidLevel; suit: BidSuit }): R
 
 interface AuctionTableProps {
   calls: readonly AuctionCall[];
-  dealer: Seat | null;
   toAct: Seat | null;
   mySeat: Seat | null;
 }
 
-export function AuctionTable({ calls, dealer, toAct, mySeat }: AuctionTableProps): ReactNode {
+export function AuctionTable({ calls, toAct, mySeat }: AuctionTableProps): ReactNode {
   const { t } = useI18nStore();
-  const start = dealer ?? calls[0]?.seat ?? null;
-  const rows = start ? auctionRows(calls, start) : [];
-  const waitIndex = start && toAct ? AUCTION_COLUMNS.indexOf(start) + calls.length : -1;
+  const rows = auctionRows(calls);
+  const waitIndex = auctionWaitIndex(calls, toAct);
   if (waitIndex >= rows.length * 4) rows.push([null, null, null, null]);
 
   return (

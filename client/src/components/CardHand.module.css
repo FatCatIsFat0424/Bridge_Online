@@ -1,13 +1,21 @@
 /* ─── CardHand 元件樣式 ─── */
 
 .handContainer {
-  --card-w: clamp(48px, 8.5dvh, 72px);
+  /* Reserve room for every card plus the fan edges inside the table column. */
+  --card-w: min(96px, 14cqh, calc((100cqw - 32px) / (1.8 + (var(--hand-card-count) - 1) * (1 - var(--overlap)))));
   --overlap: 0.42;
-  --fan-step: 2.2deg;
+  --fan-step: 0.6deg;
   display: flex;
   justify-content: center;
+  width: 100%;
   align-items: flex-end;
-  padding: 18px var(--spacing-md) 0;
+  padding: 28px calc(var(--card-w) * 0.4) 12px;
+}
+
+.handContainer:empty { padding: 0; }
+
+@container (max-height: 420px) {
+  .handContainer { padding-block: 18px 4px; }
 }
 
 .card {
@@ -22,7 +30,7 @@
   overflow: hidden;
   position: relative;
   user-select: none;
-  transform-origin: 50% 260%;
+  transform-origin: 50% 100%;
   transform: rotate(calc(var(--fan) * var(--fan-step))) translateY(var(--lift, 0px));
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -80,13 +88,10 @@
   line-height: 1;
 }
 
-/* 手機：13 張需塞進 390px —— 寬 ≈ W·(1 + 12·(1 − overlap)) + 兩端旋轉外擴 */
-@media (max-width: 767px) {
+/* Narrow table columns overlap cards more while keeping every card reachable. */
+@container (max-width: 600px) {
   .handContainer {
-    --card-w: clamp(40px, 13vw, 56px);
-    --overlap: 0.6;
-    --fan-step: 1.2deg;
-    padding: 14px 0 0;
+    --overlap: 0.62;
   }
 
   .cardPlayable { --lift: -8px; }

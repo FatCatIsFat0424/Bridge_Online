@@ -6,17 +6,27 @@ export const AUCTION_COLUMNS: readonly Seat[] = ['W', 'N', 'E', 'S'];
 
 export interface AuctionCall { readonly seat: Seat; readonly action: BidAction }
 
-/** Rows of 4 cells in W,N,E,S order; null = empty cell. First row is padded before the dealer's column; last row padded to 4. */
-export function auctionRows(calls: readonly AuctionCall[], dealer: Seat): (AuctionCall | null)[][] {
-  if (calls.length === 0) return [];
-  const cells: (AuctionCall | null)[] = [
-    ...new Array<null>(AUCTION_COLUMNS.indexOf(dealer)).fill(null),
-    ...calls,
-  ];
-  while (cells.length % 4 !== 0) cells.push(null);
+/** Place calls under their actual seat, preserving chronological row order. */
+export function auctionRows(calls: readonly AuctionCall[]): (AuctionCall | null)[][] {
   const rows: (AuctionCall | null)[][] = [];
-  for (let i = 0; i < cells.length; i += 4) rows.push(cells.slice(i, i + 4));
+  let previousColumn = -1;
+  for (const call of calls) {
+    const column = AUCTION_COLUMNS.indexOf(call.seat);
+    if (rows.length === 0 || column <= previousColumn) rows.push([null, null, null, null]);
+    rows[rows.length - 1][column] = call;
+    previousColumn = column;
+  }
   return rows;
+}
+
+/** Locate the next bidder after the last call, including an empty auction. */
+export function auctionWaitIndex(calls: readonly AuctionCall[], toAct: Seat | null): number {
+  if (!toAct) return -1;
+  const column = AUCTION_COLUMNS.indexOf(toAct);
+  if (calls.length === 0) return column;
+  const row = auctionRows(calls).length - 1;
+  const lastColumn = AUCTION_COLUMNS.indexOf(calls[calls.length - 1].seat);
+  return (row + (column <= lastColumn ? 1 : 0)) * AUCTION_COLUMNS.length + column;
 }
 
 export type TablePosition = 'bottom' | 'left' | 'top' | 'right';

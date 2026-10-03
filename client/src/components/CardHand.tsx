@@ -29,7 +29,8 @@ export function CardHand({
   const middle = (cards.length - 1) / 2;
   const selectMode = selectedCards !== undefined;
   return (
-    <div className={styles.handContainer}>
+    <div className={styles.handContainer}
+      style={{ '--hand-card-count': Math.max(cards.length, 1) } as CSSProperties}>
       {cards.map((card, index) => {
         const playable = selectMode || containsCard(card, playableCards);
         const selected = containsCard(card, selectedCards);

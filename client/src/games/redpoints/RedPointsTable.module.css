@@ -2,7 +2,7 @@
 
 /* ─── 牌桌中央 ─── */
 .centre {
-  --card-w: clamp(40px, 7.5dvh, 64px);
+  --card-w: calc((clamp(40px, 7.5dvh, 64px)) * var(--playing-card-scale));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -12,6 +12,7 @@
 }
 
 .card {
+  flex: none;
   display: block;
   width: var(--card-w);
   aspect-ratio: 224 / 313;
@@ -34,6 +35,7 @@
 }
 
 .back {
+  flex: none;
   width: var(--card-w);
   aspect-ratio: 224 / 313;
   border-radius: calc(var(--card-w) * 0.08);
@@ -104,6 +106,8 @@
 
 /* ─── 手牌提示列 ─── */
 .handArea {
+  min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -203,7 +207,7 @@ summary.caption { cursor: pointer; }
 }
 
 .mini {
-  --card-w: 24px;
+  --card-w: calc((24px) * var(--playing-card-scale));
   box-shadow: var(--shadow-sm);
 }
 
@@ -290,10 +294,10 @@ summary.caption { cursor: pointer; }
 }
 
 @media (max-width: 767px) {
-  .centre { --card-w: clamp(30px, 9vw, 40px); gap: 6px; }
+  .centre { --card-w: calc((clamp(30px, 9vw, 40px)) * var(--playing-card-scale)); gap: 6px; }
   .tableGrid { max-width: calc(100vw - 190px); }
   .stockRow { gap: var(--spacing-sm); }
   .overlayCard { padding: var(--spacing-md); }
-  .mini { --card-w: 20px; }
+  .mini { --card-w: calc((20px) * var(--playing-card-scale)); }
   .ctrl { min-height: 40px; padding: 4px 10px; }
 }

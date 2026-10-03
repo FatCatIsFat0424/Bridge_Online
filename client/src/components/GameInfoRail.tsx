@@ -10,6 +10,7 @@ import { useI18nStore } from '../stores/i18n-store';
 import { useRoomStore } from '../stores/room-store';
 import { AuctionTable, BidLabel } from './AuctionTable';
 import styles from './GameInfoRail.module.css';
+import { TrickHistory } from '../games/bridge/TrickHistory';
 
 function Pips({ count, target, team }: { count: number; target: number; team: 'ns' | 'ew' }): ReactNode {
   return <span className={styles.pips}>
@@ -23,17 +24,16 @@ export function GameInfoRail(): ReactNode {
   const { t } = useI18nStore();
   const mySeat = useRoomStore((state) => state.mySeat);
   const roomInfo = useRoomStore((state) => state.roomInfo);
-  const { phase, log, dealerSeat, currentTurnSeat, contract, playing } = useGameStore(useShallow((state) => ({
+  const { phase, bidding, dealerSeat, currentTurnSeat, contract, playing } = useGameStore(useShallow((state) => ({
     phase: state.phase,
-    log: state.log,
+    bidding: state.bidding,
     dealerSeat: state.dealerSeat,
     currentTurnSeat: state.currentTurnSeat,
     contract: state.contract,
     playing: state.playing,
   })));
   const seatLabel = (seat: Seat): string => t(`seat.${seat}`);
-  const calls: AuctionCall[] = log.flatMap((entry) => entry.type === 'bid'
-    ? [{ seat: entry.seat, action: entry.action }] : []);
+  const calls: readonly AuctionCall[] = bidding?.bids ?? [];
 
   const needed = contract ? contract.level + CONTRACT_BASE_TRICKS : 0;
   const declarerNS = contract?.declarer === 'N' || contract?.declarer === 'S';
@@ -80,10 +80,11 @@ export function GameInfoRail(): ReactNode {
       <section className={`${styles.box} ${styles.auction}`}>
         <h2 className={styles.caption}>{t('table.auction')}</h2>
         <div className={styles.scroll}>
-          <AuctionTable calls={calls} dealer={dealerSeat} mySeat={mySeat}
+          <AuctionTable calls={calls} mySeat={mySeat}
             toAct={phase === 'bidding' ? currentTurnSeat : null} />
         </div>
       </section>
+      <TrickHistory tricks={playing?.completedTricks ?? []} />
     </aside>
   );
 }

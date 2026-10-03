@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayingState } from '@shared/types';
-import { auctionRows, formatCountdown, remainingCards } from '../../../client/src/game-view';
+import { AUCTION_COLUMNS, auctionRows, auctionWaitIndex, formatCountdown, remainingCards } from '../../../client/src/game-view';
 import type { AuctionCall } from '../../../client/src/game-view';
 
 const pass = { type: 'pass' } as const;
@@ -12,19 +12,41 @@ const calls: AuctionCall[] = [
 ];
 
 describe('auctionRows', () => {
-  it('pads before the dealer column and after the last call', () => {
-    const rows = auctionRows(calls, 'N');
+  it('pads before the first bidder column and after the last call', () => {
+    const rows = auctionRows(calls);
     expect(rows).toEqual([
       [null, calls[0], calls[1], calls[2]],
       [calls[3], null, null, null],
     ]);
   });
-  it('starts in the first column when west deals', () => {
-    const rows = auctionRows([{ seat: 'W', action: pass }], 'W');
+  it('starts in the first column when west bids first', () => {
+    const rows = auctionRows([{ seat: 'W', action: pass }]);
     expect(rows).toEqual([[{ seat: 'W', action: pass }, null, null, null]]);
   });
   it('returns no rows for an empty auction', () => {
-    expect(auctionRows([], 'S')).toEqual([]);
+    expect(auctionRows([])).toEqual([]);
+  });
+});
+
+describe('auction seat alignment', () => {
+  it.each(AUCTION_COLUMNS)('should keep calls under their seat when %s opens', (seat) => {
+    const start = AUCTION_COLUMNS.indexOf(seat);
+    const auction = Array.from({ length: 9 }, (_, index) => ({
+      seat: AUCTION_COLUMNS[(start + index) % 4], action: pass,
+    }));
+    for (const row of auctionRows(auction)) {
+      row.forEach((call, column) => {
+        if (call) expect(call.seat).toBe(AUCTION_COLUMNS[column]);
+      });
+    }
+  });
+  it.each(AUCTION_COLUMNS)('should show the initial wait marker under %s', (seat) => {
+    expect(auctionWaitIndex([], seat)).toBe(AUCTION_COLUMNS.indexOf(seat));
+  });
+  it('should wrap the next bidder to the next row after south', () => {
+    expect(auctionWaitIndex(calls.slice(0, 3), 'W')).toBe(4);
+    expect(auctionWaitIndex(calls, 'N')).toBe(5);
+    expect(auctionWaitIndex(calls, null)).toBe(-1);
   });
 });
 

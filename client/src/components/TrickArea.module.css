@@ -1,7 +1,7 @@
 /* ─── TrickArea 元件樣式 ─── */
 
 .trickContainer {
-  --trick-w: clamp(44px, 7dvh, 64px);
+  --trick-w: calc((clamp(44px, 7dvh, 64px)) * var(--playing-card-scale));
   position: relative;
   width: calc(var(--trick-w) * 4.4);
   height: calc(var(--trick-w) * 4);
@@ -39,9 +39,6 @@
 }
 
 .lead {
-  position: absolute;
-  top: -7px;
-  left: -7px;
   padding: 0 5px;
   border-radius: var(--radius-pill);
   background: var(--turn-glow);
@@ -53,6 +50,9 @@
 }
 
 .who {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
   font-size: var(--text-xs);
   font-weight: 600;
   color: color-mix(in srgb, var(--table-ink) 65%, transparent);
@@ -79,5 +79,5 @@
 
 /* 手機：中央需讓出左右直式座位 */
 @media (max-width: 767px) {
-  .trickContainer { --trick-w: clamp(34px, 10vw, 42px); }
+  .trickContainer { --trick-w: calc((clamp(34px, 10vw, 42px)) * var(--playing-card-scale)); }
 }

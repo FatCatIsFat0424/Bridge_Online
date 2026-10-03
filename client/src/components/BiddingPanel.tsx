@@ -15,7 +15,7 @@ const LEVELS: BidLevel[] = [1, 2, 3, 4, 5, 6, 7];
 const SUITS: BidSuit[] = ['clubs', 'diamonds', 'hearts', 'spades', 'nt'];
 
 export function BiddingPanel(): ReactNode {
-  const log = useGameStore((state) => state.log);
+  const bidding = useGameStore((state) => state.bidding);
   const currentTurnSeat = useGameStore((state) => state.currentTurnSeat);
   const mySeat = useRoomStore((state) => state.mySeat);
   const { t } = useI18nStore();
@@ -24,14 +24,7 @@ export function BiddingPanel(): ReactNode {
 
   const isMyTurn = mySeat === currentTurnSeat;
 
-  // 從 log 中提取叫牌歷史
-  const bidEntries = log.filter((e) => e.type === 'bid');
-
-  // 找出當前最高叫牌
-  const lastBid = [...bidEntries].reverse().find((e) => e.type === 'bid' && e.action.type === 'bid');
-  const highestBid = lastBid?.type === 'bid' && lastBid.action.type === 'bid'
-    ? { level: lastBid.action.level, suit: lastBid.action.suit }
-    : null;
+  const highestBid = bidding?.highestBid ?? null;
 
   const isBidHigher = useCallback((level: BidLevel, suit: BidSuit): boolean => {
     if (!highestBid) return true;

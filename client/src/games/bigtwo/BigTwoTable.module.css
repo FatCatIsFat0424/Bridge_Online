@@ -69,19 +69,20 @@
 
 /* ─── 扇形牌面（中央與小尺寸列表共用） ─── */
 .fan {
-  --fan-w: clamp(44px, 8dvh, 72px);
+  --fan-w: calc((clamp(44px, 8dvh, 72px)) * var(--playing-card-scale));
   display: flex;
   justify-content: center;
   padding-left: calc(var(--fan-w) * 0.45);
 }
 
 .fanSmall {
-  --fan-w: 26px;
+  --fan-w: calc((26px) * var(--playing-card-scale));
   flex-wrap: wrap;
   justify-content: flex-start;
 }
 
 .fanCard {
+  flex: none;
   width: var(--fan-w);
   aspect-ratio: 224 / 313;
   margin-left: calc(var(--fan-w) * -0.45);
@@ -98,6 +99,8 @@
 
 /* ─── 手牌控制列 ─── */
 .handArea {
+  min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -275,5 +278,5 @@ summary.caption { cursor: pointer; }
 
 @media (max-width: 767px) {
   .overlayCard { padding: var(--spacing-md); }
-  .fanSmall { --fan-w: 20px; }
+  .fanSmall { --fan-w: calc((20px) * var(--playing-card-scale)); }
 }

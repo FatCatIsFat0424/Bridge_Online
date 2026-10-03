@@ -1,6 +1,6 @@
 // ─── GameShell：所有遊戲共用的牌桌外框（資訊欄 + 牌桌 + 聊天欄 + 投票終止） ───
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { Seat } from '@shared/types';
 import { mediaUrl } from '../media';
@@ -36,6 +36,34 @@ interface GameShellProps {
   /** 可點選的座位（99：指定下一位） */
   pickableSeats?: readonly Seat[];
   onPickSeat?: (seat: Seat) => void;
+}
+
+function FittedCentre({ children }: { children: ReactNode }): ReactNode {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const content = contentRef.current;
+    if (!viewport || !content) return;
+    const fit = (): void => {
+      const width = Math.max(content.offsetWidth, content.scrollWidth);
+      const height = Math.max(content.offsetHeight, content.scrollHeight);
+      const scale = width > 0 && height > 0
+        ? Math.min(1, viewport.clientWidth / width, viewport.clientHeight / height)
+        : 1;
+      content.style.setProperty('--centre-scale', String(scale));
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(viewport);
+    observer.observe(content);
+    fit();
+    return () => observer.disconnect();
+  }, []);
+
+  return <div className={styles.tableCentre} ref={viewportRef}>
+    <div className={styles.centreContent} ref={contentRef}>{children}</div>
+  </div>;
 }
 
 export function GameShell({
@@ -104,10 +132,10 @@ export function GameShell({
         {info}
       </div>
 
-      <main className={styles.centreColumn}>
-        <div className={`${styles.table} ${tableBackground ? styles.customTable : ''}`}
-          style={tableBackground
-            ? { '--table-image': `url("${mediaUrl(tableBackground)}")` } as CSSProperties : undefined}>
+      <main className={`${styles.centreColumn} ${tableBackground ? styles.customTable : ''}`}
+        style={tableBackground
+          ? { '--table-image': `url("${mediaUrl(tableBackground)}")` } as CSSProperties : undefined}>
+        <div className={styles.table}>
           <div className={styles.tableTools}>
             <button type="button" className={styles.toolBtn} onClick={openInfo}
               aria-label={t('table.info')} title={t('table.info')}
@@ -124,7 +152,7 @@ export function GameShell({
             <TableSeat key={seat} seat={seat} position={tablePosition(seat, bottomSeat)}
               onPick={onPickSeat && pickableSeats?.includes(seat) ? () => onPickSeat(seat) : undefined} />
           ))}
-          <div className={styles.tableCentre}>{centre}</div>
+          <FittedCentre>{centre}</FittedCentre>
           <AbortVoteBanner />
           {error && <p className={styles.actionError} role="alert">{error}</p>}
         </div>

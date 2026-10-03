@@ -95,6 +95,10 @@
 
 ### 叫牌規則
 
+The auction table places each call under its actual seat (W, N, E, S), independent
+of the dealer's column. The waiting indicator uses the current turn seat. Only
+the current auction's calls and highest bid are used; prior redeals do not affect them.
+
 - 第一位玩家可自由叫牌（任何合法叫牌或 pass）
 - 後續玩家必須叫出**大於當前最高叫牌**的叫牌，或 pass
 - pass 永遠合法

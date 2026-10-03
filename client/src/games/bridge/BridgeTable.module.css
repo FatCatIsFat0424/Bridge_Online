@@ -22,7 +22,9 @@
 }
 
 @media (max-width: 767px) {
-  .actionError { bottom: 72px; }
+  .actionError {
+    bottom: 72px;
+  }
 }
 
 .overlayCard {
@@ -32,6 +34,8 @@
   box-shadow: var(--shadow-lg);
   padding: var(--spacing-xl);
   max-width: 400px;
+  max-height: calc(100dvh - var(--spacing-md) * 2);
+  overflow-y: auto;
   width: 100%;
   text-align: center;
   color: var(--text-primary);
@@ -73,12 +77,27 @@
   margin-bottom: var(--spacing-lg);
 }
 
-.scoreWin { color: var(--color-success); }
-.scoreLose { color: var(--color-danger); }
+.scoreWin {
+  color: var(--color-success);
+}
+.scoreLose {
+  color: var(--color-danger);
+}
 
 .scoreDetails {
   font-size: var(--text-base);
   color: var(--text-secondary);
   margin-bottom: var(--spacing-xl);
   line-height: 2;
+}
+
+.completedTrick {
+  position: relative;
+}
+
+.trickResult {
+  margin: var(--spacing-sm) 0 0;
+  text-align: center;
+  color: var(--table-ink);
+  font-size: var(--text-sm);
 }

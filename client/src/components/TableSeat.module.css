@@ -2,7 +2,8 @@
 
 .seat {
   position: absolute;
-  z-index: 3;
+  /* Keep player links and seat selection above enlarged centre cards. */
+  z-index: 6;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -11,8 +12,8 @@
 }
 
 .top { top: 14px; left: 50%; transform: translateX(-50%); }
-.left { left: 20px; top: 50%; transform: translateY(-50%); }
-.right { right: 20px; top: 50%; transform: translateY(-50%); }
+.left { left: 8px; top: 50%; transform: translateY(-50%); }
+.right { right: 8px; top: 50%; transform: translateY(-50%); }
 /* 底部名牌在手牌上方（手牌會蓋住牌桌下緣約 34px） */
 .bottom { bottom: 44px; left: 50%; transform: translateX(-50%); }
 
@@ -23,7 +24,9 @@
   gap: var(--spacing-sm);
   padding: 4px 12px 4px 4px;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--bg-surface) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 55%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-sm);
   border: 1px solid var(--rail-border);
   color: var(--text-primary);
   white-space: nowrap;
@@ -83,16 +86,20 @@
 
 .backs {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
   align-items: center;
   gap: var(--spacing-sm);
 }
 
-.fan { display: flex; padding-left: 13px; }
+.fan { display: flex; padding-left: calc(13px * var(--playing-card-scale)); }
 
 .back {
-  width: 24px;
+  flex: none;
+  width: calc(24px * var(--playing-card-scale));
   aspect-ratio: 224 / 313;
-  margin-left: -13px;
+  margin-left: calc(-13px * var(--playing-card-scale));
   border-radius: 3px;
   background: var(--card-back-image) center / 100% 100%, var(--card-back);
   box-shadow: var(--shadow-sm);
@@ -139,8 +146,8 @@
   .plate { gap: 4px; padding: 2px 8px 2px 2px; }
   /* 縮小頭像（Avatar 為 PlayerLink 第一個子元素） */
   .plate > a > :first-child { width: 2.25rem; height: 2.25rem; font-size: 1.3rem; }
-  .back { width: 18px; margin-left: -11px; }
-  .fan { padding-left: 11px; }
+  .back { width: calc(18px * var(--playing-card-scale)); margin-left: calc(-11px * var(--playing-card-scale)); }
+  .fan { padding-left: calc(11px * var(--playing-card-scale)); }
 }
 
 .count {
@@ -189,12 +196,13 @@
   white-space: nowrap;
 }
 
-.pileCards { display: flex; padding-left: 12px; }
+.pileCards { display: flex; padding-left: calc(12px * var(--playing-card-scale)); }
 
 .pileCard {
-  width: 22px;
+  flex: none;
+  width: calc(22px * var(--playing-card-scale));
   aspect-ratio: 224 / 313;
-  margin-left: -12px;
+  margin-left: calc(-12px * var(--playing-card-scale));
   border-radius: 2px;
   background: var(--card-face);
   box-shadow: var(--shadow-sm);
@@ -206,8 +214,8 @@
 }
 
 @media (max-width: 767px) {
-  .pileCard { width: 16px; margin-left: -10px; }
-  .pileCards { padding-left: 10px; }
+  .pileCard { width: calc(16px * var(--playing-card-scale)); margin-left: calc(-10px * var(--playing-card-scale)); }
+  .pileCards { padding-left: calc(10px * var(--playing-card-scale)); }
 }
 
 .locked {
@@ -217,4 +225,36 @@
   color: var(--text-primary);
   font-weight: 800;
   line-height: 1.5;
+}
+
+/* Keep seat content inside its reserved lane, including remaining-card badges. */
+.left,
+.right {
+  max-width: calc(var(--seat-reserve-x) - 16px);
+}
+
+.left .plate,
+.right .plate {
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@container (max-height: 420px) {
+  .top { top: 2px; }
+  .bottom { bottom: 2px; }
+  .seat { gap: 2px; }
+  .plate { padding: 2px 4px; gap: 2px; }
+  .plate > a { font-size: var(--text-xs); gap: 2px; }
+  .plate > a > :first-child { width: 24px; height: 24px; font-size: 1rem; }
+  .tags { gap: 2px; font-size: 10px; }
+  .seatLabel, .me, .declarer, .dealer { padding: 0 3px; }
+  .fan, .pileCards { display: none; }
+  .backs { gap: 0; }
+  .count, .bigCount, .redPoints { font-size: 10px; padding: 0 4px; }
+  .left .plate, .right .plate { padding: 2px; gap: 2px; }
+  .top .backs, .bottom .backs { position: absolute; top: 100%; }
+  .bottom .backs { top: auto; bottom: 100%; }
 }
